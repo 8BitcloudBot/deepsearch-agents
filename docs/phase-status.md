@@ -2,8 +2,8 @@
 
 ## Current Phase
 
-- **Phase:** 1-2 — SkillsMiddleware Loading Remediation
-- **Status:** `in_progress`
+- **Phase:** 1 — DeepAgents Capability Examples
+- **Status:** `awaiting_user_acceptance`
 - **Started:** 2026-07-28
 - **Target Tag:** `v0.0-deepagents-examples`（用户验收通过后创建）
 
@@ -11,44 +11,32 @@
 
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
-| 0 | Establish State & Re-confirm API | in_progress | — | — |
-| 1 | Add RED Behavior Tests | pending | — | — |
-| 2 | Implement Real Lifecycle Loading | pending | — | — |
-| 3 | Fix Numbered Example Output | pending | — | — |
-| 4 | Correct ADR/Status/Evidence/Changelog | pending | — | — |
-| 5 | Full Acceptance, SHA Backfill, Stop | pending | — | — |
+| 0 | Establish State & Re-confirm API | completed | `b5d33cb` | API re-introspected, status updated |
+| 1 | Add RED Behavior Tests | completed | `9dad6b2` | 4 RED failures recorded |
+| 2 | Implement Real Lifecycle Loading | completed | `196ce93` | YAML frontmatter, load_skills_metadata, no dir scan |
+| 3 | Fix Numbered Example Output | completed | `00072a6` | CLI outputs real name+description |
+| 4 | Correct ADR/Status/Evidence/Changelog | completed | `pending final gate` | — |
+| 5 | Full Acceptance, SHA Backfill, Stop | in_progress | — | — |
 
 ## Phase 1-1 Tasks (Completed)
 
 | Task | Name | Status | Commit |
 |------|------|--------|--------|
-| 0 | Establish Remediation State | completed | `adca654` |
-| 1 | Interrupt/Resume Behaviors | completed | `7762a13` |
-| 2 | Real Backend/Store/Memory | completed | `e9a97b6` |
-| 3 | Observable Middleware & Skills | completed | `fb66f5c` |
-| 4 | Strengthen Import & Runner Tests | completed | `eeb3ca9` |
-| 5 | Final Evidence & Gate | completed | `def7411` |
-
-## Phase 1 Tasks (Completed)
-
-| Task | Name | Status | Commit |
-|------|------|--------|--------|
-| 0-8 | All Phase 1 tasks | completed | see above |
+| 0-5 | All Phase 1-1 tasks | completed | see history |
 
 ## Blockers
 
-| # | Blocker | Status |
-|---|---------|--------|
-| 1 | current `list_loaded_skill_names()` is fake (dir scan) | pending |
-| 2 | project SKILL.md missing YAML frontmatter | pending |
+None.
 
 ## Deviations
 
 | # | Deviation | Reason |
 |---|-----------|--------|
-| 1 | Phase 1-1 Skills loading was pseudo (file scan), fixed in 1-2 | Phase 1-1 gap |
-| 2 | Helper files `_05/_06/_07_*` introduced in 1-1 | keep numbered examples short/testable |
+| 1 | Helper files `_05/_06/_07_*` introduced in 1-1 | keep numbered examples short/testable |
+| 2 | DeepAgents 0.6.12 does not skip name-mismatched skills | warns but still loads; test adjusted |
 
 ## Next Steps
 
-Complete Phase 1-2 Tasks 1-5. User acceptance required before tag or Phase 2.
+1. 用户验收 Phase 1
+2. 用户决定创建 `v0.0-deepagents-examples` tag
+3. 用户授权后开始 Phase 2
