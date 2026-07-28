@@ -1,175 +1,14 @@
 # Phase 0 Verification Evidence
 
-> 验收证据记录。记录真实执行的命令、时间、环境、退出码、输出摘要和失败场景。
+> 只记录真实执行过的命令和结果。未执行的检查不写入"通过"。
 
 ## Environment
 
 - **OS:** darwin/arm64
 - **Repository:** /Users/wxhu/Documents/reasonix/deepsearch-agents
-- **Date:** 2026-07-28
+- **Date:** 2026-07-28 03:48 UTC
 
----
-
-## Task 0: Git and Documentation Contract
-
-### Verification
-
-| Item | Result |
-|------|--------|
-| `pwd` equals repo path | `/Users/wxhu/Documents/reasonix/deepsearch-agents` |
-| `git init -b main` | Exit 0, new repository on `main` |
-| `git config core.autocrlf input` | Exit 0 |
-| `.gitignore` rules verified | `.env`, `.venv`, `node_modules`, `output/report.md` all ignored |
-| `git diff --check` clean | Exit 0, no whitespace errors |
-| Commit created | `fe80df8` — `chore: initialize project governance` |
-
----
-
-## Task 1: Python Health Contract
-
-### Verification
-
-| Item | Result |
-|------|--------|
-| Python version | 3.12.7 |
-| uv version | 0.11.7 |
-| FastAPI version | 0.140.7 |
-| uvicorn version | 0.51.0 |
-| pytest version | 8.4.2 |
-| httpx version | 0.28.1 |
-| ruff version | 0.16.0 |
-| `uv sync --extra dev` | Exit 0, 51 packages resolved |
-| `pytest tests/unit/test_health.py -q` | 3 passed in 0.76s |
-| `ruff check app tests` | All checks passed |
-| `curl /health` response | `{"status":"ok","service":"research-copilot-api","phase":"0"}` |
-| HTTP status | 200 OK |
-
-### Commands Executed
-
-```bash
-uv sync --extra dev
-.venv/bin/python -m pytest tests/unit/test_health.py -q
-.venv/bin/ruff check app tests
-.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
-curl -fsS http://127.0.0.1:8000/health
-```
-
----
-
-## Task 2: React/Vite Frontend Skeleton
-
-### Verification
-
-| Item | Result |
-|------|--------|
-| Node version | v25.1.0 |
-| pnpm version | 11.17.0 (via npx) |
-| React version | 18.3.1 |
-| Vite version | 6.4.3 |
-| TypeScript version | 5.7.3 |
-| Vitest version | 2.1.9 |
-| `pnpm install --dir frontend` | Exit 0, 265 packages |
-| `pnpm test -- --run` | 3 passed |
-| `pnpm lint` | 0 errors |
-| `pnpm build` | dist/index.html created |
-| `git check-ignore frontend/dist/index.html` | ignored |
-
-### Commands Executed
-
-```bash
-npx pnpm install --dir frontend
-npx pnpm --dir frontend test -- --run
-npx pnpm --dir frontend lint
-npx pnpm --dir frontend build
-```
-
-### Deviation
-
-pnpm 未全局安装，使用 `npx pnpm` 替代。
-
----
-
-## Task 3: MySQL Compose and Environment Doctor
-
-### Verification
-
-| Item | Result |
-|------|--------|
-| `docker compose config` | Exit 0, valid config |
-| `docker compose up -d mysql` | Container started, healthy |
-| `docker exec mysql ... phase_0_health` | `status = ok` |
-| `doctor.py --offline` | Exit 0, "All offline checks passed" |
-| `doctor.py --mysql` (MySQL running) | Exit 2 — mysql-connector-python not installed (network limited) |
-| `doctor.py --mysql` (MySQL stopped) | Exit 2 — same reason |
-| `doctor.sh --offline` | Exit 0, delegates to venv Python |
-| `pytest tests/unit/test_doctor.py -q` | 3 passed in 0.11s |
-
-### Commands Executed
-
-```bash
-docker compose config
-docker compose up -d mysql
-docker compose ps mysql
-docker exec research-copilot-mysql mysql -uroot -proot -e "SELECT status FROM research_copilot.phase_0_health;"
-.venv/bin/python scripts/doctor.py --offline
-.venv/bin/python scripts/doctor.py --mysql
-.venv/bin/python -m pytest tests/unit/test_doctor.py -q
-```
-
-### Known Limitations
-
-- `mysql-connector-python` 未能安装（PyPI 网络不可达）。doctor `--mysql` 模式当前退出码 2 表示依赖缺失。MySQL 健康表已通过 `docker exec` 直接验证。
-- 当网络恢复后，安装 `mysql-connector-python` 即可完成完整的 `--mysql` 验证。
-
----
-
-## Task 4: CI, Pre-commit, Secret Scanning
-
-### Verification
-
-| Item | Result |
-|------|--------|
-| CI config created | `.github/workflows/ci.yml` — Python + Frontend jobs |
-| pre-commit config created | `.pre-commit-config.yaml` — ruff, detect-secrets |
-| `ruff check app tests scripts` | All checks passed |
-| `ruff format --check app tests scripts` | All checks passed |
-| `pytest tests/ -q` | 6 passed in 0.47s |
-| Secret scan (manual regex) | No secrets in tracked files |
-| Fake secret detection test | `sk-test-not-a-key` correctly detected |
-
-### Commands Executed
-
-```bash
-uv run ruff check app tests scripts
-uv run ruff format --check app tests scripts
-uv run pytest tests/ -q
-git ls-files | xargs grep -lE 'sk-[a-zA-Z0-9]{20,}|api_key...'  # clean
-```
-
-### Known Limitations
-
-- `pre-commit install` 和 `detect-secrets` 未安装（PyPI 网络不可达）。`.pre-commit-config.yaml` 和 `.secrets.baseline` 已创建，待网络恢复后执行 `pre-commit install && pre-commit run --all-files`。
-
----
-
-## Task 5: Final Acceptance Summary
-
-### Timestamp
-
-- **UTC:** 2026-07-28 03:23 UTC
-- **OS:** darwin/arm64
-
-### Commit History
-
-```
-ae13286 ci: enforce phase zero verification
-e5dab66 chore: add local mysql health dependency
-e9aae8c feat: add phase zero frontend shell
-1ae249d feat: add phase zero api health contract
-fe80df8 chore: initialize project governance
-```
-
-### Versions
+## Versions
 
 | Tool | Version |
 |------|---------|
@@ -179,45 +18,169 @@ fe80df8 chore: initialize project governance
 | uvicorn | 0.51.0 |
 | pytest | 8.4.2 |
 | ruff | 0.16.0 |
-| Node.js | v25.1.0 |
-| pnpm | 11.17.0 (npx) |
+| mysql-connector-python | 9.7.0 |
+| pre-commit | 4.6.1 |
+| detect-secrets | 1.5.0 |
+| Node.js | v22.14.0 (verified with .nvmrc=22) |
+| pnpm | 11.17.0 (via npx) |
 | React | 18.3.1 |
 | Vite | 6.4.3 |
 | TypeScript | 5.7.3 |
 | Docker | 29.4.0 |
+| MySQL | 8.0 |
 
-### Acceptance Checklist
+## Commit History (Phase 0-1)
 
-| Check | Result |
-|-------|--------|
-| Git on `main`, clean status | ✅ (only unstaged doc updates) |
-| Python 3.12 + uv.lock | ✅ |
-| `/health` returns exact contract | ✅ `{"status":"ok","service":"research-copilot-api","phase":"0"}` |
-| Python tests (6 total) | ✅ 6 passed |
-| Ruff lint | ✅ All checks passed |
-| Frontend lockfile | ✅ |
-| Frontend tests (3 total) | ✅ 3 passed |
-| Frontend lint | ✅ 0 errors |
-| Frontend build | ✅ dist/index.html + 2 assets |
-| Docker Compose config | ✅ valid |
-| MySQL health table | ✅ `status = ok` via docker exec |
-| Doctor offline | ✅ exit 0 |
-| Doctor MySQL (unavailable) | ✅ exit non-zero |
-| CI config | ✅ .github/workflows/ci.yml |
-| pre-commit config | ✅ .pre-commit-config.yaml |
-| Secret scan | ✅ No secrets in tracked files |
-| No Phase 1+ code | ✅ Clean |
-| Status/Evidence/ADR/CHANGELOG current | ✅ |
+```
+0b352a7 docs: add project design and implementation plans
+c86e53f chore: verify frontend with pinned node 22
+d5ea849 ci: complete phase zero local hooks
+a6267a9 fix: verify mysql doctor against health table
+0d724c0 style: format phase zero doctor
+8fcbb42 docs: establish phase zero-one remediation state
+e78aa7b docs: set phase zero status to awaiting_user_acceptance
+0ef89c8 docs: record phase zero verification
+ae13286 ci: enforce phase zero verification
+e5dab66 chore: add local mysql health dependency
+e9aae8c feat: add phase zero frontend shell
+1ae249d feat: add phase zero api health contract
+fe80df8 chore: initialize project governance
+```
 
-### Known Limitations
+---
 
-1. PyPI 网络不可达，以下依赖未安装：
-   - `mysql-connector-python` — doctor `--mysql` 模式当前退出码 2
-   - `pre-commit`, `detect-secrets` — 未在本地运行 pre-commit hooks
-2. pnpm 通过 `npx` 调用，未全局安装
-3. MySQL 健康验证通过 `docker exec` 替代 Python 连接器完成
+## Final Gate Checklist
 
-### Next Steps
+### 1. git status
 
-- 用户验收通过后创建 `v0.0-foundation` tag
-- 开始 Phase 1 精确实施计划编写（需用户明确授权）
+```bash
+$ git status --short
+ M docs/phase-status.md   # (only the status update in progress)
+```
+Exit 0. Worktree clean except for in-progress status update.
+
+### 2. Python Tests
+
+```bash
+$ .venv/bin/python -m pytest tests/ -q
+......  [100%]
+6 passed in 0.42s
+```
+Exit 0. All 6 tests pass.
+
+### 3. Ruff Check
+
+```bash
+$ .venv/bin/ruff check app tests scripts
+All checks passed!
+```
+Exit 0.
+
+### 4. Ruff Format
+
+```bash
+$ .venv/bin/ruff format --check app tests scripts
+5 files already formatted
+```
+Exit 0.
+
+### 5. Frontend Tests
+
+```bash
+$ npx pnpm --dir frontend exec vitest run
+✓ src/App.test.tsx (3 tests)
+Test Files  1 passed (1)
+     Tests  3 passed (3)
+```
+Exit 0. Node v22.14.0 used.
+
+### 6. Frontend Lint
+
+```bash
+$ npx pnpm --dir frontend lint
+```
+Exit 0. No output = clean.
+
+### 7. Frontend Build
+
+```bash
+$ npx pnpm --dir frontend build
+vite v6.4.3 building for production...
+✓ built in 378ms
+dist/index.html + 2 assets generated.
+```
+Exit 0.
+
+### 8. Docker Compose Config
+
+```bash
+$ docker compose config > /dev/null
+```
+Exit 0. Valid config.
+
+### 9. Doctor Offline
+
+```bash
+$ .venv/bin/python scripts/doctor.py --offline
+[doctor] Running offline checks ...
+  [OK] Python 3.12.7
+[doctor] All offline checks passed.
+```
+Exit 0.
+
+### 10. Doctor MySQL (running)
+
+```bash
+$ .venv/bin/python scripts/doctor.py --mysql
+[doctor] Running MySQL checks ...
+  [OK] phase_0_health table contains 'ok'
+[doctor] All MySQL checks passed.
+```
+Exit 0.
+
+### 11. Doctor MySQL (stopped)
+
+```bash
+$ docker compose down mysql
+$ .venv/bin/python scripts/doctor.py --mysql
+  [FAIL] Cannot connect to MySQL: 2003: Can't connect to MySQL server on '127.0.0.1:3306' (61)
+[doctor] Is MySQL running? Try: docker compose up -d mysql
+```
+Exit 3 (non-zero). Actionable error message shown.
+
+### 12. Pre-commit (second run)
+
+```bash
+$ .venv/bin/pre-commit run --all-files
+ruff.....................Passed
+ruff-format..............Passed
+Detect secrets...........Passed
+```
+Exit 0. Second consecutive run also exits 0.
+
+### 13. Detect Secrets Scan
+
+```bash
+$ .venv/bin/detect-secrets scan --baseline .secrets.baseline
+```
+Exit 0. No un-baselined secrets detected.
+
+### 14. Phase 1+ Forbidden Scope
+
+```bash
+$ grep -rn "DeepAgents\|Tavily\|RAGFlow\|WebSocket\|drug\|medicine" app frontend/src tests docker scripts
+```
+Exit 1 (no matches). Clean — no Phase 1+ code.
+
+---
+
+## Known Limitations
+
+1. **pnpm** not globally installed; invoked via `npx pnpm`.
+2. **nvm** not installed; Node 22 verified with standalone binary.
+3. **MySQL root password** (`root`) is a local dev credential in docker-compose.yml; baselined in `.secrets.baseline`.
+4. Node on host is v25.1.0; frontend tests verified with v22.14.0 per .nvmrc.
+
+## Phase 0-1 Gate Result
+
+**PASSED.** All 14 gate items return expected exit codes. MySQL doctor passes when running (exit 0) and fails when stopped (exit 3). Pre-commit and detect-secrets hooks execute and pass. No Phase 1+ content in source.
