@@ -27,9 +27,7 @@ def check_offline() -> int:
     if py_version.major == 3 and py_version.minor == 12:
         print(f"  [OK] Python {py_version.major}.{py_version.minor}.{py_version.micro}")
     else:
-        print(
-            f"  [FAIL] Need Python 3.12, got {py_version.major}.{py_version.minor}"
-        )
+        print(f"  [FAIL] Need Python 3.12, got {py_version.major}.{py_version.minor}")
         checks_ok = False
 
     if checks_ok:
@@ -103,9 +101,7 @@ def check_mysql() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Phase 0 environment doctor")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        "--offline", action="store_true", help="Run offline checks only"
-    )
+    group.add_argument("--offline", action="store_true", help="Run offline checks only")
     group.add_argument(
         "--mysql", action="store_true", help="Run MySQL connectivity check"
     )
