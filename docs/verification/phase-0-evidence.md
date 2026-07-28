@@ -53,3 +53,36 @@ uv sync --extra dev
 .venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
 curl -fsS http://127.0.0.1:8000/health
 ```
+
+---
+
+## Task 2: React/Vite Frontend Skeleton
+
+### Verification
+
+| Item | Result |
+|------|--------|
+| Node version | v25.1.0 |
+| pnpm version | 11.17.0 (via npx) |
+| React version | 18.3.1 |
+| Vite version | 6.4.3 |
+| TypeScript version | 5.7.3 |
+| Vitest version | 2.1.9 |
+| `pnpm install --dir frontend` | Exit 0, 265 packages |
+| `pnpm test -- --run` | 3 passed |
+| `pnpm lint` | 0 errors |
+| `pnpm build` | dist/index.html created |
+| `git check-ignore frontend/dist/index.html` | ignored |
+
+### Commands Executed
+
+```bash
+npx pnpm install --dir frontend
+npx pnpm --dir frontend test -- --run
+npx pnpm --dir frontend lint
+npx pnpm --dir frontend build
+```
+
+### Deviation
+
+pnpm 未全局安装，使用 `npx pnpm` 替代。

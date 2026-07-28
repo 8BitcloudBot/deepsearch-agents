@@ -28,6 +28,7 @@ htmlcov/
 coverage.xml
 .mypy_cache/
 .ruff_cache/
+*.tsbuildinfo
 
 # Docker / Databases
 mysql_data/
