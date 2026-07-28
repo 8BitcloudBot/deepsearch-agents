@@ -50,6 +50,6 @@ output/*
 updated/*
 !updated/.gitkeep
 
-# Build & Lock (generated)
-uv.lock
-pnpm-lock.yaml
+# Build
+dist/
+*.egg

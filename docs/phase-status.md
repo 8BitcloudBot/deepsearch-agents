@@ -13,8 +13,8 @@
 
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
-| 0 | Git and Documentation Contract | in_progress | — | — |
-| 1 | Python Health Contract | pending | — | — |
+| 0 | Git and Documentation Contract | completed | `fe80df8` | 13 governance files created, ignore rules verified |
+| 1 | Python Health Contract | completed | TBD | 3 tests pass, ruff clean, curl verified |
 | 2 | React/Vite Frontend Skeleton | pending | — | — |
 | 3 | MySQL Compose and Environment Doctor | pending | — | — |
 | 4 | CI, Pre-commit, Secret Scanning | pending | — | — |
