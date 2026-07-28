@@ -81,9 +81,30 @@ The original tutorial references concepts that map to:
 | "store" | `store` param accepting `BaseStore` |
 | "skills" | `skills` param + `SkillsMiddleware` |
 
-### Deprecated or Nonexistent APIs
+### Phase 1-2 API Clarification
 
-None identified at inspection time. All APIs tested via `inspect.signature()` and `get_type_hints()`. If any tutorial API is missing from current version, this ADR will be updated with the blocking issue.
+Phase 1-2 re-introspected the following:
+
+```python
+Runtime(*, context=None, store=None, stream_writer=..., heartbeat=...,
+        previous=None, execution_info=None, server_info=None, control=None)
+
+SkillsMiddleware.before_agent(self, state: SkillsState, runtime: Runtime,
+                              config: RunnableConfig) -> SkillsStateUpdate | None
+
+SkillsMiddleware.modify_request(self, request: ModelRequest) -> ModelRequest
+```
+
+`Runtime()` can be constructed with no arguments. `before_agent()` returns
+`{"skills_metadata": [SkillMetadata(...)]}` on success, `None` when
+`skills_metadata` key already present in state.
+
+`SkillMetadata` fields: path, name, description, license, compatibility,
+metadata, allowed_tools.
+
+The Phase 1-1 conclusion that "SkillsMiddleware needs a full LangGraph runtime"
+is **incorrect**. `Runtime()` alone is sufficient to call the public
+`before_agent()` hook.
 
 ### Mock/Offline Strategy
 
