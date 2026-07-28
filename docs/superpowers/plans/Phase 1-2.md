@@ -8,6 +8,12 @@
 
 **技术栈：** Python 3.12、deepagents 0.6.12、langgraph 1.2.9、langchain 1.3.14、langchain-core 1.5.1、pytest、ruff、pre-commit、detect-secrets。
 
+## 0. 执行前基线与前提
+
+本计划的执行起点是：Phase 1-1 的 `RecordingMiddleware`、interrupt/resume、FilesystemBackend、InMemoryStore 和 MemoryMiddleware 行为已通过其既定验收；本阶段不得重复重构这些能力。当时仓库中的 Skills 示例仍通过目录存在性判断来输出名称，且教学 `SKILL.md` 缺少 DeepAgents 所需的 YAML frontmatter，因此不能把“发现文件”当成“middleware 成功加载”。
+
+执行者必须先核对当前工作树和 `git log`，以实际代码为准；若 Phase 1-1 尚未完成、存在用户未提交改动冲突，或 DeepAgents 版本/API 与本文不一致，应记录 blocker 并停止，不得擅自升级依赖或扩大范围。
+
 ---
 
 ## 1. 修复背景与结论
@@ -126,7 +132,7 @@ SkillsMiddleware.modify_request(self, request: ModelRequest) -> ModelRequest
 1. `before_agent({}, Runtime(), {})` 通过配置的 backend/source 读取并解析 `SKILL.md`；
 2. 成功结果位于 `update["skills_metadata"]`；
 3. state 已存在 `skills_metadata` 键时返回 `None`，包括空列表；
-4. YAML frontmatter 无效、缺失或 `name` 与父目录不匹配时，该 skill 被跳过并记录 warning；
+4. YAML frontmatter 无效或缺失时，该 skill 被跳过并记录 warning；`name` 与父目录不匹配时，DeepAgents 0.6.12 会记录 warning 但仍加载该 skill，测试必须忠实验证这一实际行为；
 5. source 本身不可读取时才可能返回 `skills_load_errors`；不得断言每个无效 skill 都一定出现在该字段；
 6. `modify_request()` 读取 request state 的 `skills_metadata`，将名称、描述和路径注入 system message；不需要调用真实模型。
 

@@ -2,10 +2,11 @@
 
 ## Current Phase
 
-- **Phase:** 1 — DeepAgents Capability Examples
-- **Status:** `awaiting_user_acceptance`
-- **Started:** 2026-07-28
-- **Target Tag:** `v0.0-deepagents-examples`（用户验收通过后创建）
+- **Phase:** 2 — Tutorial Parity
+- **Status:** `ready_to_start`
+- **Started:** Not started
+- **Prerequisite Release:** `v0.0-deepagents-examples`
+- **Target Tag:** `v0.1-tutorial-parity`（Phase 2 验收通过后创建）
 
 ## Phase 1-2 Task Progress
 
@@ -24,6 +25,13 @@
 |------|------|--------|--------|
 | 0-5 | All Phase 1-1 tasks | completed | see history |
 
+## Phase 1 Acceptance
+
+- **Accepted Tag:** `v0.0-deepagents-examples`
+- **Acceptance Evidence:** `docs/verification/phase-1-evidence.md`
+- **Release Closure Evidence:** `docs/verification/phase-1-closure-evidence.md`
+- **Final Evidence Reconciliation:** `90badc5`
+
 ## Blockers
 
 None.
@@ -37,6 +45,6 @@ None.
 
 ## Next Steps
 
-1. 用户验收 Phase 1
-2. 用户决定创建 `v0.0-deepagents-examples` tag
-3. 用户授权后开始 Phase 2
+1. 编写并验收 Phase 2 的精确实施计划
+2. 用户明确授权后执行 Phase 2
+3. Phase 2 验收通过后创建 `v0.1-tutorial-parity` tag

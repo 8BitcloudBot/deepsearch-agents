@@ -1,6 +1,7 @@
 """Tests for the environment doctor — Phase 0 contract."""
 
 import importlib
+import os
 import subprocess
 import sys
 
@@ -22,16 +23,16 @@ def test_doctor_offline_exits_zero():
 
 
 def test_doctor_mysql_unavailable_exits_nonzero():
-    """--mysql mode without running MySQL must exit non-zero."""
+    """--mysql mode reports a refused, explicitly configured connection."""
     result = subprocess.run(
         [sys.executable, "scripts/doctor.py", "--mysql"],
         capture_output=True,
         text=True,
         timeout=10,
+        env={**os.environ, "MYSQL_HOST": "127.0.0.1", "MYSQL_PORT": "1"},
     )
-    # MySQL is not running — should exit non-zero
     assert result.returncode != 0, (
-        f"Expected non-zero exit without MySQL, got {result.returncode}. "
+        f"Expected non-zero exit for a refused connection, got {result.returncode}. "
         f"stdout: {result.stdout}, stderr: {result.stderr}"
     )
 

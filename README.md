@@ -4,11 +4,11 @@
 
 ## Status
 
-⚠️ **Phase 1 — DeepAgents Capability Examples** (in progress)
+✅ **Phase 1 — DeepAgents Capability Examples** (accepted: `v0.0-deepagents-examples`)
 
-Phase 0 foundation accepted (`v0.0-foundation`). Phase 1 establishes DeepAgents/LangGraph learning examples. Agent business capabilities and full system integration are not yet implemented.
+Phase 0 foundation (`v0.0-foundation`) and Phase 1 learning examples are accepted. Phase 2 is ready to begin: it will build the tutorial-parity application closure. Agent business capabilities and full system integration are not implemented yet.
 
-### Phase 1 Quick Start
+### Phase 1 Examples
 
 ```bash
 # Run Phase 1 examples
@@ -29,12 +29,12 @@ See [examples/phase1/README.md](./examples/phase1/README.md) for details.
 # Prerequisites: Python 3.12, Node.js 22, Docker, pnpm, uv
 
 # Install dependencies
-uv sync --dev
+uv sync --extra dev --frozen
 pnpm install --frozen-lockfile --dir frontend
 
 # Run tests
 uv run pytest -q
-pnpm --dir frontend test -- --run
+pnpm --dir frontend exec vitest run
 
 # Start MySQL (local dev)
 # Uses host port 3307 -> container port 3306 by default, so another local
