@@ -4,9 +4,24 @@
 
 ## Status
 
-⚠️ **Early Development — Phase 0 (Foundation)**
+⚠️ **Phase 1 — DeepAgents Capability Examples** (in progress)
 
-本项目当前处于 Phase 0 基础设施阶段。Agent 业务能力、教程实现、外部服务集成和报告生成等功能尚未实现。
+Phase 0 foundation accepted (`v0.0-foundation`). Phase 1 establishes DeepAgents/LangGraph learning examples. Agent business capabilities and full system integration are not yet implemented.
+
+### Phase 1 Quick Start
+
+```bash
+# Run Phase 1 examples
+.venv/bin/python -m examples.phase1.runner --list
+
+# Offline tests (no API key needed)
+.venv/bin/python -m pytest tests/examples/phase1 -q
+
+# With API key
+MODEL_API_KEY=sk-... .venv/bin/python -m examples.phase1.runner invoke
+```
+
+See [examples/phase1/README.md](./examples/phase1/README.md) for details.
 
 ## Quick Start
 
