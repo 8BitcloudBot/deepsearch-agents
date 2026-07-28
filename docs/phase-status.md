@@ -14,8 +14,8 @@
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
 | 0 | Establish Remediation State | in_progress | — | — |
-| 1 | Fix Ruff Format | pending | — | — |
-| 2 | Complete MySQL Doctor Verification | pending | — | — |
+| 1 | Fix Ruff Format | completed | `0d724c0` | format check + lint = 0 |
+| 2 | Complete MySQL Doctor Verification | in_progress | — | — |
 | 3 | Execute pre-commit & detect-secrets | pending | — | — |
 | 4 | Pin Node 22 & Re-verify Frontend | pending | — | — |
 | 5 | Commit docs/superpowers Documents | pending | — | — |
