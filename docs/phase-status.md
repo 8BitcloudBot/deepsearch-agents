@@ -4,21 +4,21 @@
 
 ## Current Phase
 
-- **Phase:** 0-2 — Final Acceptance Consistency
-- **Status:** `in_progress`
+- **Phase:** 0 — Foundation and Execution Discipline
+- **Status:** `awaiting_user_acceptance`
 - **Started:** 2026-07-28
 - **Target Tag:** `v0.0-foundation`（用户验收通过后创建）
 
-## Phase 0-2 Task Progress
+## Phase 0-2 Tasks (Completed)
 
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
-| 0 | Establish Phase 0-2 State | in_progress | — | — |
-| 1 | Fix phase-status Metadata | pending | — | — |
-| 2 | Fix Verification Evidence | pending | — | — |
-| 3 | Re-execute Final Gate | pending | — | — |
-| 4 | Re-execute MySQL Dual-state | pending | — | — |
-| 5 | Consistency Check & Commit | pending | — | — |
+| 0 | Establish Phase 0-2 State | completed | `e4761ac` | status updated |
+| 1 | Fix phase-status Metadata | completed | TBD | Task 6 commit = `6a8a611` confirmed |
+| 2 | Fix Verification Evidence | completed | TBD | stale git status removed; full rewrite |
+| 3 | Re-execute Final Gate | completed | TBD | 17/17 gates pass |
+| 4 | Re-execute MySQL Dual-state | completed | TBD | running=0, stopped=3, healthcheck wait |
+| 5 | Consistency Check & Commit | completed | TBD | no stale patterns, all docs consistent |
 
 ## Phase 0-1 Tasks (Completed)
 
@@ -45,10 +45,7 @@
 
 ## Blockers
 
-| # | Blocker | Status |
-|---|---------|--------|
-| 1 | Evidence contains stale Git status | in_progress |
-| 2 | Phase 0-1 Task 6 commit is TBD | in_progress |
+None.
 
 ## Deviations
 
@@ -60,6 +57,6 @@
 
 ## Next Steps
 
-1. 完成 Phase 0-2 文档一致性修复
-2. 用户确认验收后创建 `v0.0-foundation` tag
+1. 用户确认 Phase 0 验收
+2. 由用户决定是否创建 `v0.0-foundation` annotated tag
 3. 用户明确授权后才编写 Phase 1 精确实施计划
