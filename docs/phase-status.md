@@ -17,8 +17,8 @@
 | 1 | Fix Ruff Format | completed | `0d724c0` | format check + lint = 0 |
 | 2 | Complete MySQL Doctor Verification | completed | `a6267a9` | mysql running=0, stopped=3 |
 | 3 | Execute pre-commit & detect-secrets | completed | `d5ea849` | pre-commit 2x pass, detect-secrets working |
-| 4 | Pin Node 22 & Re-verify Frontend | in_progress | — | — |
-| 5 | Commit docs/superpowers Documents | pending | — | — |
+| 4 | Pin Node 22 & Re-verify Frontend | completed | `c86e53f` | Node 22.14.0, 3 tests, lint, build OK |
+| 5 | Commit docs/superpowers Documents | in_progress | — | — |
 | 6 | Rewrite Evidence & Final Gate | pending | — | — |
 
 ## Phase 0 Tasks (Completed)
