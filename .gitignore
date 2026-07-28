@@ -1,0 +1,55 @@
+# https://www.gitignore.io/api/osx,linux,windows,python,node,dotenv,git,jupyternotebooks,visualstudiocode,pycharm+vim
+# .gitignore for deepsearch-agents
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+*.egg
+.venv
+venv/
+*.sock
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+
+# Docker / Databases
+mysql_data/
+docker/**/data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime Artifacts
+output/*
+!output/.gitkeep
+updated/*
+!updated/.gitkeep
+
+# Build & Lock (generated)
+uv.lock
+pnpm-lock.yaml

@@ -1,0 +1,33 @@
+# Phase Status
+
+> 项目阶段状态追踪。更新时机：每个 Task 开始前和完成后。
+
+## Current Phase
+
+- **Phase:** 0 — Foundation and Execution Discipline
+- **Status:** `in_progress`
+- **Started:** 2026-07-28
+- **Target Tag:** `v0.0-foundation`
+
+## Task Progress
+
+| Task | Name | Status | Commit | Notes |
+|------|------|--------|--------|-------|
+| 0 | Git and Documentation Contract | in_progress | — | — |
+| 1 | Python Health Contract | pending | — | — |
+| 2 | React/Vite Frontend Skeleton | pending | — | — |
+| 3 | MySQL Compose and Environment Doctor | pending | — | — |
+| 4 | CI, Pre-commit, Secret Scanning | pending | — | — |
+| 5 | Acceptance and Handoff | pending | — | — |
+
+## Blockers
+
+None.
+
+## Deviations
+
+None.
+
+## Next Steps
+
+Complete Task 0: create governance files, verify ignore rules, and commit.
