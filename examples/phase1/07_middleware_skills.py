@@ -1,82 +1,79 @@
-"""07_middleware_skills: Middleware and Skills example.
+"""07_middleware_skills: Observable middleware and real skills.
 
-Demonstrates:
-- Custom middleware with request/response logging (no secrets in logs)
-- Skill loading from a skills directory
+Runs fully offline — no API key required.
 
 Usage:
-    MODEL_API_KEY=sk-... python -m examples.phase1.runner middleware-skills
+    python -m examples.phase1.runner middleware-skills
 """
 
 import sys
+import tempfile
+import time
+import uuid
+from pathlib import Path
 
-from examples.phase1.settings import load_settings, require_api_key
-
-
-def build_logging_middleware():
-    """Build a minimal middleware that logs request/response metadata.
-
-    Does NOT log prompts, API keys, or full model output.
-    """
-    from langchain.agents.middleware import AgentMiddleware
-
-    request_counter = {"count": 0}
-
-    class LoggingMiddleware(AgentMiddleware):
-        def __init__(self):
-            super().__init__()
-
-        def before_model(self, state, runtime):
-            request_counter["count"] += 1
-            # Safe to log: no secrets or prompts
-            return None
-
-        def after_model(self, state, runtime):
-            # Safe to log: no secrets or prompts
-            return None
-
-    return LoggingMiddleware()
-
-
-def discover_skills():
-    """Discover skills from the skills directory."""
-    import os
-    from pathlib import Path
-
-    skills_dir = Path(__file__).parent / "skills"
-    if not skills_dir.exists():
-        return []
-
-    found = []
-    for entry in os.listdir(skills_dir):
-        skill_md = skills_dir / entry / "SKILL.md"
-        if skill_md.exists():
-            found.append(entry)
-    return found
+from examples.phase1._07_middleware_skills import (
+    MiddlewareEvent,
+    build_recording_middleware,
+    create_skills_middleware,
+    list_loaded_skill_names,
+)
 
 
 def main() -> int:
-    settings = load_settings()
-    try:
-        require_api_key(settings)
-    except RuntimeError as exc:
-        print(exc, file=sys.stderr)
-        return 3
-
+    # --- Middleware demo ---
     print("=== Middleware ===")
-    mw = build_logging_middleware()
-    print(f"  Middleware created: {type(mw).__name__}")
-    print("  Middleware logs request/response metadata only (no secrets).")
+    events: list[MiddlewareEvent] = []
+    mw = build_recording_middleware(
+        events=events,
+        clock=time.time,
+        request_id_factory=lambda: str(uuid.uuid4())[:8],
+    )
 
+    # Simulate a handler call (no real model)
+    from unittest.mock import MagicMock
+
+    fake_model = MagicMock()
+    fake_model.model_name = "demo-model"
+    fake_response = MagicMock()
+    fake_response.result = [MagicMock()] * 2
+
+    request = MagicMock()
+    request.model = fake_model
+    request.messages = [MagicMock()] * 3
+
+    mw.wrap_model_call(request, MagicMock(return_value=fake_response))
+
+    for event in events:
+        dur_str = f"{event.duration_ms:.1f}ms" if event.duration_ms else "N/A"
+        print(
+            f"  [{event.phase}] req={event.request_id} "
+            f"model={event.model_name} "
+            f"in={event.input_message_count} out={event.output_message_count} "
+            f"dur={dur_str}"
+        )
+    print("  (Middleware events contain no prompts, keys, or full output)")
+
+    # --- Skills demo ---
     print()
     print("=== Skills ===")
-    skills = discover_skills()
-    if skills:
-        for s in skills:
-            print(f"  Found skill: {s}")
-    else:
-        print("  No skills discovered.")
+    with tempfile.TemporaryDirectory() as tmp:
+        skill_dir = Path(tmp) / "source-review"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            "# source-review\n\n"
+            "**Description:** Reviews source materials for credibility.\n\n"
+            "**Trigger:** When verifying claims.\n\n"
+            "**Input:** A claim and source documents.\n\n"
+            "**Output:** Credibility assessment.\n"
+        )
+        skills_mw = create_skills_middleware(Path(tmp))
+        names = list_loaded_skill_names(skills_mw)
+        print(f"  Loaded skills: {names}")
+        print(f"  SkillsMiddleware type: {type(skills_mw).__name__}")
 
+    print()
+    print("Done.")
     return 0
 
 
