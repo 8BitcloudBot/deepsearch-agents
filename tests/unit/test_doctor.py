@@ -1,5 +1,6 @@
 """Tests for the environment doctor — Phase 0 contract."""
 
+import importlib
 import subprocess
 import sys
 
@@ -44,3 +45,19 @@ def test_doctor_sh_delegates_to_python():
         timeout=10,
     )
     assert result.returncode == 0, f"stderr: {result.stderr}"
+
+
+def test_doctor_uses_dedicated_host_port_by_default(monkeypatch):
+    """Research Copilot must avoid the common host MySQL port by default."""
+    monkeypatch.delenv("MYSQL_PORT", raising=False)
+    doctor = importlib.import_module("scripts.doctor")
+    doctor = importlib.reload(doctor)
+    assert doctor.MYSQL_PORT == 3307
+
+
+def test_doctor_allows_explicit_mysql_port_override(monkeypatch):
+    """An explicit MYSQL_PORT keeps the project usable in custom environments."""
+    monkeypatch.setenv("MYSQL_PORT", "13306")
+    doctor = importlib.import_module("scripts.doctor")
+    doctor = importlib.reload(doctor)
+    assert doctor.MYSQL_PORT == 13306

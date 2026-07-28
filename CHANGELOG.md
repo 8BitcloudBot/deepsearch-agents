@@ -7,6 +7,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- MySQL now binds to host port 3307 by default while retaining container port 3306, allowing coexistence with another local MySQL project on host port 3306.
+- Compose no longer uses a fixed container name; `MYSQL_HOST_PORT` and `MYSQL_PORT` can be overridden for custom environments.
+
 ### Added
 
 - Phase 0: Foundation and Execution Discipline (awaiting acceptance)

@@ -22,7 +22,13 @@ uv run pytest -q
 pnpm --dir frontend test -- --run
 
 # Start MySQL (local dev)
+# Uses host port 3307 -> container port 3306 by default, so another local
+# MySQL project can continue using host port 3306.
 docker compose up -d mysql
+
+# Verify the environment after the container healthcheck is healthy
+uv run python scripts/doctor.py --offline
+uv run python scripts/doctor.py --mysql
 
 # Start API
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
