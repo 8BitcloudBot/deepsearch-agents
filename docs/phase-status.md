@@ -15,8 +15,8 @@
 | 1 | Add RED Behavior Tests | completed | `9dad6b2` | 4 RED failures recorded |
 | 2 | Implement Real Lifecycle Loading | completed | `196ce93` | YAML frontmatter, load_skills_metadata, no dir scan |
 | 3 | Fix Numbered Example Output | completed | `00072a6` | CLI outputs real name+description |
-| 4 | Correct ADR/Status/Evidence/Changelog | completed | `pending final gate` | — |
-| 5 | Full Acceptance, SHA Backfill, Stop | in_progress | — | — |
+| 4 | Correct ADR/Status/Evidence/Changelog | completed | `3b7f0fc` | docs updated |
+| 5 | Full Acceptance, SHA Backfill, Stop | completed | `4d28924` | all gates pass |
 
 ## Phase 1-1 Tasks (Completed)
 
