@@ -18,3 +18,13 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - GitHub Actions CI: Python + Frontend jobs
   - pre-commit config: ruff + detect-secrets
   - ADR 0001: Phase 0 Boundaries
+
+### Fixed
+
+- Phase 0-1: Acceptance Blocker Remediation
+  - Ruff format now passes on all files
+  - mysql-connector-python installed; doctor --mysql exits 0 when MySQL running, non-zero when stopped
+  - pre-commit hooks (ruff, ruff-format, detect-secrets) execute and pass
+  - detect-secrets baseline generated and verified with fake secret detection
+  - Frontend verified with Node 22.14.0 per .nvmrc
+  - docs/superpowers design and plan documents committed
