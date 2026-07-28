@@ -12,8 +12,8 @@
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
 | 0 | Establish Remediation State | in_progress | — | — |
-| 1 | Interrupt/Resume Behaviors | pending | — | — |
-| 2 | Real Backend/Store/Memory | pending | — | — |
+| 1 | Interrupt/Resume Behaviors | completed | `7762a13` | 6/6 pass, offline runner exit 0 |
+| 2 | Real Backend/Store/Memory | in_progress | — | — |
 | 3 | Observable Middleware & Skills | pending | — | — |
 | 4 | Strengthen Import & Runner Tests | pending | — | — |
 | 5 | Final Evidence & Gate | pending | — | — |

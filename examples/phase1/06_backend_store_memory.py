@@ -1,12 +1,9 @@
-"""06_backend_store_memory: Backend, Store and Memory concepts.
+"""06_backend_store_memory: Backend, Store and Memory with real APIs.
 
-Demonstrates three separate persistence concepts in DeepAgents:
-- backend: filesystem access (temporary directory)
-- store: cross-invocation key-value state (InMemoryStore)
-- memory: model-consumable conversation history
+Runs fully offline — no API key required.
 
 Usage:
-    MODEL_API_KEY=sk-... python -m examples.phase1.runner backend-store-memory
+    python -m examples.phase1.runner backend-store-memory
 """
 
 import sys
@@ -14,77 +11,48 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from examples.phase1.settings import load_settings, require_api_key
-
-
-def demo_backend() -> str:
-    """Demonstrate backend filesystem access with temp directory."""
-    tmp = tempfile.mkdtemp(prefix="phase1-backend-")
-    backend_path = Path(tmp)
-    try:
-        (backend_path / "research_notes.txt").write_text("Checkpointing: key concept")
-        content = (backend_path / "research_notes.txt").read_text()
-        return f"Backend (temp): wrote and read '{content}' in {tmp}"
-    finally:
-        import shutil
-
-        shutil.rmtree(tmp, ignore_errors=True)
-
-
-def demo_store():
-    """Demonstrate InMemoryStore with namespace isolation."""
-    from langgraph.store.memory import InMemoryStore
-
-    store = InMemoryStore()
-
-    # Write to namespace "research"
-    store.put(("research", "topic"), "checkpointing", {"data": "key concepts"})
-
-    # Write to namespace "session"
-    store.put(("session", "thread-1"), "state", {"data": "in-progress"})
-
-    # Read back
-    item1 = store.get(("research", "topic"), "checkpointing")
-    item2 = store.get(("session", "thread-1"), "state")
-
-    return (
-        f"Store: research/topic/checkpointing={item1.value if item1 else None}, "
-        f"session/thread-1/state={item2.value if item2 else None}"
-    )
-
-
-def demo_memory():
-    """Demonstrate memory as model-consumable state.
-
-    Memory in DeepAgents is configured via the `memory` parameter
-    to create_deep_agent, which enables MemoryMiddleware.
-    """
-    thread_id = str(uuid.uuid4())
-    return (
-        f"Memory: configured for thread {thread_id}. "
-        "Uses MemoryMiddleware from deepagents."
-    )
+from examples.phase1._06_backend_store_memory import (
+    create_filesystem_backend,
+    create_memory_middleware,
+    create_store,
+    get_thread_memory,
+    put_thread_memory,
+    read_research_note,
+    write_research_note,
+)
 
 
 def main() -> int:
-    settings = load_settings()
-    try:
-        require_api_key(settings)
-    except RuntimeError as exc:
-        print(exc, file=sys.stderr)
-        return 3
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
 
-    print("=== Backend ===")
-    print(demo_backend())
+        # Backend
+        print("=== Backend ===")
+        be = create_filesystem_backend(root)
+        write_research_note(be, "/notes/research.md", "# Checkpointing\nKey concept.")
+        content = read_research_note(be, "/notes/research.md")
+        print(f"  Wrote and read /notes/research.md: {content[:50]}...")
+
+        # Store
+        print()
+        print("=== Store ===")
+        store = create_store()
+        tid = str(uuid.uuid4())[:8]
+        put_thread_memory(store, thread_id=tid, key="status", value={"state": "ok"})
+        val = get_thread_memory(store, thread_id=tid, key="status")
+        print(f"  Thread {tid}: stored={val}")
+
+        # Memory
+        print()
+        print("=== Memory ===")
+        write_research_note(
+            be, "/memory/main/AGENTS.md", "Research on agent reliability."
+        )
+        mw = create_memory_middleware(be, source="/memory/main/AGENTS.md")
+        print(f"  MemoryMiddleware created: {type(mw).__name__}")
+
     print()
-
-    print("=== Store ===")
-    print(demo_store())
-    print()
-
-    print("=== Memory ===")
-    print(demo_memory())
-
+    print("Done (temp directory cleaned up).")
     return 0
 
 
