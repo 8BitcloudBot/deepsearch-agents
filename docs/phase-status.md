@@ -18,7 +18,7 @@
 | 2 | React/Vite Frontend Skeleton | completed | `e9aae8c` | 3 tests pass, lint clean, build ok |
 | 3 | MySQL Compose and Environment Doctor | completed | `e5dab66` | 3 tests pass, docker compose validated |
 | 4 | CI, Pre-commit, Secret Scanning | completed | `ae13286` | CI + pre-commit configs, ruff clean, no secrets |
-| 5 | Acceptance and Handoff | completed | TBD | All checks passed, awaiting acceptance |
+| 5 | Acceptance and Handoff | completed | `0ef89c8` | All checks passed, awaiting acceptance |
 
 ## Blockers
 
