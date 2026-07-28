@@ -5,7 +5,7 @@
 ## Current Phase
 
 - **Phase:** 0 — Foundation and Execution Discipline
-- **Status:** `in_progress`
+- **Status:** `awaiting_user_acceptance`
 - **Started:** 2026-07-28
 - **Target Tag:** `v0.0-foundation`
 
@@ -17,8 +17,8 @@
 | 1 | Python Health Contract | completed | `1ae249d` | 3 tests pass, ruff clean, curl verified |
 | 2 | React/Vite Frontend Skeleton | completed | `e9aae8c` | 3 tests pass, lint clean, build ok |
 | 3 | MySQL Compose and Environment Doctor | completed | `e5dab66` | 3 tests pass, docker compose validated |
-| 4 | CI, Pre-commit, Secret Scanning | in_progress | — | — |
-| 5 | Acceptance and Handoff | pending | — | — |
+| 4 | CI, Pre-commit, Secret Scanning | completed | `ae13286` | CI + pre-commit configs, ruff clean, no secrets |
+| 5 | Acceptance and Handoff | completed | TBD | All checks passed, awaiting acceptance |
 
 ## Blockers
 

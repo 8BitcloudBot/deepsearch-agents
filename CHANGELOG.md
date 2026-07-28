@@ -9,10 +9,12 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Phase 0: Foundation and Execution Discipline (in progress)
+- Phase 0: Foundation and Execution Discipline (awaiting acceptance)
   - Git repository initialization and governance files
-  - `.gitignore`, `.gitattributes`, `.editorconfig`
-  - `.python-version` (3.12) and `.nvmrc` (22)
-  - `.env.example` with placeholders only
+  - Python 3.12 health contract: `GET /health` returns `{"status":"ok","service":"research-copilot-api","phase":"0"}`
+  - React/Vite frontend shell with test/lint/build pipeline
+  - Docker Compose MySQL 8.0 with idempotent `phase_0_health` table
+  - Environment doctor (`doctor.py --offline`, `doctor.py --mysql`)
+  - GitHub Actions CI: Python + Frontend jobs
+  - pre-commit config: ruff + detect-secrets
   - ADR 0001: Phase 0 Boundaries
-  - Project CHANGELOG and README structure

@@ -149,3 +149,75 @@ git ls-files | xargs grep -lE 'sk-[a-zA-Z0-9]{20,}|api_key...'  # clean
 ### Known Limitations
 
 - `pre-commit install` 和 `detect-secrets` 未安装（PyPI 网络不可达）。`.pre-commit-config.yaml` 和 `.secrets.baseline` 已创建，待网络恢复后执行 `pre-commit install && pre-commit run --all-files`。
+
+---
+
+## Task 5: Final Acceptance Summary
+
+### Timestamp
+
+- **UTC:** 2026-07-28 03:23 UTC
+- **OS:** darwin/arm64
+
+### Commit History
+
+```
+ae13286 ci: enforce phase zero verification
+e5dab66 chore: add local mysql health dependency
+e9aae8c feat: add phase zero frontend shell
+1ae249d feat: add phase zero api health contract
+fe80df8 chore: initialize project governance
+```
+
+### Versions
+
+| Tool | Version |
+|------|---------|
+| Python | 3.12.7 |
+| uv | 0.11.7 |
+| FastAPI | 0.140.7 |
+| uvicorn | 0.51.0 |
+| pytest | 8.4.2 |
+| ruff | 0.16.0 |
+| Node.js | v25.1.0 |
+| pnpm | 11.17.0 (npx) |
+| React | 18.3.1 |
+| Vite | 6.4.3 |
+| TypeScript | 5.7.3 |
+| Docker | 29.4.0 |
+
+### Acceptance Checklist
+
+| Check | Result |
+|-------|--------|
+| Git on `main`, clean status | ✅ (only unstaged doc updates) |
+| Python 3.12 + uv.lock | ✅ |
+| `/health` returns exact contract | ✅ `{"status":"ok","service":"research-copilot-api","phase":"0"}` |
+| Python tests (6 total) | ✅ 6 passed |
+| Ruff lint | ✅ All checks passed |
+| Frontend lockfile | ✅ |
+| Frontend tests (3 total) | ✅ 3 passed |
+| Frontend lint | ✅ 0 errors |
+| Frontend build | ✅ dist/index.html + 2 assets |
+| Docker Compose config | ✅ valid |
+| MySQL health table | ✅ `status = ok` via docker exec |
+| Doctor offline | ✅ exit 0 |
+| Doctor MySQL (unavailable) | ✅ exit non-zero |
+| CI config | ✅ .github/workflows/ci.yml |
+| pre-commit config | ✅ .pre-commit-config.yaml |
+| Secret scan | ✅ No secrets in tracked files |
+| No Phase 1+ code | ✅ Clean |
+| Status/Evidence/ADR/CHANGELOG current | ✅ |
+
+### Known Limitations
+
+1. PyPI 网络不可达，以下依赖未安装：
+   - `mysql-connector-python` — doctor `--mysql` 模式当前退出码 2
+   - `pre-commit`, `detect-secrets` — 未在本地运行 pre-commit hooks
+2. pnpm 通过 `npx` 调用，未全局安装
+3. MySQL 健康验证通过 `docker exec` 替代 Python 连接器完成
+
+### Next Steps
+
+- 用户验收通过后创建 `v0.0-foundation` tag
+- 开始 Phase 1 精确实施计划编写（需用户明确授权）
