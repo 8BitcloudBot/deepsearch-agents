@@ -97,15 +97,20 @@ def main() -> int:
         print(f"Unknown example: {args.name!r}", file=sys.stderr)
         return 2
 
-    # Check for API key requirement (most examples need it)
-    # We do a quick check without importing the full module
-    try:
-        from examples.phase1.settings import load_settings, require_api_key
+    # Check for API key requirement (skip for offline examples)
+    offline_examples = {
+        "interrupt-resume",
+        "backend-store-memory",
+        "middleware-skills",
+    }
+    if args.name not in offline_examples:
+        try:
+            from examples.phase1.settings import load_settings, require_api_key
 
-        settings = load_settings()
-        require_api_key(settings)
-    except RuntimeError:
-        return 3
+            settings = load_settings()
+            require_api_key(settings)
+        except RuntimeError:
+            return 3
 
     return run_example(args.name)
 
