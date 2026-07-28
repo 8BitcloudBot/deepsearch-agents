@@ -15,8 +15,8 @@
 |------|------|--------|--------|-------|
 | 0 | Establish Remediation State | in_progress | — | — |
 | 1 | Fix Ruff Format | completed | `0d724c0` | format check + lint = 0 |
-| 2 | Complete MySQL Doctor Verification | in_progress | — | — |
-| 3 | Execute pre-commit & detect-secrets | pending | — | — |
+| 2 | Complete MySQL Doctor Verification | completed | `a6267a9` | mysql running=0, stopped=3 |
+| 3 | Execute pre-commit & detect-secrets | in_progress | — | — |
 | 4 | Pin Node 22 & Re-verify Frontend | pending | — | — |
 | 5 | Commit docs/superpowers Documents | pending | — | — |
 | 6 | Rewrite Evidence & Final Gate | pending | — | — |
