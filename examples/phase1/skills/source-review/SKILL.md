@@ -1,6 +1,9 @@
-# source-review
+---
+name: source-review
+description: Reviews source materials for credibility and consistency when validating technical claims.
+---
 
-**Description:** Reviews source materials for credibility and consistency.
+# Source Review
 
 **Trigger:** When the agent needs to verify claims against source documents.
 

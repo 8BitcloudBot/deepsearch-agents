@@ -1,6 +1,7 @@
 """Observable middleware and real skills loading.
 
 Testable interfaces for RecordingMiddleware and SkillsMiddleware.
+Phase 1-2: Skills loading uses real SkillsMiddleware.before_agent().
 """
 
 from collections.abc import Callable
@@ -8,8 +9,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from deepagents.backends.filesystem import FilesystemBackend
-from deepagents.middleware.skills import SkillsMiddleware
+from deepagents.middleware.skills import SkillMetadata, SkillsMiddleware
 from langchain.agents.middleware import AgentMiddleware
+from langchain_core.runnables import RunnableConfig
+from langgraph.runtime import Runtime
 
 
 @dataclass(frozen=True)
@@ -17,7 +20,7 @@ class MiddlewareEvent:
     """Structured, safe-to-log middleware event. No secrets."""
 
     request_id: str
-    phase: str  # "started", "completed", "failed"
+    phase: str
     model_name: str
     input_message_count: int
     output_message_count: int | None = None
@@ -26,11 +29,7 @@ class MiddlewareEvent:
 
 
 class RecordingMiddleware(AgentMiddleware):
-    """Middleware that records structured events via wrap_model_call.
-
-    Records request_id, model_name, message counts, duration, and
-    error types. Does NOT record prompts, API keys, or full outputs.
-    """
+    """Middleware that records structured events via wrap_model_call."""
 
     def __init__(
         self,
@@ -89,7 +88,6 @@ class RecordingMiddleware(AgentMiddleware):
 
 
 def _safe_model_name(request) -> str:
-    """Extract a safe model identifier — no API keys or secrets."""
     model = getattr(request, "model", None)
     if model is None:
         return "unknown"
@@ -105,7 +103,6 @@ def build_recording_middleware(
     clock: Callable[[], float],
     request_id_factory: Callable[[], str],
 ) -> RecordingMiddleware:
-    """Factory for RecordingMiddleware with injected dependencies."""
     return RecordingMiddleware(
         events=events,
         clock=clock,
@@ -113,30 +110,32 @@ def build_recording_middleware(
     )
 
 
+# ---- SkillsMiddleware real loading (Phase 1-2) ----
+
+
 def create_skills_middleware(root: Path) -> SkillsMiddleware:
-    """Create SkillsMiddleware loading skills from root directory."""
-    be = FilesystemBackend(root_dir=str(root), virtual_mode=True)
+    """Create SkillsMiddleware loading skills from root directory.
+
+    Uses a real FilesystemBackend (no virtual_mode) so that
+    SkillsMiddleware can read the source directory via the backend.
+    """
+    be = FilesystemBackend(root_dir=str(root), virtual_mode=False)
     return SkillsMiddleware(backend=be, sources=[str(root)])
 
 
-def list_loaded_skill_names(middleware: SkillsMiddleware) -> list[str]:
-    """List skill names discovered by SkillsMiddleware.
+def load_skills_metadata(
+    middleware: SkillsMiddleware,
+    *,
+    runtime: Runtime,
+    config: RunnableConfig | None = None,
+) -> list[SkillMetadata]:
+    """Load parsed skill metadata through the public middleware lifecycle.
 
-    Uses the real middleware API: checks source_labels and internal
-    skill metadata. Does NOT fall back to os.listdir.
+    Calls middleware.before_agent() with an empty state. Returns the
+    list of SkillMetadata discovered, or empty list if skills_metadata
+    key already existed in state (returns None).
     """
-    # The SkillsMiddleware stores discovered skill info in
-    # source_labels (directory labels) and processes skills
-    # via before_model/modify_request.
-    # We check that sources are correctly resolved and the
-    # middleware can discover the skill.
-    names: list[str] = []
-    for src_path in middleware.sources:
-        skill_dir = Path(src_path)
-        if skill_dir.is_dir():
-            for entry in skill_dir.iterdir():
-                skill_md = entry / "SKILL.md"
-                if skill_md.exists():
-                    names.append(entry.name)
-    # Also check source_labels if present
-    return sorted(set(names))
+    update = middleware.before_agent({}, runtime, config or {})
+    if update is None:
+        return []
+    return list(update.get("skills_metadata", []))
