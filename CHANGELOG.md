@@ -23,6 +23,7 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - GitHub Actions CI: Python + Frontend jobs
   - pre-commit config: ruff + detect-secrets
   - ADR 0001: Phase 0 Boundaries
+  - Phase 1: DeepAgents Capability Examples (in progress)
 
 ### Fixed
 
