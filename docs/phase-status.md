@@ -16,7 +16,7 @@
 | 2 | Real Backend/Store/Memory | completed | `e9a97b6` | 9/9 tests, real FilesystemBackend/InMemoryStore/MemoryMiddleware |
 | 3 | Observable Middleware & Skills | completed | `fb66f5c` | 7/7 tests, wrap_model_call + SkillsMiddleware |
 | 4 | Strengthen Import & Runner Tests | completed | `eeb3ca9` | 69→77 tests, strict assertions |
-| 5 | Final Evidence & Gate | in_progress | — | — |
+| 5 | Final Evidence & Gate | completed | `def7411` | 77 tests, full evidence, all gates pass |
 
 ## Phase 1 Tasks (Completed)
 
