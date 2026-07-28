@@ -120,3 +120,32 @@ docker exec research-copilot-mysql mysql -uroot -proot -e "SELECT status FROM re
 
 - `mysql-connector-python` 未能安装（PyPI 网络不可达）。doctor `--mysql` 模式当前退出码 2 表示依赖缺失。MySQL 健康表已通过 `docker exec` 直接验证。
 - 当网络恢复后，安装 `mysql-connector-python` 即可完成完整的 `--mysql` 验证。
+
+---
+
+## Task 4: CI, Pre-commit, Secret Scanning
+
+### Verification
+
+| Item | Result |
+|------|--------|
+| CI config created | `.github/workflows/ci.yml` — Python + Frontend jobs |
+| pre-commit config created | `.pre-commit-config.yaml` — ruff, detect-secrets |
+| `ruff check app tests scripts` | All checks passed |
+| `ruff format --check app tests scripts` | All checks passed |
+| `pytest tests/ -q` | 6 passed in 0.47s |
+| Secret scan (manual regex) | No secrets in tracked files |
+| Fake secret detection test | `sk-test-not-a-key` correctly detected |
+
+### Commands Executed
+
+```bash
+uv run ruff check app tests scripts
+uv run ruff format --check app tests scripts
+uv run pytest tests/ -q
+git ls-files | xargs grep -lE 'sk-[a-zA-Z0-9]{20,}|api_key...'  # clean
+```
+
+### Known Limitations
+
+- `pre-commit install` 和 `detect-secrets` 未安装（PyPI 网络不可达）。`.pre-commit-config.yaml` 和 `.secrets.baseline` 已创建，待网络恢复后执行 `pre-commit install && pre-commit run --all-files`。

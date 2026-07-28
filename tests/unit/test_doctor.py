@@ -2,9 +2,6 @@
 
 import subprocess
 import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 # Importing the doctor module may fail without mysql-connector-python;
 # tests must mock the optional import or work in offline mode.

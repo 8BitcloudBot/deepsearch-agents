@@ -28,7 +28,7 @@ def check_offline() -> int:
         print(f"  [OK] Python {py_version.major}.{py_version.minor}.{py_version.micro}")
     else:
         print(
-            f"  [FAIL] Python 3.12 required, found {py_version.major}.{py_version.minor}"
+            f"  [FAIL] Need Python 3.12, got {py_version.major}.{py_version.minor}"
         )
         checks_ok = False
 
