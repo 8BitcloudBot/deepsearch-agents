@@ -14,8 +14,8 @@
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
 | 0 | Phase 0 Tag & Phase 1 State | completed | `a9b2f6a` | v0.0-foundation verified |
-| 1 | Lock Dependencies & API Surface | in_progress | — | — |
-| 2 | Settings, Events, Runner | pending | — | — |
+| 1 | Lock Dependencies & API Surface | completed | `60b55a5` | v0.6.12/lg1.2.9/lc1.5.1, ADR created |
+| 2 | Settings, Events, Runner | in_progress | — | — |
 | 3 | Invoke, Stream, Chunks | pending | — | — |
 | 4 | Dictionary & Runnable Subagents | pending | — | — |
 | 5 | Interrupt, Approval, Resume | pending | — | — |
