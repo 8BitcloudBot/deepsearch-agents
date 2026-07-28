@@ -4,30 +4,50 @@
 
 ## Current Phase
 
-- **Phase:** 0 — Foundation and Execution Discipline
-- **Status:** `awaiting_user_acceptance`
+- **Phase:** 0-1 — Acceptance Blocker Remediation
+- **Status:** `in_progress`
 - **Started:** 2026-07-28
-- **Target Tag:** `v0.0-foundation`
+- **Target Tag:** `v0.0-foundation`（用户验收通过后创建）
 
 ## Task Progress
 
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
-| 0 | Git and Documentation Contract | completed | `fe80df8` | 13 governance files created, ignore rules verified |
-| 1 | Python Health Contract | completed | `1ae249d` | 3 tests pass, ruff clean, curl verified |
-| 2 | React/Vite Frontend Skeleton | completed | `e9aae8c` | 3 tests pass, lint clean, build ok |
-| 3 | MySQL Compose and Environment Doctor | completed | `e5dab66` | 3 tests pass, docker compose validated |
-| 4 | CI, Pre-commit, Secret Scanning | completed | `ae13286` | CI + pre-commit configs, ruff clean, no secrets |
-| 5 | Acceptance and Handoff | completed | `0ef89c8` | All checks passed, awaiting acceptance |
+| 0 | Establish Remediation State | in_progress | — | — |
+| 1 | Fix Ruff Format | pending | — | — |
+| 2 | Complete MySQL Doctor Verification | pending | — | — |
+| 3 | Execute pre-commit & detect-secrets | pending | — | — |
+| 4 | Pin Node 22 & Re-verify Frontend | pending | — | — |
+| 5 | Commit docs/superpowers Documents | pending | — | — |
+| 6 | Rewrite Evidence & Final Gate | pending | — | — |
+
+## Phase 0 Tasks (Completed)
+
+| Task | Name | Status | Commit |
+|------|------|--------|--------|
+| 0 | Git and Documentation Contract | completed | `fe80df8` |
+| 1 | Python Health Contract | completed | `1ae249d` |
+| 2 | React/Vite Frontend Skeleton | completed | `e9aae8c` |
+| 3 | MySQL Compose and Environment Doctor | completed | `e5dab66` |
+| 4 | CI, Pre-commit, Secret Scanning | completed | `ae13286` |
+| 5 | Acceptance and Handoff | completed | `0ef89c8` |
 
 ## Blockers
 
-None.
+| # | Blocker | Root Cause | Status |
+|---|---------|-----------|--------|
+| 1 | mysql-connector-python 未安装 | PyPI 网络不可达 | blocking |
+| 2 | pre-commit / detect-secrets 未安装 | PyPI 网络不可达 | blocking |
+| 3 | Ruff format check 非零 | doctor.py 未格式化 | blocking |
+| 4 | Node 版本与 .nvmrc 不一致 | 环境使用 Node 25 而非 22 | blocking |
+| 5 | docs/superpowers 未跟踪 | 未纳入 Git 提交策略 | blocking |
 
 ## Deviations
 
-None.
+| # | Deviation | Reason |
+|---|-----------|--------|
+| 1 | 使用 `npx pnpm` 替代全局 `pnpm` | 无全局安装权限 |
 
 ## Next Steps
 
-Complete Task 0: create governance files, verify ignore rules, and commit.
+完成 Phase 0-1 全部 6 个修复 Task，重新执行完整验收。通过后等待用户确认，由用户决定是否创建 `v0.0-foundation` tag。用户确认前禁止编写或执行 Phase 1。
