@@ -14,11 +14,11 @@
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
 | 0 | Establish Phase 0-2 State | completed | `e4761ac` | status updated |
-| 1 | Fix phase-status Metadata | completed | TBD | Task 6 commit = `6a8a611` confirmed |
-| 2 | Fix Verification Evidence | completed | TBD | stale git status removed; full rewrite |
-| 3 | Re-execute Final Gate | completed | TBD | 17/17 gates pass |
-| 4 | Re-execute MySQL Dual-state | completed | TBD | running=0, stopped=3, healthcheck wait |
-| 5 | Consistency Check & Commit | completed | TBD | no stale patterns, all docs consistent |
+| 1 | Fix phase-status Metadata | completed | `6220715` | Task 6 commit = `6a8a611` confirmed |
+| 2 | Fix Verification Evidence | completed | `6220715` | stale git status removed; full rewrite |
+| 3 | Re-execute Final Gate | completed | `6220715` | 17/17 gates pass |
+| 4 | Re-execute MySQL Dual-state | completed | `6220715` | running=0, stopped=3, healthcheck wait |
+| 5 | Consistency Check & Commit | completed | `6220715` | no stale patterns, all docs consistent |
 
 ## Phase 0-1 Tasks (Completed)
 
