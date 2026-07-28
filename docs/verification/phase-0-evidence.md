@@ -86,3 +86,37 @@ npx pnpm --dir frontend build
 ### Deviation
 
 pnpm 未全局安装，使用 `npx pnpm` 替代。
+
+---
+
+## Task 3: MySQL Compose and Environment Doctor
+
+### Verification
+
+| Item | Result |
+|------|--------|
+| `docker compose config` | Exit 0, valid config |
+| `docker compose up -d mysql` | Container started, healthy |
+| `docker exec mysql ... phase_0_health` | `status = ok` |
+| `doctor.py --offline` | Exit 0, "All offline checks passed" |
+| `doctor.py --mysql` (MySQL running) | Exit 2 — mysql-connector-python not installed (network limited) |
+| `doctor.py --mysql` (MySQL stopped) | Exit 2 — same reason |
+| `doctor.sh --offline` | Exit 0, delegates to venv Python |
+| `pytest tests/unit/test_doctor.py -q` | 3 passed in 0.11s |
+
+### Commands Executed
+
+```bash
+docker compose config
+docker compose up -d mysql
+docker compose ps mysql
+docker exec research-copilot-mysql mysql -uroot -proot -e "SELECT status FROM research_copilot.phase_0_health;"
+.venv/bin/python scripts/doctor.py --offline
+.venv/bin/python scripts/doctor.py --mysql
+.venv/bin/python -m pytest tests/unit/test_doctor.py -q
+```
+
+### Known Limitations
+
+- `mysql-connector-python` 未能安装（PyPI 网络不可达）。doctor `--mysql` 模式当前退出码 2 表示依赖缺失。MySQL 健康表已通过 `docker exec` 直接验证。
+- 当网络恢复后，安装 `mysql-connector-python` 即可完成完整的 `--mysql` 验证。

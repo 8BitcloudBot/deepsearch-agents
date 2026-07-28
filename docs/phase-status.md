@@ -15,8 +15,8 @@
 |------|------|--------|--------|-------|
 | 0 | Git and Documentation Contract | completed | `fe80df8` | 13 governance files created, ignore rules verified |
 | 1 | Python Health Contract | completed | `1ae249d` | 3 tests pass, ruff clean, curl verified |
-| 2 | React/Vite Frontend Skeleton | completed | TBD | 3 tests pass, lint clean, build ok |
-| 3 | MySQL Compose and Environment Doctor | pending | — | — |
+| 2 | React/Vite Frontend Skeleton | completed | `e9aae8c` | 3 tests pass, lint clean, build ok |
+| 3 | MySQL Compose and Environment Doctor | completed | TBD | 3 tests pass, docker compose validated |
 | 4 | CI, Pre-commit, Secret Scanning | pending | — | — |
 | 5 | Acceptance and Handoff | pending | — | — |
 
