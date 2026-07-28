@@ -1,22 +1,24 @@
 """07_middleware_skills: Observable middleware and real skills.
 
-Runs fully offline — no API key required.
+Runs fully offline — loads source-review skill through SkillsMiddleware.
 
 Usage:
     python -m examples.phase1.runner middleware-skills
 """
 
 import sys
-import tempfile
 import time
 import uuid
 from pathlib import Path
+from unittest.mock import MagicMock
+
+from langgraph.runtime import Runtime
 
 from examples.phase1._07_middleware_skills import (
     MiddlewareEvent,
     build_recording_middleware,
     create_skills_middleware,
-    list_loaded_skill_names,
+    load_skills_metadata,
 )
 
 
@@ -29,9 +31,6 @@ def main() -> int:
         clock=time.time,
         request_id_factory=lambda: str(uuid.uuid4())[:8],
     )
-
-    # Simulate a handler call (no real model)
-    from unittest.mock import MagicMock
 
     fake_model = MagicMock()
     fake_model.model_name = "demo-model"
@@ -54,23 +53,19 @@ def main() -> int:
         )
     print("  (Middleware events contain no prompts, keys, or full output)")
 
-    # --- Skills demo ---
+    # --- Skills demo (real SkillsMiddleware loading) ---
     print()
     print("=== Skills ===")
-    with tempfile.TemporaryDirectory() as tmp:
-        skill_dir = Path(tmp) / "source-review"
-        skill_dir.mkdir()
-        (skill_dir / "SKILL.md").write_text(
-            "# source-review\n\n"
-            "**Description:** Reviews source materials for credibility.\n\n"
-            "**Trigger:** When verifying claims.\n\n"
-            "**Input:** A claim and source documents.\n\n"
-            "**Output:** Credibility assessment.\n"
-        )
-        skills_mw = create_skills_middleware(Path(tmp))
-        names = list_loaded_skill_names(skills_mw)
-        print(f"  Loaded skills: {names}")
-        print(f"  SkillsMiddleware type: {type(skills_mw).__name__}")
+    skills_root = Path(__file__).resolve().parent / "skills"
+    skills_mw = create_skills_middleware(skills_root)
+    metadata = load_skills_metadata(skills_mw, runtime=Runtime())
+
+    if not metadata:
+        print("ERROR: No skills loaded from project skills directory.", file=sys.stderr)
+        return 1
+
+    for m in metadata:
+        print(f"  - {m['name']}: {m['description']}")
 
     print()
     print("Done.")

@@ -167,6 +167,26 @@ class TestRecordingMiddleware:
         assert events[0].request_id == "custom-1"
 
 
+class TestCLI:
+    def test_middleware_skills_cli_output(self, tmp_path, monkeypatch):
+        """CLI must exit 0, print name/description, not full skill body."""
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-m", "examples.phase1.runner", "middleware-skills"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env={**__import__("os").environ, "MODEL_API_KEY": ""},
+        )
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert "source-review" in result.stdout
+        assert "Reviews source materials for credibility" in result.stdout
+        # Must NOT leak skill body rules
+        assert "No fabricated citations" not in result.stdout
+
+
 # ---- SkillsMiddleware real-loading tests (Phase 1-2) ----
 
 

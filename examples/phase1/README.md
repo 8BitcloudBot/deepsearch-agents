@@ -53,6 +53,8 @@ MODEL_API_KEY=sk-... .venv/bin/python -m pytest tests/integration/phase1 -q
 - 不执行全部七个示例的 smoke（仅 invoke/stream）以避免不可控费用
 - 不在日志中打印 API Key 或 Prompt
 - 离线测试不依赖外部网络
+- `middleware-skills` 无 Key 可运行；skill 使用 Agent Skills YAML frontmatter
+- Metadata 由 `SkillsMiddleware.before_agent()` 加载，`modify_request()` 注入仅在离线测试中验证
 
 ## 与 Phase 2 的边界
 
