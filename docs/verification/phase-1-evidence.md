@@ -1,155 +1,71 @@
-# Phase 1 Verification Evidence
-
-> 只记录真实执行过的命令和结果。Phase 1 + 1-1 完整记录。
+# Phase 1 Verification Evidence (Phase 1-2)
 
 ## Environment
 
 - **OS:** darwin/arm64
-- **Repository:** /Users/wxhu/Documents/reasonix/deepsearch-agents
 - **Date:** 2026-07-28
-- **v0.0-foundation:** tag exists, points to `9715255`
+- **v0.0-foundation:** exists, points to `9715255`
 
-## Exact Dependency Versions
+## Phase 1-2 Commit History
 
-| Package | Version |
-|---------|---------|
-| deepagents | 0.6.12 |
-| langgraph | 1.2.9 |
-| langchain-core | 1.5.1 |
-| langchain-openai | 1.4.1 |
-| langgraph-checkpoint | 4.1.1 |
-| langgraph-prebuilt | 1.1.0 |
+| Commit | Message |
+|--------|---------|
+| `b5d33cb` | `docs: start phase one skills remediation` |
+| `9dad6b2` | `test: require real skills middleware loading` |
+| `196ce93` | `fix: load phase one skill metadata through middleware` |
+| `00072a6` | `feat: demonstrate parsed phase one skill metadata` |
+| `3b7f0fc` | `docs: finalize phase one skills evidence` |
+| (pending) | `docs: verify phase one skills remediation` |
 
-## API Introspection Summary
+## RED Evidence (Task 1)
 
-- `create_deep_agent`: model/tools/system_prompt/middleware/subagents/skills/memory/permissions/backend/interrupt_on/checkpointer/store/debug/name/cache
-- `SubAgent` (TypedDict): name/description/system_prompt + optional tools/model/middleware/interrupt_on/skills/permissions/response_format
-- `CompiledSubAgent` (TypedDict): name/description/runnable
-- `FilesystemBackend(root_dir, virtual_mode, max_file_size_mb)`: write/read/ls/glob/grep
-- `InMemoryStore()`: put/get/search
-- `MemoryMiddleware(backend, sources, add_cache_control)`
-- `SkillsMiddleware(backend, sources)`: state_schema=SkillsState with skills_metadata
-- `AgentMiddleware.wrap_model_call(request, handler)`
-- `interrupt()` / `Command(resume=...)` / `MemorySaver`
-
-## Commit History
-
+```bash
+pytest tests/examples/phase1/test_middleware_skills.py -q
 ```
-7762a13 test: verify phase one interrupt behavior
-e9a97b6 feat: implement real backend store and memory examples
-fb66f5c feat: add observable middleware and real skills loading
-eeb3ca9 test: strengthen phase one example contracts
+Exit 1. 4 failures:
+
+- `test_before_agent_parses_source_review_metadata`: 0 metadata items (virtual_mode bug)
+- `test_missing_frontmatter_skill_is_omitted_with_warning`: path_not_found
+- `test_modify_request_injects_loaded_skill_metadata`: ImportError (wrong module) + path_not_found
+- `test_project_skill_fixture_is_parseable`: 0 items (SKILL.md lacks YAML frontmatter)
+
+## GREEN Evidence (Task 2)
+
+After fixing `virtual_mode=False`, adding YAML frontmatter, implementing `load_skills_metadata()`:
+
+```bash
+pytest tests/examples/phase1/test_middleware_skills.py -q
 ```
+12 passed.
 
-## Final Gate Results (2026-07-28)
+## Final Gate (Task 5)
 
-### 1. git status --short
-```
-# clean
-```
-Exit 0.
+| # | Gate | Exit Code | Result |
+|---|------|-----------|--------|
+| 1 | `git status --short` | 0 | plan doc only |
+| 2 | `pytest tests/ -q` | 0 | 83 passed |
+| 3 | `pytest tests/integration/ -q` | 0 | 2 skipped |
+| 4 | `ruff check` | 0 | clean |
+| 5 | `ruff format --check` | 0 | 33 formatted |
+| 6 | `pre-commit run --all-files` | 0 | 3/3 passed |
+| 7 | `detect-secrets scan --baseline` | 0 | clean |
+| 8 | `runner middleware-skills` (no key) | 0 | outputs name+description |
+| 9 | `grep iterdir/glob/rglob` (impl) | 1 | no directory scan |
+| 10 | `git diff --check` | 0 | clean |
 
-### 2. Unit Tests
-```
-77 passed in 4.18s
-```
-Exit 0.
+## SkillsMiddleware Real Loading Evidence
 
-### 3. Integration Tests
-```
-2 skipped in 0.01s
-```
-Exit 0. MODEL_API_KEY not set.
-
-### 4. Ruff Check
-```
-All checks passed!
-```
-Exit 0.
-
-### 5. Ruff Format Check
-```
-33 files already formatted
-```
-Exit 0.
-
-### 6. Pre-commit (2nd run)
-```
-ruff.....................Passed
-ruff-format..............Passed
-Detect secrets...........Passed
-```
-Exit 0.
-
-### 7. Detect Secrets
-```
-detect-secrets exit=0
-```
-
-### 8. Runner --list
-All 7 examples listed correctly.
-
-### 9. Offline Examples (no MODEL_API_KEY)
-| Example | Exit Code |
-|---------|-----------|
-| interrupt-resume | 0 |
-| backend-store-memory | 0 |
-| middleware-skills | 0 |
-
-### 10. Model Examples (no MODEL_API_KEY)
-| Example | Exit Code |
-|---------|-----------|
-| invoke | 3 |
-| stream | 3 |
-
-### 11. Forbidden Scope
-```
-examples/phase1/README.md:60 — documentation line (not implementation)
-```
-Clean.
-
-### 12. git diff --check
-Clean.
-
-## Behavioral Test Results
-
-### Interrupt/Resume (6 tests)
-- First run exposes interrupt payload ✅
-- Approve executes risk action once ✅
-- Reject does not execute ✅
-- Thread isolation ✅
-- Repeated resume idempotent ✅
-- Runs without API key ✅
-
-### Backend/Store/Memory (9 tests)
-- Real FilesystemBackend ✅
-- Write/read within root ✅
-- Path escape rejected ✅
-- Real InMemoryStore ✅
-- Namespace isolation ✅
-- Real MemoryMiddleware ✅
-- Memory visible to same thread ✅
-- Memory isolated between threads ✅
-- Temp path cleanup ✅
-
-### Middleware/Skills (7 tests)
-- Successful call records metadata ✅
-- Handler error records error_type ✅
-- No prompt/key leaked ✅
-- Deterministic clock ✅
-- Request ID factory used ✅
-- source-review skill discovered ✅
-- Missing skill dir handles gracefully ✅
-
-## Total Tests
-
-- **Unit**: 77 passed
-- **Integration**: 2 skipped (MODEL_API_KEY not set)
-- **Real model smoke**: NOT executed (no key)
+- Project SKILL.md has valid YAML frontmatter: `name: source-review`, `description: ...`
+- `before_agent({}, Runtime(), {})` returns `skills_metadata` with dict entries
+- Loaded metadata: `name=source-review`, `description=Reviews source materials for credibility and consistency when validating technical claims.`
+- `path` ends with `/source-review/SKILL.md`
+- Missing frontmatter: warning logged via `caplog`
+- Name mismatch: warning logged, skill still loaded (DeepAgents 0.6.12 behavior)
+- `modify_request()` injects `source-review` into system message
+- `skills_metadata` already in state → returns `None`
 
 ## Known Limitations
 
-- No MODEL_API_KEY: invoke/stream/dictionary-subagents/runnable-subagent cannot run real model
-- Integration smoke correctly skips
-- SkillsMiddleware skills_metadata requires full LangGraph runtime to populate; discovery verified via source_labels and directory listing of SKILL.md
-- Node 22 required per .nvmrc but host has v25.1.0
+- No `MODEL_API_KEY`: invoke/stream/dictionary/runnable examples cannot run real model
+- Integration smoke: 2 skipped
+- DeepAgents 0.6.12 does not reject name-mismatched skills (only warns)
