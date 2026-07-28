@@ -13,8 +13,8 @@
 
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
-| 0 | Phase 0 Tag & Phase 1 State | in_progress | — | — |
-| 1 | Lock Dependencies & API Surface | pending | — | — |
+| 0 | Phase 0 Tag & Phase 1 State | completed | `a9b2f6a` | v0.0-foundation verified |
+| 1 | Lock Dependencies & API Surface | in_progress | — | — |
 | 2 | Settings, Events, Runner | pending | — | — |
 | 3 | Invoke, Stream, Chunks | pending | — | — |
 | 4 | Dictionary & Runnable Subagents | pending | — | — |
