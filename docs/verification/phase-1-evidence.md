@@ -15,7 +15,8 @@
 | `196ce93` | `fix: load phase one skill metadata through middleware` |
 | `00072a6` | `feat: demonstrate parsed phase one skill metadata` |
 | `3b7f0fc` | `docs: finalize phase one skills evidence` |
-| (pending) | `docs: verify phase one skills remediation` |
+| `4d28924` | `docs: verify phase one skills remediation` |
+| `6f60d71` | `docs: record phase one-two final task sha` |
 
 ## RED Evidence (Task 1)
 
