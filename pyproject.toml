@@ -44,14 +44,12 @@ markers = [
 
 [tool.ruff]
 target-version = "py312"
-exclude = ["docker/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 "examples/phase1/0*.py" = ["N999"]
-"docker/**" = ["E999"]
 
 [tool.ruff.format]
 quote-style = "double"

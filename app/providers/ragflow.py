@@ -1,4 +1,4 @@
-"""Lazy RAGFlow knowledge adapter."""
+"""Lazy RAGFlow knowledge adapter (0.26.0 API)."""
 
 from app.providers.contracts import KnowledgeAnswer, KnowledgeAssistant
 
@@ -21,9 +21,9 @@ class RAGFlowKnowledgeProvider:
         chats = client.list_chats()
         return tuple(
             KnowledgeAssistant(
-                name=c.get("name", "unknown"),
-                description=c.get("description", ""),
-                knowledge_bases=tuple(c.get("knowledge_bases", [])),
+                name=c.name,
+                description=getattr(c, "description", ""),
+                knowledge_bases=tuple(getattr(c, "knowledge_bases", [])),
             )
             for c in chats
         )
@@ -33,19 +33,21 @@ class RAGFlowKnowledgeProvider:
         chats = client.list_chats()
         target = None
         for c in chats:
-            if c.get("name") == assistant_name:
+            if c.name == assistant_name:
                 target = c
                 break
         if target is None:
             raise ValueError(f"Assistant not found: {assistant_name!r}")
 
-        chat_id = target["id"]
-        session = client.create_chat(chat_id, name=f"phase2-{assistant_name}")
+        session = target.create_session()
         try:
-            msgs = client.get_recent_messages(chat_id, session["id"])
+            answer_data = session.ask(question, stream=False)
+            # answer_data may be str or dict
             answer = ""
-            if msgs:
-                answer = msgs[-1].get("content", "")
+            if isinstance(answer_data, str):
+                answer = answer_data
+            elif isinstance(answer_data, dict):
+                answer = answer_data.get("answer", str(answer_data))
             return KnowledgeAnswer(assistant_name=assistant_name, answer=answer)
         finally:
-            client.delete_chats([session["id"]])
+            target.delete_sessions([session.id])

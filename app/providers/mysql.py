@@ -1,9 +1,18 @@
 """Controlled read-only MySQL adapter."""
 
+import re
+
 import sqlglot
 from sqlglot.errors import ParseError
 
 from app.providers.contracts import QueryResult, TableInfo
+
+_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _validate_table_name(name: str) -> None:
+    if not _TABLE_NAME_RE.match(name):
+        raise ReadOnlyQueryError(f"Invalid table name: {name!r}")
 
 
 class ReadOnlyQueryError(ValueError):
@@ -12,6 +21,15 @@ class ReadOnlyQueryError(ValueError):
 
 def validate_readonly_query(query: str, *, database: str) -> None:
     """Validate that query is a single read-only SELECT on the given database."""
+    # Reject multi-statement (semicolons outside strings)
+    stripped = query.strip()
+    if ";" in stripped.rstrip(";"):
+        raise ReadOnlyQueryError("Multiple statements not allowed")
+
+    # Reject comments
+    if "--" in query or "/*" in query:
+        raise ReadOnlyQueryError("Comments not allowed in query")
+
     try:
         parsed = sqlglot.parse_one(query, dialect="mysql")
     except ParseError as exc:
@@ -40,11 +58,16 @@ def validate_readonly_query(query: str, *, database: str) -> None:
         ):
             raise ReadOnlyQueryError(f"Forbidden SQL construct: {kind}")
 
+        # Check for function calls with dangerous names
+        func_name = ""
+        if hasattr(node, "name"):
+            func_name = str(node.name).upper()
+        if func_name in ("LOAD_FILE",):
+            raise ReadOnlyQueryError(f"Forbidden function: {func_name}")
+
         # Check catalog references
         if hasattr(node, "db") and node.db and str(node.db) != database:
-            raise ReadOnlyQueryError(
-                f"Cross-database access denied: {node.db}.{getattr(node, 'table', '')}"
-            )
+            raise ReadOnlyQueryError(f"Cross-database access denied: {node.db}")
 
     # Must be a SELECT (or WITH ... SELECT)
     root = parsed
@@ -90,6 +113,7 @@ class MySQLCatalogProvider:
             conn.close()
 
     def describe_table(self, table_name: str) -> QueryResult:
+        _validate_table_name(table_name)
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -104,6 +128,8 @@ class MySQLCatalogProvider:
             conn.close()
 
     def preview_table(self, table_name: str, *, limit: int = 20) -> QueryResult:
+        _validate_table_name(table_name)
+        limit = max(1, min(limit, 100))
         conn = self._connect()
         try:
             cursor = conn.cursor()
@@ -123,6 +149,7 @@ class MySQLCatalogProvider:
             conn.close()
 
     def execute_readonly(self, query: str, *, limit: int = 100) -> QueryResult:
+        limit = max(1, min(limit, 1000))
         validate_readonly_query(query, database=self._database)
         conn = self._connect()
         try:
