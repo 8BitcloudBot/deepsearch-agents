@@ -19,7 +19,9 @@ class TestTavilyNormalization:
         with patch("tavily.TavilyClient") as mock_client:
             instance = mock_client.return_value
             instance.search.return_value = fake_response
-            provider = TavilyWebProvider(api_key="sk-test")
+            provider = TavilyWebProvider(
+                api_key="sk-test"
+            )  # pragma: allowlist secret  # noqa: E501
             result = provider.search("q")
             assert len(result.hits) == 2
             assert result.hits[0].title == "T1"
@@ -36,7 +38,8 @@ class TestRAGFlowMapping:
             instance = mock_client.return_value
             instance.list_chats.return_value = [fake_chat]
             provider = RAGFlowKnowledgeProvider(
-                api_key="k", base_url="http://x"  # pragma: allowlist secret  # noqa: E501
+                api_key="k",  # pragma: allowlist secret  # noqa: E501
+                base_url="http://x",  # pragma: allowlist secret  # noqa: E501
             )
             assistants = provider.list_assistants()
             assert len(assistants) == 1
@@ -55,7 +58,8 @@ class TestRAGFlowMapping:
             instance = mock_client.return_value
             instance.list_chats.return_value = [fake_chat]
             provider = RAGFlowKnowledgeProvider(
-                api_key="k", base_url="http://x"  # pragma: allowlist secret  # noqa: E501
+                api_key="k",  # pragma: allowlist secret  # noqa: E501
+                base_url="http://x",  # pragma: allowlist secret  # noqa: E501
             )
             with pytest.raises(RuntimeError):
                 provider.ask("test", "question")
