@@ -19,6 +19,10 @@ INVALID = [
     ("ALTER TABLE drugs ADD COLUMN x INT", "ALTER"),
     ("SELECT * FROM other_db.drugs", "cross-database"),
     ("SELECT * FROM drugs; SELECT * FROM inventory", "multi-statement"),
+    ("SELECT * FROM drugs -- bypass", "comment"),
+    ("SELECT LOAD_FILE('/etc/passwd')", "dangerous function"),
+    ("SELECT * FROM drugs FOR UPDATE", "locking read"),
+    ("CALL some_procedure()", "CALL"),
 ]
 
 
