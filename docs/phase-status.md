@@ -11,36 +11,30 @@
 
 | Task | Name | Status | Commit | Notes |
 |------|------|--------|--------|-------|
-| 0 | Freeze Contracts & Start Evidence | completed | `6a5d15a` | ADR 0003, all deps locked |
-| 1 | Settings, Events, Mock Adapters | completed | `c6af299` | 27 tests pass |
-| 2 | Web/MySQL/RAGFlow Providers | completed | `cba9315` | factory, tools, subagents, SQL policy |
-| 2-R | Provider Contract RED Tests | completed | `624464e` | 6 test files, 9 RED failures |
-| 2-F | Provider Contract Fixes | completed | `bd38a60` | factory, RAGFlow 0.26.0, SQL validation, mysql bootstrap |
-| 3 | Workspace & Report Delivery | pending | — | — |
-| 4 | Main Agent & Both Runtimes | pending | — | — |
-| 5 | FastAPI, WebSocket, Upload, Cancel | pending | — | — |
-| 6 | React Tutorial Workbench | pending | — | — |
-| 7 | Document, Verify, Stop | pending | — | — |
+| 0 | Freeze Contracts | completed | `6a5d15a` | ADR 0003, deps locked |
+| 1 | Settings/Events/Mocks | completed | `c6af299` | 27 tests |
+| 2 | Providers+Tools+SQL | completed | `cba9315` | factory, tools, subagents, SQL policy |
+| R1 | RED: Provider Contracts | completed | `624464e` | 9 RED failures |
+| F1 | Fix: Provider Contracts | completed | `bd38a60` | RAGFlow 0.26.0, SQL validation |
+| R2 | RED: Remediation 2 | completed | `9b2422b` | 8 RED failures |
+| F2 | Fix: Remediation 2 | completed | `f1b87bc` | generator, enums, tutorial_reader, semicolons |
+| 3 | Workspace & Reports | pending | — | — |
+| 4 | Agent & Runtimes | pending | — | — |
+| 5 | FastAPI/WebSocket | pending | — | — |
+| 6 | React Workbench | pending | — | — |
+| 7 | Document & Verify | pending | — | — |
 
 ## Blockers
 
 None.
 
-## Deviations
+## Key Remediation Results (Round 2)
 
-| # | Deviation | Reason |
-|---|-----------|--------|
-| 1 | Tests use inline `# pragma: allowlist secret` for fake keys | detect-secrets false positives |
-| 2 | RAGFlow `Session.ask(stream=False)` may return str or dict | 0.26.0 API; handled in adapter |
-
-## MySQL Bootstrap
-
-- Container: `deepsearch-agents-mysql-1` on port 3307
-- `tutorial_reader` account: SELECT only on `research_copilot.*`
-- INSERT rejected at DB level; row count unchanged (3 rows)
-- Integration tests: 6 passed (PHASE2_MYSQL_INTEGRATION=1)
-
-## External Smoke
-
-- Tavily: skipped (PHASE2_TAVILY_SMOKE not set)
-- RAGFlow: skipped (PHASE2_RAGFLOW_SMOKE not set)
+- RAGFlow `Session.ask(stream=False)`: generator iterated, `Message.content` extracted, `delete_sessions` in finally (success + error)
+- WEB=tavily/mock, CATALOG=mysql/mock, KNOWLEDGE=ragflow/mock per-provider enums
+- APP_PROFILE only "tutorial"
+- MySQL provider enforces `tutorial_reader`, rejects `root`
+- `execute_readonly`: trailing semicolons rejected, limit clamped 1..1000
+- Subagents: `build_tutorial_subagents(web_tools, catalog_tools, knowledge_tools)` accepts real callables
+- detect-secrets pre-commit: baseline regenerated, all known test secrets baselined
+- 149 unit tests pass, 6 MySQL integration pass, 2 external smoke skip

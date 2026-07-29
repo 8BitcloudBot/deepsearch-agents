@@ -1,49 +1,45 @@
 # Phase 2 Verification Evidence
 
 ## Environment
-- **OS:** darwin/arm64
-- **Date:** 2026-07-29
+- **OS:** darwin/arm64 **Date:** 2026-07-29
 - **v0.0-deepagents-examples:** `c6c0fa8`
-- **Node:** v22.14.0 (standalone)
+- **MySQL:** `deepsearch-agents-mysql-1:3307`, `tutorial_reader` SELECT-only
 
-## Task 0: Freeze Contracts
-- **RED:** `import docx,...` → ModuleNotFoundError
-- **GREEN:** all imports pass, 83 tests pass
-- **Commit:** `6a5d15a`
+## Task 0-2 Commit Sequence (chronological)
 
-## Task 1: Runtime Contracts
-- **RED:** 3 import errors (modules missing)
-- **GREEN:** 27 passed
-- **Commit:** `c6af299`
+| Commit | Message | Gate |
+|--------|---------|------|
+| `6a5d15a` | `docs: freeze phase two tutorial contracts` | GREEN |
+| `c6af299` | `feat: add phase two runtime contracts` | 27 pass |
+| `cba9315` | `feat: add tutorial research providers` | 38 pass |
+| `624464e` | `test: cover phase two provider contracts` | 9 RED |
+| `bd38a60` | `fix: complete phase two provider contracts` | 53 pass |
+| `d0eb8ee` | `docs: reconcile phase two provider evidence` | docs |
+| `66b33a2` | `style: format external adapter test lines` | format |
+| `9b2422b` | `test: require phase two provider remediation fixes` | 8 RED |
+| `f1b87bc` | `fix: enforce phase two provider contracts` | GREEN |
+| `722fc73` | `fix: reconcile remediation test formatting` | format |
 
-## Task 2: Research Providers
-- **Commit:** `cba9315`
-- **SQL policy:** 15 passed (valid SELECT, WITH, rejects INSERT/DELETE/comments/LOAD_FILE/FOR UPDATE/CALL/cross-db/multi-statement)
+## Round 2 RED Evidence (9b2422b)
 
-## Task 2-R: Provider Contract RED
-- **RED:** 9 failures (factory missing, patch targets wrong, LOAD_FILE+comment not rejected)
-- **Commit:** `624464e`
+```
+8 failed: test_success_path_yields_final_message (empty answer),
+test_subagents_use_real_tool_objects (string tools not callable),
+test_app_profile_only_tutorial (no validation),
+test_web/catalog/knowledge (wrong enums),
+test_mysql_user_must_be_tutorial_reader (root accepted),
+test_semicolon_trailing_rejected (semicolon passed)
+```
 
-## Task 2-F: Provider Contract Fixes
-- **GREEN:** 53 passed
-- **MySQL integration:** 6 passed (PHASE2_MYSQL_INTEGRATION=1)
-- **External smoke:** 2 skipped (no config)
-- **Commit:** `bd38a60`
+## Round 2 GREEN Evidence
 
-## MySQL Preserved-Volume Bootstrap
-- Container: `deepsearch-agents-mysql-1`, port 3307
-- `tutorial_reader` SELECT-only confirmed
-- `INSERT` rejected at DB level → row count unchanged (3)
+**149 unit tests pass, 10 skipped, MySQL integration 6 pass, external smoke 2 skip**
 
-## SQL Policy Coverage
-- Accepted: `SELECT *`, `SELECT with WHERE`, `WITH ... SELECT`, `SELECT COUNT`
-- Rejected: INSERT/DELETE/UPDATE/CREATE/DROP/ALTER/CALL/LOAD_FILE/FOR UPDATE/cross-db/multi-statement/comments
-- Table names validated against `[A-Za-z_][A-Za-z0-9_]*`
-- All limits clamped to 1..100 (preview) or 1..1000 (execute)
-
-## RAGFlow 0.26.0 API
-- `list_chats()` → `list[Chat]`
-- `Chat.name`, `Chat.description`, `Chat.knowledge_bases`
-- `Chat.create_session()` → `Session`
-- `Session.ask(question, stream=False)` → answer
-- `Chat.delete_sessions([session.id])` in finally
+### Fixes Applied
+1. **RAGFlow generator**: `Session.ask(stream=False)` iterated, `msg.content` extracted, `delete_sessions` in finally
+2. **Provider enums**: WEB=mock|tavily, CATALOG=mock|mysql, KNOWLEDGE=mock|ragflow, APP_PROFILE=tutorial only
+3. **tutorial_reader enforced**: factory rejects MYSQL_USER=root
+4. **Subagents**: `build_tutorial_subagents(web_tools, catalog_tools, knowledge_tools)` accepts callables
+5. **execute_readonly**: trailing semicolons rejected
+6. **detect-secrets**: baseline regenerated, pre-commit passes without --no-verify
+7. **EventBus**: overflow isolation verified, data field accepts JsonValue-compatible dicts
