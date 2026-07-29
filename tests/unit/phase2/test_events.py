@@ -122,20 +122,23 @@ class TestRealOverflowIsolation:
 
 
 class TestTypeAnnotations:
-    def test_tutorial_event_data_validates_json(self):
-        """TutorialEvent.data uses BeforeValidator for JsonValue enforcement."""
-        import typing
+    def test_model_validator_rejects_invalid_data(self):
+        """TutorialEvent.model_validator rejects non-JSON at construction."""
+        import pytest
+        from pydantic import ValidationError
 
         from app.api.events import TutorialEvent
 
-        hints = typing.get_type_hints(TutorialEvent, include_extras=True)
-        data_type = hints.get("data")
-        assert data_type is not None
-        # Annotated type wraps dict[str, Any] with BeforeValidator
-        type_str = str(data_type)
-        assert "BeforeValidator" in str(data_type) or "Annotated" in str(data_type), (
-            f"data must use Annotated/validator: {type_str}"
-        )
+        with pytest.raises(ValidationError):
+            TutorialEvent(
+                version=1,
+                sequence=1,
+                thread_id="t",
+                type="task_started",
+                message="m",
+                data={"bad": object()},
+                timestamp=__import__("datetime").datetime.now(),
+            )
 
     def test_emit_data_param_is_json_value(self):
         """InMemoryEventBus.emit data param typed as dict[str, JsonValue]."""

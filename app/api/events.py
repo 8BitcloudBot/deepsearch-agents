@@ -9,16 +9,11 @@ import datetime
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, BeforeValidator, Field
+from pydantic import BaseModel, Field, model_validator
 
 JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
-
-_JsonDict = Annotated[
-    dict[str, Any],
-    BeforeValidator(lambda v: (_validate_json_value(v), v)[1]),
-]
 
 
 def _validate_json_value(v: Any, path: str = "data") -> None:
@@ -32,12 +27,12 @@ def _validate_json_value(v: Any, path: str = "data") -> None:
     if isinstance(v, dict):
         for k, val in v.items():
             if not isinstance(k, str):
-                raise TypeError(
+                raise ValueError(
                     f"{path}: dict keys must be strings, got {type(k).__name__}"
                 )
             _validate_json_value(val, f"{path}.{k}")
         return
-    raise TypeError(f"{path}: value must be JSON-compatible, got {type(v).__name__}")
+    raise ValueError(f"{path}: value must be JSON-compatible, got {type(v).__name__}")
 
 
 TutorialEventType = Literal[
@@ -59,8 +54,14 @@ class TutorialEvent(BaseModel):
     thread_id: str
     type: TutorialEventType
     message: str
-    data: _JsonDict = Field(default_factory=dict)
+    data: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime.datetime
+
+    @model_validator(mode="after")
+    def _validate_data(self) -> "TutorialEvent":
+        """Recursively validate data is JSON-compatible at construction."""
+        _validate_json_value(self.data)
+        return self
 
 
 @dataclass(eq=False)
