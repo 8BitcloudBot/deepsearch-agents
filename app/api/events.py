@@ -11,7 +11,38 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _validate_json_value_strict(v: object, path: str = "data") -> None:
+    """Strict recursive JSON-only validator. Rejects bytes, set, tuple, etc."""
+    if v is None:
+        return
+    if isinstance(v, bool):
+        return
+    if isinstance(v, int) and not isinstance(v, bool):
+        return
+    if isinstance(v, float):
+        return
+    if isinstance(v, str):
+        return
+    if isinstance(v, list):
+        for i, item in enumerate(v):
+            _validate_json_value_strict(item, f"{path}[{i}]")
+        return
+    if isinstance(v, dict):
+        for k, val in v.items():
+            if not isinstance(k, str):
+                raise ValueError(
+                    f"{path}: dict keys must be str, got {type(k).__name__}"
+                )
+            _validate_json_value_strict(val, f"{path}.{k}")
+        return
+    raise ValueError(
+        f"{path}: value must be JSON-compatible (None/bool/int/float/str/"
+        f"list/dict), got {type(v).__name__}"
+    )
+
 
 type JsonValue = (
     None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
@@ -39,6 +70,12 @@ class TutorialEvent(BaseModel):
     message: str
     data: dict[str, JsonValue] = Field(default_factory=dict)
     timestamp: datetime.datetime
+
+    @field_validator("data", mode="before")
+    @classmethod
+    def _validate_data(cls, value: object) -> object:
+        _validate_json_value_strict(value)
+        return value
 
 
 @dataclass(eq=False)

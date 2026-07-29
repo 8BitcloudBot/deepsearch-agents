@@ -87,16 +87,49 @@ async def test_no_public_history_accessor():
 
 
 class TestJsonValueValidation:
-    @pytest.mark.parametrize("bad", [object(), {1: "bad"}])
-    def test_event_data_rejects_non_json_values(self, bad):
+    # ── positive cases ──
+    @pytest.mark.parametrize(
+        "good",
+        [
+            None,
+            True,
+            False,
+            0,
+            42,
+            3.14,
+            "hello",
+            [],
+            [1, "a", None],
+            {},
+            {"key": "value"},
+            {"nested": {"deep": [1, 2, None]}},
+        ],
+    )
+    def test_valid_json_values_accepted(self, good):
         bus = InMemoryEventBus()
-        with pytest.raises(Exception):
-            bus.emit("t", "task_started", "m", {"bad": bad})
+        bus.emit("t", "task_started", "m", {"k": good})
 
-    def test_valid_json_values_accepted(self):
+    # ── negative cases ──
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            object(),
+            b"x",
+            bytearray(b"x"),
+            {"x"},
+            frozenset({"x"}),
+            ("x",),
+            {1: "bad"},
+            {"nested": {"bad": object()}},
+            {"nested": [("x",)]},
+        ],
+    )
+    def test_event_data_rejects_non_json_values(self, bad):
+        from pydantic import ValidationError
+
         bus = InMemoryEventBus()
-        bus.emit("t", "task_started", "m", None)
-        bus.emit("t", "task_started", "m", {"k": True, "n": 42, "s": "hi", "l": [1, 2]})
+        with pytest.raises(ValidationError):
+            bus.emit("t", "task_started", "m", {"bad": bad})
 
 
 class TestRealOverflowIsolation:
@@ -176,4 +209,16 @@ class TestTypeAnnotations:
                 "nested": {"a": [1, 2, {"deep": None}]},
             },
             timestamp=__import__("datetime").datetime.now(),
+        )
+
+    def test_schema_data_additional_properties_references_jsonvalue(self):
+        """JSON Schema data.additionalProperties must reference JsonValue."""
+        from app.api.events import TutorialEvent
+
+        schema = TutorialEvent.model_json_schema()
+        data_prop = schema["properties"]["data"]
+        ap = data_prop.get("additionalProperties", {})
+        ref = ap.get("$ref", "")
+        assert "JsonValue" in ref, (
+            f"data.additionalProperties must reference JsonValue, got {ref}"
         )
