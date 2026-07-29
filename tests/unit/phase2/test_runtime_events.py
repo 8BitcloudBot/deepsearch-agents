@@ -329,51 +329,52 @@ class TestPreciseEventPairs:
     """Every success tool has started → call → completed ordering."""
 
     @pytest.mark.asyncio
-    async def test_tool_started_before_call_before_completed(self, events):
-        """Spy records interleaving: tool_started before call, completed after."""
+    async def test_tool_started_before_call_before_completed(self, tmp_path, events):
+        """Combined trace: events + provider calls interleaved.
+        Asserts started:X -> call:X.method -> completed:X for each tool."""
         from app.agent.runtime import MockTutorialRuntime, RuntimeRequest
         from app.api.context import SessionContext
-        from app.providers.contracts import ProviderBundle, SearchResult
+        from app.providers.contracts import (
+            KnowledgeAnswer,
+            ProviderBundle,
+            QueryResult,
+            SearchResult,
+            TableInfo,
+        )
 
-        calls: list[str] = []
+        trace: list[str] = []
 
         class SpyWeb:
             def search(self, query, *, max_results=5):
-                calls.append("web.search")
+                trace.append("call:web.search")
                 return SearchResult(query=query, hits=())
 
         class SpyCatalog:
             def list_tables(self):
-                calls.append("catalog.list_tables")
-                return ()
+                trace.append("call:catalog.list_tables")
+                return (TableInfo("drugs"),)
 
             def describe_table(self, tn):
-                calls.append("catalog.describe_table")
-                from app.providers.contracts import QueryResult
-
-                return QueryResult(columns=(), rows=(), truncated=False)
+                trace.append("call:catalog.describe_table")
+                return QueryResult(columns=("id", "name"), rows=(), truncated=False)
 
             def preview_table(self, tn, *, limit=20):
-                calls.append("catalog.preview_table")
-                from app.providers.contracts import QueryResult
-
-                return QueryResult(columns=(), rows=(), truncated=False)
+                trace.append("call:catalog.preview_table")
+                return QueryResult(columns=("id", "name"), rows=(), truncated=False)
 
             def execute_readonly(self, q, *, limit=100):
-                calls.append("catalog.execute_readonly")
-                from app.providers.contracts import QueryResult
-
-                return QueryResult(columns=(), rows=(), truncated=False)
+                trace.append("call:catalog.execute_readonly")
+                return QueryResult(columns=("id",), rows=(), truncated=False)
 
         class SpyKnowledge:
             def list_assistants(self):
-                calls.append("knowledge.list_assistants")
-                return ()
+                trace.append("call:knowledge.list_assistants")
+                from app.providers.contracts import KnowledgeAssistant
+
+                return (KnowledgeAssistant("a", "d", ()),)
 
             def ask(self, an, q):
-                calls.append("knowledge.ask")
-                from app.providers.contracts import KnowledgeAnswer
-
+                trace.append("call:knowledge.ask")
                 return KnowledgeAnswer(assistant_name=an, answer="ok")
 
         bundle = ProviderBundle(
@@ -387,61 +388,113 @@ class TestPreciseEventPairs:
         rt = MockTutorialRuntime(bundle, events)
         tid = "00000000-0000-4000-8000-000000000055"
 
-        import tempfile
-
-        td = tempfile.mkdtemp()
         from app.tools.files import SessionWorkspace
 
         ws = SessionWorkspace.for_thread(
             thread_id=tid,
-            base_upload=f"{td}/up",
-            base_output=f"{td}/out",
+            base_upload=str(tmp_path / "up-spy"),
+            base_output=str(tmp_path / "out-spy"),
         )
         ctx = SessionContext(thread_id=tid, workspace=ws)
 
-        async with events.subscribe(tid) as sub:
+        # Patch events.emit to record into trace
+        orig_emit = events.emit
+
+        def _tracing_emit(thread_id, event_type, message, data=None):
+            tn = (data or {}).get("tool_name", "")
+            if tn:
+                trace.append(f"{event_type}:{tn}")
+            return orig_emit(thread_id, event_type, message, data)
+
+        events.emit = _tracing_emit  # type: ignore[method-assign]
+
+        # Patch report writers to record calls into trace
+        import app.agent.runtime as _rt
+
+        _orig_md = _rt.generate_markdown_report
+        _orig_pdf = _rt.generate_pdf_report
+
+        def _md_trace(content):
+            trace.append("call:generate_markdown_report")
+            return _orig_md(content)
+
+        def _pdf_trace(content):
+            trace.append("call:generate_pdf_report")
+            return _orig_pdf(content)
+
+        _rt.generate_markdown_report = _md_trace  # type: ignore[assignment]
+        _rt.generate_pdf_report = _pdf_trace  # type: ignore[assignment]
+
+        async with events.subscribe(tid):
             await rt.run(RuntimeRequest("test", ctx))
-            emitted = []
-            while not sub.queue.empty():
-                emitted.append(sub.queue.get_nowait())
 
-        # Verify ordering: each started appears before its completed
-        started_indices: dict[str, int] = {}
-        completed_indices: dict[str, int] = {}
-        for i, e in enumerate(emitted):
-            tn = e.data.get("tool_name", "")
-            if e.type == "tool_started":
-                if tn not in started_indices:
-                    started_indices[tn] = i
-            if e.type == "tool_completed":
-                if tn not in completed_indices:
-                    completed_indices[tn] = i
+        # Restore
+        _rt.generate_markdown_report = _orig_md  # type: ignore[assignment]
+        _rt.generate_pdf_report = _orig_pdf  # type: ignore[assignment]
 
-        for tn in started_indices:
-            assert tn in completed_indices, f"{tn}: started but no completed"
-            assert started_indices[tn] < completed_indices[tn], (
-                f"{tn}: started at {started_indices[tn]} "
-                f"but completed at {completed_indices[tn]}"
-            )
+        # Verify strict ordering: started -> call -> completed for each domain
+        def _assert_triple(st: str, call: str, comp: str):
+            si = trace.index(st)
+            ci = trace.index(call)
+            ei = trace.index(comp)
+            assert si < ci < ei, f"Order wrong: {st}@{si} -> {call}@{ci} -> {comp}@{ei}"
 
-        # No duplicate 2/2: each tool name has exact one pair
-        for tn in set(started_indices) | set(completed_indices):
-            s_count = sum(
-                1
-                for e in emitted
-                if e.type == "tool_started" and e.data.get("tool_name") == tn
-            )
-            c_count = sum(
-                1
-                for e in emitted
-                if e.type == "tool_completed" and e.data.get("tool_name") == tn
-            )
-            assert s_count == 1, f"{tn}: {s_count} start events (must be 1)"
-            assert c_count == 1, f"{tn}: {c_count} completed events (must be 1)"
+        _assert_triple(
+            "tool_started:internet_search",
+            "call:web.search",
+            "tool_completed:internet_search",
+        )
+        _assert_triple(
+            "tool_started:list_sql_tables",
+            "call:catalog.list_tables",
+            "tool_completed:list_sql_tables",
+        )
+        _assert_triple(
+            "tool_started:preview_table",
+            "call:catalog.preview_table",
+            "tool_completed:preview_table",
+        )
+        _assert_triple(
+            "tool_started:execute_readonly_query",
+            "call:catalog.execute_readonly",
+            "tool_completed:execute_readonly_query",
+        )
+        _assert_triple(
+            "tool_started:list_knowledge_assistants",
+            "call:knowledge.list_assistants",
+            "tool_completed:list_knowledge_assistants",
+        )
+        _assert_triple(
+            "tool_started:ask_knowledge_assistant",
+            "call:knowledge.ask",
+            "tool_completed:ask_knowledge_assistant",
+        )
+        _assert_triple(
+            "tool_started:generate_markdown_report",
+            "call:generate_markdown_report",
+            "tool_completed:generate_markdown_report",
+        )
+        _assert_triple(
+            "tool_started:generate_pdf_report",
+            "call:generate_pdf_report",
+            "tool_completed:generate_pdf_report",
+        )
 
-        import shutil
-
-        shutil.rmtree(td, ignore_errors=True)
+        # No duplicate: each tool name exactly 1 pair
+        for tn in (
+            "internet_search",
+            "list_sql_tables",
+            "preview_table",
+            "execute_readonly_query",
+            "list_knowledge_assistants",
+            "ask_knowledge_assistant",
+            "generate_markdown_report",
+            "generate_pdf_report",
+        ):
+            s_count = sum(1 for x in trace if x == f"tool_started:{tn}")
+            c_count = sum(1 for x in trace if x == f"tool_completed:{tn}")
+            assert s_count == 1, f"{tn}: {s_count} start events"
+            assert c_count == 1, f"{tn}: {c_count} completed events"
 
 
 class TestAgentEventPayload:
@@ -562,7 +615,14 @@ class TestFakeGraphArtifactDedup:
         assert len(pdf_events) == 1, f"Expected 1 pdf artifact, got {len(pdf_events)}"
         for evt in md_events + pdf_events:
             assert not evt.data["path"].startswith("/")
-            assert evt.data["name"] in ("tutorial-report.md", "tutorial-report.pdf")
+            assert evt.data["name"] in (
+                "tutorial-report.md",
+                "tutorial-report.pdf",
+            )
+            if evt.data["path"] == "tutorial-report.md":
+                assert evt.data["media_type"] == "text/markdown"
+            if evt.data["path"] == "tutorial-report.pdf":
+                assert evt.data["media_type"] == "application/pdf"
 
 
 class _FakeMsg:

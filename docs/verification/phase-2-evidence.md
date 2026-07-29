@@ -73,7 +73,7 @@ Fixed `.name.tmp` symlink in workspace allows overwriting arbitrary files outsid
 - agent_started/agent_completed missing `agent_name` in data
 - real-model smoke reads MODEL_API_KEY but doesn't use it
 
-All remediation commits applied. Current HEAD: bc41e3c. 322 passed, 11 skipped.
+All remediation commits applied. Acceptance base: bc41e3c. 322 passed, 11 skipped.
 
 ## Task 3: Workspace & Reports Remediation
 
