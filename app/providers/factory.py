@@ -36,6 +36,8 @@ def _build_web(settings: Phase2Settings):
 
 def _build_catalog(settings: Phase2Settings):
     if settings.catalog_provider == "mysql":
+        if settings.mysql_user != "tutorial_reader":
+            raise ValueError("MYSQL_USER must be 'tutorial_reader' for mysql provider")
         from app.providers.mysql import MySQLCatalogProvider
 
         return MySQLCatalogProvider(

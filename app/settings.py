@@ -5,7 +5,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 VALID_RUNTIMES = frozenset({"mock", "deepagents"})
-VALID_PROVIDERS = frozenset({"mock", "tavily", "mysql", "ragflow"})
+VALID_APP_PROFILES = frozenset({"tutorial"})
+VALID_WEB_PROVIDERS = frozenset({"mock", "tavily"})
+VALID_CATALOG_PROVIDERS = frozenset({"mock", "mysql"})
+VALID_KNOWLEDGE_PROVIDERS = frozenset({"mock", "ragflow"})
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,13 @@ class Phase2Settings:
         def _get(key: str, default: str = "") -> str:
             return env.get(key, default)
 
+        profile = _get("APP_PROFILE", "tutorial")
+        if profile not in VALID_APP_PROFILES:
+            raise ValueError(
+                f"APP_PROFILE must be one of {sorted(VALID_APP_PROFILES)}, "
+                f"got {profile!r}"
+            )
+
         runtime = _get("TUTORIAL_RUNTIME", "mock")
         if runtime not in VALID_RUNTIMES:
             raise ValueError(
@@ -42,27 +52,28 @@ class Phase2Settings:
             )
 
         web = _get("WEB_PROVIDER", "mock")
-        if web not in VALID_PROVIDERS:
+        if web not in VALID_WEB_PROVIDERS:
             raise ValueError(
-                f"WEB_PROVIDER must be one of {sorted(VALID_PROVIDERS)}, got {web!r}"
+                f"WEB_PROVIDER must be one of {sorted(VALID_WEB_PROVIDERS)}, "
+                f"got {web!r}"
             )
 
         catalog = _get("CATALOG_PROVIDER", "mock")
-        if catalog not in VALID_PROVIDERS:
+        if catalog not in VALID_CATALOG_PROVIDERS:
             raise ValueError(
-                f"CATALOG_PROVIDER must be one of {sorted(VALID_PROVIDERS)}, "
+                f"CATALOG_PROVIDER must be one of {sorted(VALID_CATALOG_PROVIDERS)}, "
                 f"got {catalog!r}"
             )
 
         knowledge = _get("KNOWLEDGE_PROVIDER", "mock")
-        if knowledge not in VALID_PROVIDERS:
+        if knowledge not in VALID_KNOWLEDGE_PROVIDERS:
             raise ValueError(
-                f"KNOWLEDGE_PROVIDER must be one of {sorted(VALID_PROVIDERS)}, "
-                f"got {knowledge!r}"
+                f"KNOWLEDGE_PROVIDER must be one of "
+                f"{sorted(VALID_KNOWLEDGE_PROVIDERS)}, got {knowledge!r}"
             )
 
         return cls(
-            app_profile=_get("APP_PROFILE", "tutorial"),
+            app_profile=profile,
             tutorial_runtime=runtime,
             web_provider=web,
             catalog_provider=catalog,

@@ -21,10 +21,12 @@ class ReadOnlyQueryError(ValueError):
 
 def validate_readonly_query(query: str, *, database: str) -> None:
     """Validate that query is a single read-only SELECT on the given database."""
-    # Reject multi-statement (semicolons outside strings)
+    # Reject multi-statement and trailing semicolons
     stripped = query.strip()
-    if ";" in stripped.rstrip(";"):
+    if ";" in stripped[:-1] if len(stripped) > 1 else ";" in stripped:
         raise ReadOnlyQueryError("Multiple statements not allowed")
+    if stripped.endswith(";"):
+        raise ReadOnlyQueryError("Trailing semicolons not allowed")
 
     # Reject comments
     if "--" in query or "/*" in query:

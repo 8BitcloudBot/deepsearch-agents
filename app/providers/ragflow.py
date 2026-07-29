@@ -41,13 +41,11 @@ class RAGFlowKnowledgeProvider:
 
         session = target.create_session()
         try:
-            answer_data = session.ask(question, stream=False)
-            # answer_data may be str or dict
-            answer = ""
-            if isinstance(answer_data, str):
-                answer = answer_data
-            elif isinstance(answer_data, dict):
-                answer = answer_data.get("answer", str(answer_data))
-            return KnowledgeAnswer(assistant_name=assistant_name, answer=answer)
+            # Session.ask(stream=False) is a generator yielding Message objects
+            messages = session.ask(question, stream=False)
+            final_content = ""
+            for msg in messages:
+                final_content = getattr(msg, "content", str(msg))
+            return KnowledgeAnswer(assistant_name=assistant_name, answer=final_content)
         finally:
             target.delete_sessions([session.id])
