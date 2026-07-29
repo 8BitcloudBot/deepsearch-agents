@@ -12,7 +12,7 @@
 | 1 | Recursive Event Type | `6e79fa6` | JsonValue annotations, model_validator |
 | 2 | Delete False-Green Tests | `5df1ac5` | removed pass/placeholder, added provider SQL limit test |
 | 3 | Exact Subagent Contracts | `08630a4` | 10 tests: names, prompts, tools, domain isolation |
-| 4 | Remove Any Exposure + Evidence | `3e614ec` / `7ab3186` | model_validator, evidence reconciled |
+| 4 | Remove Any Exposure + Evidence | `c252de0` / `92a28d2` / `b7eadda` | PEP695 type, field_validator(mode="before"), strict rejection |
 
 ## Blockers
 

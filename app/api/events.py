@@ -106,7 +106,7 @@ class InMemoryEventBus:
             thread_id=thread_id,
             type=event_type,
             message=message,
-            data=data or {},
+            data={} if data is None else data,
             timestamp=self._clock(),
         )
         subs = self._subscriptions.get(thread_id, [])

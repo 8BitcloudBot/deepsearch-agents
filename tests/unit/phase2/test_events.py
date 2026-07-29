@@ -109,6 +109,20 @@ class TestJsonValueValidation:
         bus = InMemoryEventBus()
         bus.emit("t", "task_started", "m", {"k": good})
 
+    def test_rejects_toplevel_non_dict_values(self):
+        """emit(data=non-dict) must be rejected, not silently coerced to {}."""
+        from pydantic import ValidationError
+
+        bus = InMemoryEventBus()
+        for bad in [b"", set(), tuple(), "", 0, False, []]:
+            with pytest.raises(ValidationError):
+                bus.emit("t", "task_started", "m", bad)
+
+    def test_none_data_accepted(self):
+        """emit(data=None) must be accepted (default {})."""
+        bus = InMemoryEventBus()
+        bus.emit("t", "task_started", "m", None)
+
     # ── negative cases ──
     @pytest.mark.parametrize(
         "bad",
