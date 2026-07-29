@@ -276,3 +276,113 @@ async def test_mock_runtime_uses_all_three_providers(
     assert tool_names & web_tools, f"No web tool calls in {tool_names}"
     assert tool_names & catalog_tools, f"No catalog tool calls in {tool_names}"
     assert tool_names & knowledge_tools, f"No knowledge tool calls in {tool_names}"
+
+
+class TestToolFailureSemantics:
+    """Failure must NOT emit tool_completed."""
+
+    @pytest.mark.asyncio
+    async def test_reader_failure_no_completed(self, tmp_path, events, bundle):
+        """When read_uploaded_file fails, only tool_started is emitted."""
+        from app.agent.runtime import MockTutorialRuntime
+
+        thread_id = "00000000-0000-4000-8000-000000000099"
+        ws = SessionWorkspace.for_thread(
+            thread_id=thread_id,
+            base_upload=str(tmp_path / "up"),
+            base_output=str(tmp_path / "out"),
+        )
+        ctx = SessionContext(thread_id=thread_id, workspace=ws)
+        rt = MockTutorialRuntime(bundle, events)
+
+        # Create a non-UTF-8 upload that will fail
+        bad_file = ws.resolve_upload("bad.txt")
+        bad_file.write_bytes(b"\xff\xfe\x00\x00")
+
+        async with events.subscribe(thread_id) as sub:
+            try:
+                await rt.run(RuntimeRequest("test", ctx))
+            except Exception:
+                pass
+            emitted = []
+            while not sub.queue.empty():
+                emitted.append(sub.queue.get_nowait())
+
+        # Must have tool_started but NO tool_completed for read_uploaded_file
+        reader_started = [
+            e
+            for e in emitted
+            if e.data.get("tool_name") == "read_uploaded_file"
+            and e.type == "tool_started"
+        ]
+        reader_completed = [
+            e
+            for e in emitted
+            if e.data.get("tool_name") == "read_uploaded_file"
+            and e.type == "tool_completed"
+        ]
+        assert len(reader_started) >= 1, "Expected tool_started for read_uploaded_file"
+        assert len(reader_completed) == 0, "tool_completed emitted on failure!"
+
+
+class TestPreciseEventPairs:
+    """Every success tool has exactly one started+completed pair."""
+
+    @pytest.mark.asyncio
+    async def test_each_success_tool_has_exact_pair(
+        self, runtime, workspace, context, events
+    ):
+        """Each tool that succeeds must have exactly 1 started and 1 completed."""
+        async with events.subscribe(THREAD_ID) as sub:
+            await runtime.run(RuntimeRequest("test", context))
+            emitted = []
+            while not sub.queue.empty():
+                emitted.append(sub.queue.get_nowait())
+
+        tool_events = [
+            e for e in emitted if e.type in ("tool_started", "tool_completed")
+        ]
+        by_name: dict[str, dict[str, int]] = {}
+        for e in tool_events:
+            tn = e.data.get("tool_name", "unknown")
+            if tn not in by_name:
+                by_name[tn] = {"started": 0, "completed": 0}
+            by_name[tn][e.type[len("tool_") :]] += 1
+
+        for tn, counts in by_name.items():
+            assert counts["started"] == counts["completed"], (
+                f"{tn}: started={counts['started']} != completed={counts['completed']}"
+            )
+            assert counts["started"] >= 1, f"{tn}: no events at all"
+
+
+class TestAgentEventPayload:
+    """agent events carry agent_name."""
+
+    @pytest.mark.asyncio
+    async def test_agent_events_have_agent_name(
+        self, runtime, workspace, context, events
+    ):
+        async with events.subscribe(THREAD_ID) as sub:
+            await runtime.run(RuntimeRequest("test", context))
+            emitted = []
+            while not sub.queue.empty():
+                emitted.append(sub.queue.get_nowait())
+
+        for e in emitted:
+            if e.type in ("agent_started", "agent_completed"):
+                assert "agent_name" in e.data, f"{e.type} missing agent_name: {e.data}"
+                assert isinstance(e.data["agent_name"], str)
+                assert len(e.data["agent_name"]) > 0
+
+    @pytest.mark.asyncio
+    async def test_no_task_lifecycle_events(self, runtime, workspace, context, events):
+        async with events.subscribe(THREAD_ID) as sub:
+            await runtime.run(RuntimeRequest("test", context))
+            emitted = []
+            while not sub.queue.empty():
+                emitted.append(sub.queue.get_nowait())
+
+        forbidden = {"task_started", "task_completed", "task_cancelled", "task_failed"}
+        found = [e for e in emitted if e.type in forbidden]
+        assert not found, f"Task events leaked: {[(e.type, e.message) for e in found]}"

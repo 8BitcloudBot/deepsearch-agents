@@ -248,8 +248,8 @@ class DeepAgentsTutorialRuntime:
                                 collected_answer += content + "\n"
                             # Detect artifact_created from tool messages
                             if hasattr(msg, "name") and msg.name in (
-                                "generate_markdown_report",
-                                "generate_pdf_report",
+                                "generate_markdown_report_tool",
+                                "generate_pdf_report_tool",
                             ):
                                 artifact_name = (
                                     "tutorial-report.md"

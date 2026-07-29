@@ -100,12 +100,7 @@ def _build_read_uploaded_file_tool(events: InMemoryEventBus):
             )
             return content
         except Exception:
-            events.emit(
-                tid,
-                "tool_completed",
-                f"failed {filename}",
-                {"tool_name": "read_uploaded_file"},
-            )
+            # No tool_completed on failure — exception propagates
             raise
 
     return _read_uploaded_file_impl
