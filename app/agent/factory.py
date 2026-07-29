@@ -130,18 +130,13 @@ def _build_generate_markdown_tool(events: InMemoryEventBus):
     from langchain_core.runnables import RunnableConfig
     from langchain_core.tools import tool
 
-    from app.api.context import current_session
     from app.tools.reports import generate_markdown_report
 
     @tool
     async def generate_markdown_report_tool(
         content: str, config: RunnableConfig
     ) -> str:
-        """Generate a Markdown report from the given content.
-
-        Args:
-            content: The report content in Markdown format.
-        """
+        """Generate a Markdown report from the given content."""
         tid = _thread_id(config)
         events.emit(
             tid,
@@ -149,8 +144,7 @@ def _build_generate_markdown_tool(events: InMemoryEventBus):
             "generating markdown report",
             {"tool_name": "generate_markdown_report"},
         )
-        session = current_session()
-        _ = generate_markdown_report(content, session.workspace.output_dir)
+        _ = generate_markdown_report(content)
         events.emit(
             tid,
             "artifact_created",
@@ -177,7 +171,6 @@ def _build_generate_pdf_tool(events: InMemoryEventBus):
     from langchain_core.runnables import RunnableConfig
     from langchain_core.tools import tool
 
-    from app.api.context import current_session
     from app.tools.reports import generate_pdf_report
 
     @tool
@@ -194,8 +187,7 @@ def _build_generate_pdf_tool(events: InMemoryEventBus):
             "generating pdf report",
             {"tool_name": "generate_pdf_report"},
         )
-        session = current_session()
-        _ = generate_pdf_report(content, session.workspace.output_dir)
+        _ = generate_pdf_report(content)
         events.emit(
             tid,
             "artifact_created",

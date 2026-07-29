@@ -168,10 +168,10 @@ class MockTutorialRuntime:
 
             # 6. Generate reports
             self._emit_tool_pair(tid, "generate_markdown_report", "generating markdown")
-            _ = generate_markdown_report(report_text, ws.output_dir)
+            _ = generate_markdown_report(report_text)
 
             self._emit_tool_pair(tid, "generate_pdf_report", "generating pdf")
-            _ = generate_pdf_report(report_text, ws.output_dir)
+            _ = generate_pdf_report(report_text)
 
             # Emit artifact events
             self._events.emit(
@@ -244,7 +244,6 @@ class DeepAgentsTutorialRuntime:
 
     async def run(self, request: RuntimeRequest) -> RuntimeResult:
         tid = request.context.thread_id
-        ws = request.context.workspace
 
         with session_context(request.context):
             self._events.emit(tid, "agent_started", "tutorial-research-agent", {})
@@ -294,7 +293,7 @@ class DeepAgentsTutorialRuntime:
                     " is in mock mode.\n\n" + report_text
                 )
 
-            _ = generate_markdown_report(report_text, ws.output_dir)
+            _ = generate_markdown_report(report_text)
             self._events.emit(
                 tid,
                 "artifact_created",
@@ -306,7 +305,7 @@ class DeepAgentsTutorialRuntime:
                 },
             )
 
-            _ = generate_pdf_report(report_text, ws.output_dir)
+            _ = generate_pdf_report(report_text)
             self._events.emit(
                 tid,
                 "artifact_created",
