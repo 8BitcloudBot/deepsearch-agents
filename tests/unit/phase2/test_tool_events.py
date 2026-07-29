@@ -48,9 +48,7 @@ async def test_internet_search_emits_paired_events():
     config = {"configurable": {"thread_id": "thread-42"}}
 
     async with bus.subscribe("thread-42") as sub:
-        result = await tool.ainvoke(
-            {"query": "test"}, config=RunnableConfigWrapper(config)
-        )
+        _ = await tool.ainvoke({"query": "test"}, config=RunnableConfigWrapper(config))
         while not sub.queue.empty():
             collected.append(sub.queue.get_nowait())
 

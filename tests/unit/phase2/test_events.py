@@ -99,19 +99,6 @@ class TestJsonValueValidation:
         bus.emit("t", "task_started", "m", {"k": True, "n": 42, "s": "hi", "l": [1, 2]})
 
 
-class TestJsonValueValidation:
-    @pytest.mark.parametrize("bad", [object(), b"x", {"x"}, ("x",), {1: "bad"}])
-    def test_event_data_rejects_non_json_values(self, bad):
-        bus = InMemoryEventBus()
-        with pytest.raises((TypeError, ValueError)):
-            bus.emit("t", "task_started", "m", {"bad": bad})
-
-    def test_valid_json_values_accepted(self):
-        bus = InMemoryEventBus()
-        bus.emit("t", "task_started", "m", None)
-        bus.emit("t", "task_started", "m", {"k": True, "n": 42, "s": "hi", "l": [1, 2]})
-
-
 class TestRealOverflowIsolation:
     @pytest.mark.asyncio
     async def test_257_events_overflow_one_subscriber(self):
