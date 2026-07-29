@@ -18,7 +18,7 @@ JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "Jso
 
 def _validate_json_value(v: Any, path: str = "data") -> None:
     """Recursively validate that v is a JSON-compatible value."""
-    if v is None or isinstance(v, (bool, int, float, str)):
+    if v is None or isinstance(v, bool | int | float | str):
         return
     if isinstance(v, list):
         for i, item in enumerate(v):
@@ -54,7 +54,9 @@ class TutorialEvent(BaseModel):
     thread_id: str
     type: TutorialEventType
     message: str
-    data: dict[str, Any] = Field(default_factory=dict)
+    data: dict[str, Any] = Field(
+        default_factory=dict
+    )  # validated at runtime by _validate_json_value
     timestamp: datetime.datetime
 
 
@@ -77,7 +79,7 @@ class InMemoryEventBus:
         thread_id: str,
         event_type: TutorialEventType,
         message: str,
-        data: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,  # validated by _validate_json_value
     ) -> TutorialEvent:
         if data is not None:
             _validate_json_value(data)
