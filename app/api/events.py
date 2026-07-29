@@ -13,6 +13,28 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
+
+
+def _validate_json_value(v: Any, path: str = "data") -> None:
+    """Recursively validate that v is a JSON-compatible value."""
+    if v is None or isinstance(v, (bool, int, float, str)):
+        return
+    if isinstance(v, list):
+        for i, item in enumerate(v):
+            _validate_json_value(item, f"{path}[{i}]")
+        return
+    if isinstance(v, dict):
+        for k, val in v.items():
+            if not isinstance(k, str):
+                raise TypeError(
+                    f"{path}: dict keys must be strings, got {type(k).__name__}"
+                )
+            _validate_json_value(val, f"{path}.{k}")
+        return
+    raise TypeError(f"{path}: value must be JSON-compatible, got {type(v).__name__}")
+
+
 TutorialEventType = Literal[
     "task_started",
     "agent_started",
@@ -57,6 +79,8 @@ class InMemoryEventBus:
         message: str,
         data: dict[str, Any] | None = None,
     ) -> TutorialEvent:
+        if data is not None:
+            _validate_json_value(data)
         seq = self._sequences.get(thread_id, 0) + 1
         self._sequences[thread_id] = seq
         event = TutorialEvent(

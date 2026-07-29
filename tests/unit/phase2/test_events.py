@@ -84,3 +84,51 @@ async def test_no_public_history_accessor():
     assert not hasattr(bus, "history")
     assert not hasattr(bus, "events")
     assert not hasattr(bus, "for_thread")
+
+
+class TestJsonValueValidation:
+    @pytest.mark.parametrize("bad", [object(), b"x", {"x"}, ("x",), {1: "bad"}])
+    def test_event_data_rejects_non_json_values(self, bad):
+        bus = InMemoryEventBus()
+        with pytest.raises((TypeError, ValueError)):
+            bus.emit("t", "task_started", "m", {"bad": bad})
+
+    def test_valid_json_values_accepted(self):
+        bus = InMemoryEventBus()
+        bus.emit("t", "task_started", "m", None)
+        bus.emit("t", "task_started", "m", {"k": True, "n": 42, "s": "hi", "l": [1, 2]})
+
+
+class TestJsonValueValidation:
+    @pytest.mark.parametrize("bad", [object(), b"x", {"x"}, ("x",), {1: "bad"}])
+    def test_event_data_rejects_non_json_values(self, bad):
+        bus = InMemoryEventBus()
+        with pytest.raises((TypeError, ValueError)):
+            bus.emit("t", "task_started", "m", {"bad": bad})
+
+    def test_valid_json_values_accepted(self):
+        bus = InMemoryEventBus()
+        bus.emit("t", "task_started", "m", None)
+        bus.emit("t", "task_started", "m", {"k": True, "n": 42, "s": "hi", "l": [1, 2]})
+
+
+class TestRealOverflowIsolation:
+    @pytest.mark.asyncio
+    async def test_257_events_overflow_one_subscriber(self):
+        bus = InMemoryEventBus()
+        async with bus.subscribe("t") as sub_a:
+            async with bus.subscribe("t") as sub_b:
+                # Drain sub_a first so only sub_b fills up
+                for i in range(257):
+                    bus.emit("t", "tool_started", str(i))
+                    # Drain sub_a as we go
+                    while not sub_a.queue.empty():
+                        sub_a.queue.get_nowait()
+                # sub_a is empty, sub_b should have overflowed
+                assert not sub_a.overflowed.is_set()
+                assert sub_b.overflowed.is_set()
+        # After overflowed sub exits, new subscriber gets only future
+        async with bus.subscribe("t") as sub_c:
+            bus.emit("t", "tool_started", "future")
+            ev = await asyncio.wait_for(sub_c.queue.get(), timeout=1)
+            assert ev.message == "future"
