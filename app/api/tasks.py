@@ -12,6 +12,10 @@ from app.api.events import InMemoryEventBus
 from app.tools.files import SessionWorkspace
 
 
+class DuplicateTaskError(ValueError):
+    """A task with this thread_id is already active."""
+
+
 class TaskRegistry:
     """In-memory task lifecycle manager.
 
@@ -32,44 +36,54 @@ class TaskRegistry:
         self._base_output = base_output
         self._tasks: dict[str, asyncio.Task[object]] = {}
 
-    def start(self, query: str) -> str:
-        """Create and start a task. Returns thread_id.
+    def start(self, query: str, thread_id: str | None = None) -> str:
+        """Start a task. Returns thread_id.
 
-        Raises ValueError if a task with the same thread_id is active.
+        Uses provided thread_id or generates a UUID. Atomically rejects
+        if an active task already exists for the given thread_id.
+        task_started is emitted synchronously before the asyncio task.
         """
-        thread_id = str(uuid.uuid4())
+        tid = thread_id or str(uuid.uuid4())
 
-        if thread_id in self._tasks and not self._tasks[thread_id].done():
-            raise ValueError(f"Task {thread_id} already running")
+        existing = self._tasks.get(tid)
+        if existing is not None and not existing.done():
+            raise DuplicateTaskError(f"Task {tid} is already running")
 
         ws = SessionWorkspace.for_thread(
-            thread_id=thread_id,
+            thread_id=tid,
             base_upload=self._base_upload,
             base_output=self._base_output,
         )
-        ctx = SessionContext(thread_id=thread_id, workspace=ws)
+        ctx = SessionContext(thread_id=tid, workspace=ws)
 
-        self._events.emit(thread_id, "task_started", query, {})
+        # task_started emitted synchronously before create_task
+        self._events.emit(tid, "task_started", query, {})
 
         request = RuntimeRequest(query=query, context=ctx)
-        task = asyncio.create_task(self._run_lifecycle(request, thread_id))
-        self._tasks[thread_id] = task
-        return thread_id
+        task = asyncio.create_task(self._run_lifecycle(request, tid))
+        self._tasks[tid] = task
+        return tid
+
+    def get(self, thread_id: str) -> asyncio.Task[object] | None:
+        return self._tasks.get(thread_id)
 
     async def cancel(self, thread_id: str) -> str:
-        """Cancel a running task. Returns 'cancelled', 'cancelling', or 'not_found'."""
+        """Cancel a running task. Returns 'cancelled', 'cancelling',
+        or 'not_found'."""
         task = self._tasks.get(thread_id)
         if task is None or task.done():
             return "not_found"
         task.cancel()
         try:
-            await asyncio.wait_for(task, timeout=1.0)
+            await asyncio.wait_for(asyncio.shield(task), timeout=1.0)
             return "cancelled"
         except TimeoutError:
             return "cancelling"
+        except asyncio.CancelledError:
+            return "cancelled"
 
     async def _run_lifecycle(self, request: RuntimeRequest, thread_id: str) -> None:
-        """Run the runtime and translate result into terminal events."""
+        """Run the runtime and emit exactly one terminal event."""
         try:
             result = await self._runtime.run(request)
             self._events.emit(
@@ -88,7 +102,6 @@ class TaskRegistry:
                 {},
             )
         finally:
-            # Remove from registry after terminal event
             self._tasks.pop(thread_id, None)
 
     @property

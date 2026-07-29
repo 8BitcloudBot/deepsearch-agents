@@ -1,7 +1,5 @@
 """Phase 2 HTTP request/response and WebSocket message schemas."""
 
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
 # ── Task ─────────────────────────────────────────────────────────────────────
@@ -9,24 +7,32 @@ from pydantic import BaseModel, Field
 
 class TaskStartRequest(BaseModel):
     query: str = Field(min_length=1, max_length=10000)
+    thread_id: str | None = None
 
 
 class TaskStartResponse(BaseModel):
+    status: str = "started"
     thread_id: str
-    status: Literal["accepted"] = "accepted"
 
 
 class TaskCancelResponse(BaseModel):
     thread_id: str
-    status: Literal["cancelled", "cancelling", "not_found"]
+    status: str  # "cancelled" | "cancelling" | "not_found"
 
 
 # ── Upload ───────────────────────────────────────────────────────────────────
 
 
-class UploadResponse(BaseModel):
+class UploadFileInfo(BaseModel):
     filename: str
     size: int
+    media_type: str
+
+
+class UploadResponse(BaseModel):
+    status: str = "uploaded"
+    thread_id: str
+    files: list[UploadFileInfo]
 
 
 # ── Files / Download ─────────────────────────────────────────────────────────
@@ -40,6 +46,7 @@ class FileInfo(BaseModel):
 
 
 class FileListResponse(BaseModel):
+    thread_id: str
     files: list[FileInfo]
 
 
@@ -47,9 +54,4 @@ class FileListResponse(BaseModel):
 
 
 class HeartbeatMessage(BaseModel):
-    type: Literal["pong"]
-
-
-class ErrorMessage(BaseModel):
-    type: Literal["error"]
-    detail: str
+    type: str = "pong"

@@ -2,15 +2,24 @@
 
 Implements the locked Phase 2 contract:
 POST /api/task, POST /api/task/{thread_id}/cancel,
-POST /api/upload, GET /api/files, GET /api/download,
+POST /api/upload, GET /api/files/{thread_id},
+GET /api/download/{thread_id}/{filename},
 WS /ws/{thread_id}, GET /health → phase: "2".
 """
 
 import asyncio
 import json
+import re
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, Query, UploadFile, WebSocket
+from fastapi import (
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+    WebSocket,
+)
 from fastapi.responses import FileResponse
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
@@ -23,9 +32,10 @@ from app.api.schemas import (
     TaskCancelResponse,
     TaskStartRequest,
     TaskStartResponse,
+    UploadFileInfo,
     UploadResponse,
 )
-from app.api.tasks import TaskRegistry
+from app.api.tasks import DuplicateTaskError, TaskRegistry
 from app.providers.contracts import ProviderBundle
 from app.settings import Phase2Settings
 from app.tools.files import (
@@ -34,6 +44,16 @@ from app.tools.files import (
     save_uploaded_file,
 )
 
+UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+def _validate_uuid(tid: str, label: str = "thread_id") -> None:
+    if not UUID_RE.fullmatch(tid):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid {label}: must be a UUID, got {tid!r}",
+        )
+
 
 def create_app(
     settings: Phase2Settings | None = None,
@@ -41,35 +61,13 @@ def create_app(
     runtime: TutorialRuntime | None = None,
     events: InMemoryEventBus | None = None,
 ) -> FastAPI:
-    """Create and configure the FastAPI application for Phase 2.
-
-    Accepts optional overrides for testing. In production, settings
-    drive the construction of bundle, runtime, and events.
-    """
+    """Create and configure the FastAPI application for Phase 2."""
     app = FastAPI(title="research-copilot-api")
 
     settings = settings or Phase2Settings.from_env()
     events = events or InMemoryEventBus()
-    registry: TaskRegistry | None = None
 
-    if runtime is not None:
-        registry = TaskRegistry(
-            runtime=runtime,
-            events=events,
-            base_upload="updated",
-            base_output="output",
-        )
-    elif bundle is not None and runtime is not None:
-        registry = TaskRegistry(
-            runtime=runtime,
-            events=events,
-            base_upload="updated",
-            base_output="output",
-        )
-
-    # Workaround: always create a registry for /health and /upload
-    # In production, this is wired via build_providers + create_tutorial_agent
-    if registry is None:
+    if runtime is None:
         from app.agent.runtime import MockTutorialRuntime
 
         if bundle is None:
@@ -87,33 +85,31 @@ def create_app(
                 catalog_mode="mock",
                 knowledge_mode="mock",
             )
-        default_rt = MockTutorialRuntime(bundle, events)
-        registry = TaskRegistry(
-            runtime=default_rt,
-            events=events,
-            base_upload="updated",
-            base_output="output",
-        )
+        runtime = MockTutorialRuntime(bundle, events)
 
-    app.state.events = events
-    app.state.registry = registry
+    registry = TaskRegistry(
+        runtime=runtime,
+        events=events,
+        base_upload="updated",
+        base_output="output",
+    )
 
     # ── Health ────────────────────────────────────────────────────────────
 
     @app.get("/health")
     async def health():
-        web_mode = getattr(bundle, "web_mode", "mock") if bundle else "mock"
-        catalog_mode = getattr(bundle, "catalog_mode", "mock") if bundle else "mock"
-        knowledge_mode = getattr(bundle, "knowledge_mode", "mock") if bundle else "mock"
+        wm = getattr(bundle, "web_mode", "mock") if bundle else "mock"
+        cm = getattr(bundle, "catalog_mode", "mock") if bundle else "mock"
+        km = getattr(bundle, "knowledge_mode", "mock") if bundle else "mock"
         return {
             "status": "ok",
             "service": "research-copilot-api",
             "phase": "2",
             "tutorial_profile": "tutorial",
             "tutorial_runtime": settings.tutorial_runtime,
-            "web_provider": web_mode,
-            "catalog_provider": catalog_mode,
-            "knowledge_provider": knowledge_mode,
+            "web_provider": wm,
+            "catalog_provider": cm,
+            "knowledge_provider": km,
         }
 
     # ── Task ──────────────────────────────────────────────────────────────
@@ -121,13 +117,14 @@ def create_app(
     @app.post("/api/task", status_code=202)
     async def start_task(body: TaskStartRequest):
         try:
-            tid = registry.start(body.query)
+            tid = registry.start(body.query, thread_id=body.thread_id)
             return TaskStartResponse(thread_id=tid)
-        except ValueError as exc:
+        except DuplicateTaskError as exc:
             raise HTTPException(status_code=409, detail=str(exc))
 
     @app.post("/api/task/{thread_id}/cancel")
     async def cancel_task(thread_id: str):
+        _validate_uuid(thread_id)
         status = await registry.cancel(thread_id)
         if status == "not_found":
             raise HTTPException(status_code=404, detail="task not found")
@@ -136,31 +133,43 @@ def create_app(
     # ── Upload ────────────────────────────────────────────────────────────
 
     @app.post("/api/upload")
-    async def upload_file(file: UploadFile = File(...)):
-        if not file.filename:
-            raise HTTPException(status_code=400, detail="empty filename")
-        data = await file.read()
-        if len(data) > MAX_FILE_SIZE_BYTES:
-            raise HTTPException(status_code=413, detail="file too large")
-        # Use a temporary workspace to save the file
-        import uuid as _uuid
+    async def upload_file(
+        thread_id: str = Form(...),
+        files: list[UploadFile] = File(...),
+    ):
+        _validate_uuid(thread_id)
 
-        tid = str(_uuid.uuid4())
         ws = SessionWorkspace.for_thread(
-            thread_id=tid,
+            thread_id=thread_id,
             base_upload="updated",
             base_output="output",
         )
-        try:
-            saved = save_uploaded_file(ws, file.filename, data)
-            return UploadResponse(filename=file.filename, size=saved.stat().st_size)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
+        results: list[UploadFileInfo] = []
+        for f in files:
+            if not f.filename:
+                raise HTTPException(status_code=400, detail="empty filename")
+            data = await f.read()
+            if len(data) > MAX_FILE_SIZE_BYTES:
+                raise HTTPException(status_code=413, detail="file too large")
+            try:
+                saved = save_uploaded_file(ws, f.filename, data)
+                results.append(
+                    UploadFileInfo(
+                        filename=f.filename,
+                        size=saved.stat().st_size,
+                        media_type=_guess_media_type(f.filename),
+                    )
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc))
+
+        return UploadResponse(thread_id=thread_id, files=results)
 
     # ── Files ─────────────────────────────────────────────────────────────
 
-    @app.get("/api/files")
-    async def list_files(thread_id: str = Query(...)):
+    @app.get("/api/files/{thread_id}")
+    async def list_files(thread_id: str):
+        _validate_uuid(thread_id)
         ws = SessionWorkspace.for_thread(
             thread_id=thread_id,
             base_upload="updated",
@@ -168,12 +177,12 @@ def create_app(
         )
         output_dir = ws.output_dir
         if not output_dir.exists():
-            return FileListResponse(files=[])
+            return FileListResponse(thread_id=thread_id, files=[])
 
-        files = []
+        flist = []
         for fpath in sorted(output_dir.iterdir()):
             if fpath.is_file():
-                files.append(
+                flist.append(
                     FileInfo(
                         name=fpath.name,
                         path=fpath.name,
@@ -181,25 +190,25 @@ def create_app(
                         media_type=_guess_media_type(fpath.name),
                     )
                 )
-        return FileListResponse(files=files)
+        return FileListResponse(thread_id=thread_id, files=flist)
 
-    @app.get("/api/download")
-    async def download_file(thread_id: str = Query(...), path: str = Query(...)):
+    @app.get("/api/download/{thread_id}/{filename:path}")
+    async def download_file(thread_id: str, filename: str):
+        _validate_uuid(thread_id)
         ws = SessionWorkspace.for_thread(
             thread_id=thread_id,
             base_upload="updated",
             base_output="output",
         )
         try:
-            resolved = ws.resolve_output(path)
+            resolved = ws.resolve_output(filename)
         except Exception:
-            raise HTTPException(status_code=400, detail="invalid path")
+            raise HTTPException(status_code=400, detail="invalid filename")
         if not resolved.exists() or not resolved.is_file():
             raise HTTPException(status_code=404, detail="file not found")
-        media_type = _guess_media_type(path)
         return FileResponse(
             str(resolved),
-            media_type=media_type,
+            media_type=_guess_media_type(filename),
             filename=resolved.name,
         )
 
@@ -207,10 +216,14 @@ def create_app(
 
     @app.websocket("/ws/{thread_id}")
     async def websocket_endpoint(ws: WebSocket, thread_id: str):
-        await ws.accept()
+        if not UUID_RE.fullmatch(thread_id):
+            await ws.close(code=4000)
+            return
 
+        # Subscribe BEFORE accepting
         async with events.subscribe(thread_id) as subscription:
-            # Race between queue.get(), overflowed, and client messages
+            await ws.accept()
+
             async def _send_events():
                 while True:
                     get_task = asyncio.create_task(subscription.queue.get())
@@ -231,12 +244,10 @@ def create_app(
                         if ws.client_state == WebSocketState.CONNECTED:
                             await ws.close(code=1013)
                         return
-                    # Cancel unfinished tasks
                     for t in [get_task, overflow_task]:
                         if not t.done():
                             t.cancel()
 
-            # Client message handler
             async def _recv_messages():
                 while True:
                     try:
@@ -247,7 +258,6 @@ def create_app(
                     except (WebSocketDisconnect, Exception):
                         return
 
-            # Run both concurrently
             send_task = asyncio.create_task(_send_events())
             recv_task = asyncio.create_task(_recv_messages())
             done, _ = await asyncio.wait(
@@ -263,13 +273,9 @@ def create_app(
 
 def _guess_media_type(filename: str) -> str:
     ext = Path(filename).suffix.lower()
-    mapping = {
+    mapping: dict[str, str] = {
         ".md": "text/markdown",
         ".txt": "text/plain",
         ".pdf": "application/pdf",
-        ".docx": (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ),
-        ".xlsx": ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
     }
     return mapping.get(ext, "application/octet-stream")

@@ -5,12 +5,10 @@ import asyncio
 import pytest
 
 from app.api.events import InMemoryEventBus
-from app.api.tasks import TaskRegistry
+from app.api.tasks import DuplicateTaskError, TaskRegistry
 
 
 class SpyRuntime:
-    """Records calls and returns controlled results."""
-
     def __init__(self):
         self.runs: list[str] = []
         self._result = None
@@ -20,9 +18,7 @@ class SpyRuntime:
     def set_result(self, result):
         from app.agent.runtime import RuntimeResult
 
-        self._result = result or RuntimeResult(
-            answer="ok", artifacts=("tutorial-report.md",)
-        )
+        self._result = result or RuntimeResult(answer="ok", artifacts=())
 
     def set_error(self, exc):
         self._error = exc
@@ -65,26 +61,8 @@ def registry(runtime, events):
 
 class TestTaskRegistry:
     @pytest.mark.asyncio
-    async def test_start_returns_thread_id(self, registry):
-        tid = registry.start("test query")
-        assert isinstance(tid, str)
-        assert len(tid) > 0
-
-    @pytest.mark.asyncio
-    async def test_start_emits_task_started(self, registry, events):
-        tid = registry.start("test")
-        # Wait for task to complete
-        await asyncio.sleep(0.1)
-        subbed = []
-        async with events.subscribe(tid) as sub:
-            while not sub.queue.empty():
-                subbed.append(sub.queue.get_nowait())
-        # task_started was emitted before subscription, check via direct emit
-        # subscription captures events after subscribe
-        assert len(subbed) >= 0  # task may have completed before subscribe
-
-    @pytest.mark.asyncio
-    async def test_task_completion_emits_terminal(self, runtime, events):
+    async def test_task_started_emitted_synchronously(self, runtime, events):
+        """task_started is emitted before the asyncio task runs."""
         registry = TaskRegistry(
             runtime=runtime,
             events=events,
@@ -92,24 +70,27 @@ class TestTaskRegistry:
             base_output="/tmp/out",
         )
         tid = registry.start("test")
-        # Drain the queue to capture task_started
-        async with events.subscribe(tid) as sub:
-            # Wait a bit for the task to complete
-            await asyncio.sleep(0.3)
-            emitted = []
-            while not sub.queue.empty():
-                emitted.append(sub.queue.get_nowait())
-        types = {e.type for e in emitted}
-        assert "task_completed" in types, f"Missing terminal: {types}"
+        # task_started must already be in the event stream
+        subbed = events._sequences.get(tid, 0)
+        assert subbed >= 1, "task_started not emitted synchronously"
 
     @pytest.mark.asyncio
-    async def test_cancel_not_found_for_unknown(self, registry):
-        status = await registry.cancel("nonexistent")
-        assert status == "not_found"
+    async def test_duplicate_active_task_409(self, runtime, events):
+        runtime.set_delay(5.0)
+        registry = TaskRegistry(
+            runtime=runtime,
+            events=events,
+            base_upload="/tmp/up",
+            base_output="/tmp/out",
+        )
+        tid = "00000000-0000-4000-8000-0000000000aa"
+        registry.start("first", thread_id=tid)
+        with pytest.raises(DuplicateTaskError):
+            registry.start("second", thread_id=tid)
 
     @pytest.mark.asyncio
-    async def test_cancel_active_task(self, runtime, events):
-        runtime.set_delay(5.0)  # Long-running
+    async def test_cancel_before_runtime_entry(self, runtime, events):
+        runtime.set_delay(10.0)
         registry = TaskRegistry(
             runtime=runtime,
             events=events,
@@ -120,6 +101,40 @@ class TestTaskRegistry:
         await asyncio.sleep(0.05)
         status = await registry.cancel(tid)
         assert status in ("cancelled", "cancelling")
+
+    @pytest.mark.asyncio
+    async def test_active_cancel(self, runtime, events):
+        runtime.set_delay(5.0)
+        registry = TaskRegistry(
+            runtime=runtime,
+            events=events,
+            base_upload="/tmp/up",
+            base_output="/tmp/out",
+        )
+        tid = registry.start("slow")
+        status = await registry.cancel(tid)
+        assert status in ("cancelled", "cancelling")
+
+    @pytest.mark.asyncio
+    async def test_failure_redaction(self, runtime, events):
+        runtime.set_error(ValueError("secret: /etc/passwd P@ssword"))
+        registry = TaskRegistry(
+            runtime=runtime,
+            events=events,
+            base_upload="/tmp/up",
+            base_output="/tmp/out",
+        )
+        tid = registry.start("test")
+        await asyncio.sleep(0.3)
+        async with events.subscribe(tid) as sub:
+            emitted = []
+            while not sub.queue.empty():
+                emitted.append(sub.queue.get_nowait())
+        for e in emitted:
+            if e.type == "task_failed":
+                assert "/etc/passwd" not in e.message
+                assert "secret" not in e.message
+                assert "P@ssword" not in e.message
 
     @pytest.mark.asyncio
     async def test_exactly_one_terminal_per_task(self, runtime, events):
@@ -135,33 +150,23 @@ class TestTaskRegistry:
             emitted = []
             while not sub.queue.empty():
                 emitted.append(sub.queue.get_nowait())
-        terminal_types = {"task_completed", "task_cancelled", "task_failed"}
-        terminals = [e for e in emitted if e.type in terminal_types]
-        assert len(terminals) == 1, (
-            f"Expected 1 terminal, got {len(terminals)}: "
-            f"{[(e.type, e.message) for e in terminals]}"
+        terminals = {
+            "task_completed",
+            "task_cancelled",
+            "task_failed",
+        }
+        terminal_events = [e for e in emitted if e.type in terminals]
+        assert len(terminal_events) == 1, (
+            f"Expected 1 terminal, got {len(terminal_events)}"
         )
 
     @pytest.mark.asyncio
-    async def test_failure_redaction(self, runtime, events):
-        runtime.set_error(ValueError("secret: /etc/passwd"))
-        registry = TaskRegistry(
-            runtime=runtime,
-            events=events,
-            base_upload="/tmp/up",
-            base_output="/tmp/out",
-        )
-        tid = registry.start("test")
-        await asyncio.sleep(0.2)
-        async with events.subscribe(tid) as sub:
-            emitted = []
-            try:
-                while True:
-                    emitted.append(sub.queue.get_nowait())
-            except asyncio.QueueEmpty:
-                pass
-        # task_failed must not expose the original error text
-        for e in emitted:
-            if e.type == "task_failed":
-                assert "/etc/passwd" not in e.message
-                assert "secret" not in e.message
+    async def test_start_accepts_provided_thread_id(self, registry):
+        tid = registry.start("test", thread_id="00000000-0000-4000-8000-0000000000bb")
+        assert tid == "00000000-0000-4000-8000-0000000000bb"
+        await asyncio.sleep(0.3)
+
+    @pytest.mark.asyncio
+    async def test_cancel_not_found(self, registry):
+        status = await registry.cancel("nonexistent")
+        assert status == "not_found"
