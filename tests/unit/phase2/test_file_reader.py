@@ -474,6 +474,59 @@ class TestSameSessionDuplicateUpload:
         assert len(tmps) == 0, f"tmp files left: {[t.name for t in tmps]}"
 
 
+# ── Symlink exploit: fixed .tmp → outside ────────────────────────────────────
+
+
+class TestSymlinkExploitDefense:
+    def test_fixed_tmp_symlink_cannot_overwrite_outside(self, tmp_path):
+        """Precreate .note.txt.tmp as symlink to outside — outside stays SAFE."""
+        import os
+
+        outside = tmp_path / "outside.txt"
+        outside.write_text("SAFE")
+
+        ws = _workspace(tmp_path)
+        fixed_tmp = ws.upload_dir / ".note.txt.tmp"
+        os.symlink(str(outside), str(fixed_tmp))
+
+        from app.tools.files import save_uploaded_file
+
+        save_uploaded_file(ws, "note.txt", b"UPLOADED CONTENT")
+
+        # outside MUST remain SAFE
+        assert outside.read_text() == "SAFE", "outside.txt was overwritten via symlink!"
+
+        # Final file must be a regular file inside workspace
+        final = ws.resolve_upload("note.txt")
+        assert final.exists()
+        assert not final.is_symlink()
+        assert final.read_text() == "UPLOADED CONTENT"
+
+    def test_fixed_tmp_symlink_report_markdown(self, tmp_path):
+        """Precreate .tutorial-report.md.tmp as symlink — outside stays SAFE."""
+        import os
+
+        outside = tmp_path / "outside.md"
+        outside.write_text("SAFE")
+
+        ws = _workspace(tmp_path)
+        fixed_tmp = ws.output_dir / ".tutorial-report.md.tmp"
+        os.symlink(str(outside), str(fixed_tmp))
+
+        from app.api.context import SessionContext, session_context
+        from app.tools.reports import generate_markdown_report
+
+        ctx = SessionContext(thread_id=UUID_V4, workspace=ws)
+        with session_context(ctx):
+            result = generate_markdown_report("# Safe Report")
+
+        assert outside.read_text() == "SAFE"
+        assert result == "tutorial-report.md"
+        final = ws.resolve_output("tutorial-report.md")
+        assert final.exists()
+        assert not final.is_symlink()
+
+
 # ── MIME content-type does not override actual content ───────────────────────
 
 

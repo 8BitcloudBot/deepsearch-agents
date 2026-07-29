@@ -7,6 +7,7 @@ Macro and ZIP bomb defense included.
 
 import os
 import re
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -140,6 +141,60 @@ class SessionWorkspace:
         return self._safe_resolve(self.output_dir, name)
 
 
+# ── Atomic write helper ───────────────────────────────────────────────────────
+
+
+def _atomic_write_bytes(target: Path, data: bytes) -> None:
+    """Write data via random exclusive temp file, fsync, then os.replace.
+
+    Uses mkstemp (O_EXCL) to reject pre-existing temp symlinks.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd = -1
+    tmp_path = None
+    try:
+        fd, tmp_path = tempfile.mkstemp(
+            dir=str(target.parent), prefix=".tmp-", suffix=".tmp"
+        )
+        os.write(fd, data)
+        os.fsync(fd)
+        os.close(fd)
+        fd = -1
+        os.replace(tmp_path, target)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def _atomic_write_and_validate(target: Path, data: bytes, validator) -> None:
+    """Write data via random exclusive temp file, validate, then os.replace.
+
+    validator(path) is called on the temp file before replacing target.
+    If validation fails, temp is removed and the target is untouched.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd = -1
+    tmp_path = None
+    try:
+        fd, tmp_path = tempfile.mkstemp(
+            dir=str(target.parent), prefix=".tmp-", suffix=".tmp"
+        )
+        os.write(fd, data)
+        os.fsync(fd)
+        os.close(fd)
+        fd = -1
+        validator(Path(tmp_path))
+        os.replace(tmp_path, target)
+        tmp_path = None  # consumed by replace
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
 # ── Upload helpers ────────────────────────────────────────────────────────────
 
 
@@ -174,17 +229,8 @@ def save_uploaded_file(workspace: SessionWorkspace, name: str, data: bytes) -> P
             f"File too large: {len(data)} bytes (max {MAX_FILE_SIZE_BYTES})"
         )
 
-    # Write temp file, validate, then replace
-    tmp = workspace.upload_dir / f".{name}.tmp"
-    try:
-        tmp.write_bytes(data)
-        _validate_file_content(tmp)
-        tmp.replace(resolved)
-    except Exception:
-        if tmp.exists():
-            tmp.unlink(missing_ok=True)
-        raise
-
+    # Write temp, validate content, atomic replace
+    _atomic_write_and_validate(resolved, data, _validate_file_content)
     return resolved
 
 

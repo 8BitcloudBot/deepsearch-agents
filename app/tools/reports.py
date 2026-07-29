@@ -5,48 +5,40 @@ never pass arbitrary directories. Returns relative paths.
 Uses ReportLab with STSong-Light for CJK support.
 """
 
-from app.tools.files import ReportGenerationError
+from app.tools.files import ReportGenerationError, _atomic_write_bytes
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
-def generate_markdown_report(
-    content: str,
-) -> str:
+def generate_markdown_report(content: str) -> str:
     """Write tutorial-report.md atomically. Returns relative path."""
     from app.api.context import current_session
 
     output_dir = current_session().workspace.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     target = output_dir / "tutorial-report.md"
-    tmp = output_dir / ".tutorial-report.md.tmp"
-
-    try:
-        tmp.write_text(content, encoding="utf-8")
-        tmp.replace(target)
-    except Exception:
-        if tmp.exists():
-            tmp.unlink(missing_ok=True)
-        raise
-
+    _atomic_write_bytes(target, content.encode("utf-8"))
     return "tutorial-report.md"
 
 
-def generate_pdf_report(
-    content: str,
-) -> str:
+def generate_pdf_report(content: str) -> str:
     """Generate tutorial-report.pdf atomically. Returns relative path.
 
     Uses ReportLab with STSong-Light for Chinese support.
     On failure: Markdown already written stays; PDF tmp is cleaned;
     no raw paths or exception text in error message.
     """
+    import os
+    import tempfile
+
     from app.api.context import current_session
 
     output_dir = current_session().workspace.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
-    tmp = output_dir / ".tutorial-report.pdf.tmp"
+    target = output_dir / "tutorial-report.pdf"
 
+    fd = -1
+    tmp_path = None
     try:
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import ParagraphStyle
@@ -60,10 +52,7 @@ def generate_pdf_report(
         # Register CJK font
         pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
         style_cjk = ParagraphStyle(
-            "CJK",
-            fontName="STSong-Light",
-            fontSize=11,
-            leading=16,
+            "CJK", fontName="STSong-Light", fontSize=11, leading=16
         )
         style_h1 = ParagraphStyle(
             "CJK_H1",
@@ -80,7 +69,13 @@ def generate_pdf_report(
             spaceAfter=8,
         )
 
-        doc = SimpleDocTemplate(str(tmp), pagesize=A4)
+        fd, tmp_path = tempfile.mkstemp(
+            dir=str(output_dir), prefix=".tmp-", suffix=".tmp"
+        )
+        os.close(fd)
+        fd = -1
+
+        doc = SimpleDocTemplate(tmp_path, pagesize=A4)
         story = []
 
         for line in content.split("\n"):
@@ -94,22 +89,24 @@ def generate_pdf_report(
             elif stripped.startswith("## "):
                 story.append(Paragraph(stripped[3:], style_h2))
             elif stripped.startswith("|"):
-                # simple pipe table — render as paragraph
                 cells = [c.strip() for c in stripped.strip("|").split("|")]
                 story.append(Paragraph("  |  ".join(cells), style_cjk))
             elif stripped.startswith("- "):
-                story.append(Paragraph(f"• {stripped[2:]}", style_cjk))
+                story.append(Paragraph(f"\u2022 {stripped[2:]}", style_cjk))
             else:
                 story.append(Paragraph(stripped, style_cjk))
 
         doc.build(story)
-        target = output_dir / "tutorial-report.pdf"
-        tmp.replace(target)
+        os.replace(tmp_path, target)
+        tmp_path = None
     except Exception:
-        if tmp.exists():
-            tmp.unlink(missing_ok=True)
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
         raise ReportGenerationError(
             "PDF report generation failed — see server logs for details"
         )
+    finally:
+        if fd >= 0:
+            os.close(fd)
 
     return "tutorial-report.pdf"

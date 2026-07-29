@@ -198,3 +198,29 @@ def test_output_dir_created_if_missing(tmp_path):
         generate_markdown_report("content")
     assert ws.output_dir.exists()
     assert ws.resolve_output("tutorial-report.md").exists()
+
+
+# ── Symlink exploit defense ───────────────────────────────────────────────────
+
+
+def test_fixed_pdf_tmp_symlink_cannot_overwrite_outside(tmp_path):
+    """Precreate .tutorial-report.pdf.tmp as symlink — outside stays SAFE."""
+    import os
+
+    outside = tmp_path / "outside.pdf"
+    outside.write_text("SAFE")
+
+    ws = _workspace(tmp_path)
+    fixed_tmp = ws.output_dir / ".tutorial-report.pdf.tmp"
+    os.symlink(str(outside), str(fixed_tmp))
+
+    from app.tools.reports import generate_pdf_report
+
+    with _in_session(ws):
+        result = generate_pdf_report("# Safe")
+
+    assert outside.read_text() == "SAFE"
+    assert result == "tutorial-report.pdf"
+    final = ws.resolve_output("tutorial-report.pdf")
+    assert final.exists()
+    assert not final.is_symlink()
