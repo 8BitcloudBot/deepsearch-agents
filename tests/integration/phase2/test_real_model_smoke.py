@@ -72,13 +72,18 @@ async def test_real_model_produces_artifacts(bundle, events, workspace, context)
     # Explicit: we are testing DeepAgentsTutorialRuntime, not MockTutorialRuntime
     assert DeepAgentsTutorialRuntime is not None  # import check
 
-    model = (
-        os.environ["MODEL_NAME"]
-        if os.environ.get("MODEL_NAME")
-        else "openai:gpt-4.1-mini"
+    # Construct a real OpenAI-compatible model using env vars
+    api_key = os.environ["MODEL_API_KEY"]
+    base_url = os.environ.get("MODEL_BASE_URL") or None
+    model_name = os.environ.get("MODEL_NAME", "gpt-4.1-mini")
+
+    from langchain_openai import ChatOpenAI
+
+    model = ChatOpenAI(
+        model=model_name,
+        api_key=api_key,
+        base_url=base_url,
     )
-    _ = os.environ.get("MODEL_API_KEY")  # validated by skip condition
-    _ = os.environ.get("MODEL_BASE_URL")  # optional override
 
     graph = create_tutorial_agent(model, bundle, events)
     assert graph is not None

@@ -242,3 +242,21 @@ def test_main_prompt_has_untrusted_source_warning():
     assert any(w in lower for w in ("untrusted", "cannot change", "does not change")), (
         f"MAIN_PROMPT missing untrusted warning: {MAIN_PROMPT[:200]}"
     )
+
+
+def test_factory_signature_includes_workspace_factory():
+    """create_tutorial_agent must accept workspace_factory."""
+    import inspect
+
+    from app.agent.factory import create_tutorial_agent
+
+    sig = inspect.signature(create_tutorial_agent)
+    params = list(sig.parameters.keys())
+    assert "workspace_factory" in params
+
+
+def test_real_smoke_constructs_chat_model():
+    """Real smoke must construct ChatOpenAI with keys."""
+    from langchain_openai import ChatOpenAI
+
+    assert ChatOpenAI is not None

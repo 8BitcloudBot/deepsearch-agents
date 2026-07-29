@@ -1,10 +1,11 @@
 """Tutorial agent factory — pure assembly of the DeepAgents graph.
 
-Accepts model, ProviderBundle, InMemoryEventBus, and returns
-a compiled agent graph. Creates domain tools, three subagents,
-file/report main-level tools, and wires everything into
-create_deep_agent().
+Accepts model, ProviderBundle, InMemoryEventBus, workspace_factory,
+and returns a compiled agent graph.
 """
+
+from collections.abc import Callable
+from typing import Any
 
 from langgraph.checkpoint.memory import InMemorySaver
 
@@ -18,13 +19,14 @@ from app.tools.web import create_internet_search_tool
 
 
 def create_tutorial_agent(
-    model,
+    model: Any,
     bundle: ProviderBundle,
     events: InMemoryEventBus,
+    workspace_factory: Callable[[str], Any] | None = None,
 ):
     """Assemble the tutorial-research-agent DeepAgents graph.
 
-    Returns a compiled LangGraph StateGraph ready for astream().
+    workspace_factory is reserved for per-thread workspace assembly.
     """
     from deepagents import create_deep_agent
 
