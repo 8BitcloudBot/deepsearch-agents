@@ -52,7 +52,28 @@ non-str key → REJECTED (ValidationError)
 ## Known Limitations
 - `b"x"` inside a dict key → rejected at field_validator level
 - `.secrets.baseline` unchanged
-## Task 3 remediation status: `87a4373` (RED), `e74c64a` (GREEN) — awaiting acceptance
+## Task 3 remediation status: REJECTED — Phase 2-n4 in progress
+
+### Independent rejection reproduction (2026-07-29)
+```
+outside before = 'SAFE'
+fixed_tmp exists = True
+fixed_tmp.is_symlink() = True
+fixed_tmp.resolve() = <path outside workspace>
+outside after = 'OVERWRITTEN'
+result_is_symlink = True
+result_resolves_outside = True
+```
+Fixed `.name.tmp` symlink in workspace allows overwriting arbitrary files outside the workspace boundary.
+
+## Task 4: Agent Factory & Runtimes — REJECTED
+- factory missing `workspace_factory` parameter
+- mock runtime `_emit_tool_pair` fires both events before provider call
+- real runtime stream normalizer duplicates wrapper tool events
+- agent_started/agent_completed missing `agent_name` in data
+- real-model smoke reads MODEL_API_KEY but doesn't use it
+
+Phase 2-n4 Tasks 0-6 now in progress. See `docs/superpowers/plans/Phase 2-n4.md`.
 
 ## Task 3: Workspace & Reports Remediation
 
