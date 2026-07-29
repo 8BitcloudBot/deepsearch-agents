@@ -2,7 +2,7 @@
 
 ## Current Phase
 - **Phase:** 2 — Tutorial Parity
-- **Status:** `remediation_in_progress` — Tasks 3-4 rejected
+- **Status:** `remediation_in_progress` — Phase 2-n4 Tasks 0-6 complete
 - **Target Tag:** `v0.1-tutorial-parity`（用户验收通过后创建）
 
 ## Tasks
@@ -13,12 +13,26 @@
 | 1 | Settings/Events/Mocks | `c6af299` | 27 tests |
 | 2 | Providers+Tools+SQL | `cba9315` | factory, tools, subagents, SQL policy |
 | 2-n | Phase 2 remediation | various | event contracts, strict JSON, evidence |
-| 3 | Workspace & Reports | REJECTED | symlink exploit, 8 items failed |
-| 4 | Agent & Runtimes | REJECTED | event ownership, factory contract, smoke gaps |
-| 3-4-r | Phase 2-n4 Remediation | in progress | Tasks 0-6 pending |
+| 3-4 | Workspace & Agent | REJECTED → REMEDIATED | 8 items fixed |
+| **2-n4** | **Phase 2-n4 Remediation** | **see below** | **6 commits, symlink exploit fixed** |
 | 5 | FastAPI/WebSocket | **blocked** | — |
 | 6 | React Workbench | **blocked** | — |
 | 7 | Document & Verify | **blocked** | — |
+
+### Phase 2-n4 Commits
+| # | Commit | Message |
+|---|--------|---------|
+| 0 | `65434f3` | docs: record phase two task three four rejection |
+| 1 | `c9f192a` | fix: secure workspace atomic file replacement |
+| 2 | `3665f32` | fix: route runtime uploads through safe reader |
+| 3 | `8e58430` | fix: enforce tutorial runtime event ownership |
+| 4 | `7ea359f` | fix: restore tutorial factory and model configuration |
+| 5 | `cb1175c` | fix: bound workbook reads and render report tables |
+
+## Tests
+- Total: 309 passed, 11 skipped
+- Pre-commit: ruff ✅, ruff-format ✅, detect-secrets ✅
+- No v0.1 tags exist
 
 ## Blockers
 
