@@ -630,3 +630,86 @@ def _make_formula_xlsx(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(str(path))
     return path
+
+
+class TestContentValidationBypass:
+    """Ensure save_uploaded_file validates by TARGET extension, not .tmp."""
+
+    def test_fake_pdf_rejected(self, tmp_path):
+        """malformed.pdf with text content must be rejected."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        with pytest.raises(ValueError):
+            save_uploaded_file(ws, "malformed.pdf", b"not-a-pdf")
+
+    def test_fake_docx_rejected(self, tmp_path):
+        """malformed.docx with text content must be rejected."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        with pytest.raises(ValueError):
+            save_uploaded_file(ws, "malformed.docx", b"not-a-docx")
+
+    def test_fake_xlsx_rejected(self, tmp_path):
+        """malformed.xlsx with text content must be rejected."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        with pytest.raises(ValueError):
+            save_uploaded_file(ws, "malformed.xlsx", b"not-a-xlsx")
+
+    def test_non_utf8_text_rejected(self, tmp_path):
+        """Non-UTF-8 .txt must be rejected."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        with pytest.raises(ValueError):
+            save_uploaded_file(ws, "bad.txt", b"\xff\xfe\x00\x00")
+
+
+@pytest.fixture
+def workspace_factory():
+    """A simple callable workspace factory."""
+    from app.tools.files import SessionWorkspace
+
+    def _make(thread_id: str):
+        import tempfile
+
+        base = tempfile.mkdtemp()
+        return SessionWorkspace.for_thread(
+            thread_id=thread_id,
+            base_upload=f"{base}/updated",
+            base_output=f"{base}/output",
+        )
+
+    return _make
+
+
+def test_factory_requires_callable_workspace_factory():
+    """create_tutorial_agent must reject non-callable workspace_factory."""
+    from langchain_core.language_models import FakeListChatModel
+
+    from app.agent.factory import create_tutorial_agent
+
+    model = FakeListChatModel(responses=["ok"])
+    from app.api.events import InMemoryEventBus
+    from app.providers.contracts import ProviderBundle
+    from app.providers.mock import (
+        MockCatalogProvider,
+        MockKnowledgeProvider,
+        MockWebProvider,
+    )
+
+    bundle = ProviderBundle(
+        web=MockWebProvider(),
+        catalog=MockCatalogProvider(),
+        knowledge=MockKnowledgeProvider(),
+        web_mode="mock",
+        catalog_mode="mock",
+        knowledge_mode="mock",
+    )
+    events = InMemoryEventBus()
+
+    with pytest.raises(TypeError):
+        create_tutorial_agent(model, bundle, events, "not-callable")

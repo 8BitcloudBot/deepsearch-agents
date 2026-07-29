@@ -93,7 +93,9 @@ def generate_pdf_report(content: str) -> str:
                 if not all(c.strip().replace("-", "") == "" for c in r)
             ]
             if filtered:
-                escaped = [[_escape_xml(c) for c in r] for r in filtered]
+                escaped = [
+                    [Paragraph(_escape_xml(c), style_cjk) for c in r] for r in filtered
+                ]
                 tbl = Table(escaped)
                 tbl.setStyle(
                     TableStyle(

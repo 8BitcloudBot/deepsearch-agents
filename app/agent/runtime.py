@@ -119,15 +119,13 @@ class MockTutorialRuntime:
             if upload_files:
                 self._emit_tool(tid, "tool_started", "read_uploaded_file")
                 for fpath in upload_files:
-                    try:
-                        from app.tools.files import read_uploaded_file
+                    # Exception propagates — no swallowing, no fake completed
+                    from app.tools.files import read_uploaded_file
 
-                        text = read_uploaded_file(fpath.name)
-                        if len(text) > 5000:
-                            text = text[:5000] + "\n\n[TRUNCATED]\n"
-                        uploaded_content = text
-                    except Exception:
-                        uploaded_content = f"[Could not read {fpath.name}]"
+                    text = read_uploaded_file(fpath.name)
+                    if len(text) > 5000:
+                        text = text[:5000] + "\n\n[TRUNCATED]\n"
+                    uploaded_content = text
                 self._emit_tool(tid, "tool_completed", "read_uploaded_file")
 
             # 5. Build report content
@@ -219,7 +217,6 @@ class DeepAgentsTutorialRuntime:
 
     async def run(self, request: RuntimeRequest) -> RuntimeResult:
         tid = request.context.thread_id
-        ws = request.context.workspace
 
         with session_context(request.context):
             self._events.emit(
@@ -233,24 +230,39 @@ class DeepAgentsTutorialRuntime:
             config = {"configurable": {"thread_id": tid}}
             collected_answer: str = ""
 
+            # Track per-call artifact generation (not by file existence)
+            artifacts_generated: set[str] = set()
+
             async for _chunk in self._graph.astream(
                 input_state, config, stream_mode="updates"
             ):
-                # Tool events are emitted by wrappers — do not duplicate.
-                # Only collect final answer from messages.
-                for _agent_name, update in _chunk.items():
+                # Tool events are owned by wrappers — do not duplicate.
+                # Track agent/subagent signals and collect answer.
+                for node_name, update in _chunk.items():
+                    if node_name == "__end__":
+                        continue
                     if isinstance(update, dict) and "messages" in update:
                         for msg in update["messages"]:
                             content = getattr(msg, "content", "")
                             if isinstance(content, str) and content:
                                 collected_answer += content + "\n"
+                            # Detect artifact_created from tool messages
+                            if hasattr(msg, "name") and msg.name in (
+                                "generate_markdown_report",
+                                "generate_pdf_report",
+                            ):
+                                artifact_name = (
+                                    "tutorial-report.md"
+                                    if "markdown" in msg.name
+                                    else "tutorial-report.pdf"
+                                )
+                                artifacts_generated.add(artifact_name)
 
             if not collected_answer.strip():
                 collected_answer = "Research completed."
 
-            # Compensate: generate reports if agent didn't
-            md_path = ws.output_dir / "tutorial-report.md"
-            if not md_path.exists():
+            # Compensate: generate missing reports
+            if "tutorial-report.md" not in artifacts_generated:
                 report_text = (
                     f"# Tutorial Research Report\n\n"
                     f"**Query:** {request.query}\n\n"
@@ -274,8 +286,7 @@ class DeepAgentsTutorialRuntime:
                     },
                 )
 
-            pdf_path = ws.output_dir / "tutorial-report.pdf"
-            if not pdf_path.exists():
+            if "tutorial-report.pdf" not in artifacts_generated:
                 _ = generate_pdf_report(collected_answer or "Research completed.")
                 self._events.emit(
                     tid,

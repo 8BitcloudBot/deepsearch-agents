@@ -85,7 +85,7 @@ async def test_real_model_produces_artifacts(bundle, events, workspace, context)
         base_url=base_url,
     )
 
-    graph = create_tutorial_agent(model, bundle, events)
+    graph = create_tutorial_agent(model, bundle, events, lambda tid: None)
     assert graph is not None
 
     runtime = DeepAgentsTutorialRuntime(

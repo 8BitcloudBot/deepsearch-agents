@@ -144,10 +144,21 @@ class SessionWorkspace:
 # ── Atomic write helper ───────────────────────────────────────────────────────
 
 
+def _write_all(fd: int, data: bytes) -> None:
+    """Write all bytes to fd, handling short writes from os.write."""
+    written = 0
+    while written < len(data):
+        n = os.write(fd, data[written:])
+        if n == 0:
+            raise OSError("os.write returned 0")
+        written += n
+
+
 def _atomic_write_bytes(target: Path, data: bytes) -> None:
     """Write data via random exclusive temp file, fsync, then os.replace.
 
     Uses mkstemp (O_EXCL) to reject pre-existing temp symlinks.
+    Handles short writes via _write_all.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     fd = -1
@@ -156,7 +167,7 @@ def _atomic_write_bytes(target: Path, data: bytes) -> None:
         fd, tmp_path = tempfile.mkstemp(
             dir=str(target.parent), prefix=".tmp-", suffix=".tmp"
         )
-        os.write(fd, data)
+        _write_all(fd, data)
         os.fsync(fd)
         os.close(fd)
         fd = -1
@@ -168,11 +179,12 @@ def _atomic_write_bytes(target: Path, data: bytes) -> None:
             os.unlink(tmp_path)
 
 
-def _atomic_write_and_validate(target: Path, data: bytes, validator) -> None:
-    """Write data via random exclusive temp file, validate, then os.replace.
+def _atomic_write_and_validate(target: Path, data: bytes, validator, ext: str) -> None:
+    """Write via random exclusive temp file, validate, then os.replace.
 
-    validator(path) is called on the temp file before replacing target.
-    If validation fails, temp is removed and the target is untouched.
+    validator(path, ext) receives the FINAL target extension (not .tmp).
+    This prevents content-type bypass where e.g. a .pdf file's content
+    would be validated as .tmp and bypass PDF header checks.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     fd = -1
@@ -181,11 +193,11 @@ def _atomic_write_and_validate(target: Path, data: bytes, validator) -> None:
         fd, tmp_path = tempfile.mkstemp(
             dir=str(target.parent), prefix=".tmp-", suffix=".tmp"
         )
-        os.write(fd, data)
+        _write_all(fd, data)
         os.fsync(fd)
         os.close(fd)
         fd = -1
-        validator(Path(tmp_path))
+        validator(Path(tmp_path), ext)
         os.replace(tmp_path, target)
         tmp_path = None  # consumed by replace
     finally:
@@ -229,8 +241,8 @@ def save_uploaded_file(workspace: SessionWorkspace, name: str, data: bytes) -> P
             f"File too large: {len(data)} bytes (max {MAX_FILE_SIZE_BYTES})"
         )
 
-    # Write temp, validate content, atomic replace
-    _atomic_write_and_validate(resolved, data, _validate_file_content)
+    # Write temp, validate with final extension, atomic replace
+    _atomic_write_and_validate(resolved, data, _validate_file_content, ext)
     return resolved
 
 
@@ -250,16 +262,19 @@ def validate_upload_file(path: Path) -> None:
         )
 
 
-def _validate_file_content(path: Path) -> None:
-    """Validate content based on extension. MIME/content-type is advisory only."""
-    ext = path.suffix.lower()
+def _validate_file_content(path: Path, ext: str) -> None:
+    """Validate content based on the FINAL target extension.
+
+    ext is the extension of the target file (e.g. ".pdf"), NOT the
+    temp file's suffix (which is always ".tmp"). This prevents
+    content-type bypass via temp suffix confusion.
+    """
     if ext == ".pdf":
         read_pdf_file(path)
     elif ext == ".docx":
         read_docx_file(path)
     elif ext == ".xlsx":
         read_xlsx_file(path)
-    # txt/md: validate UTF-8
     elif ext in (".txt", ".md"):
         read_text_file(path)
 

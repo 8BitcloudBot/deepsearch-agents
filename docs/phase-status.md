@@ -2,7 +2,7 @@
 
 ## Current Phase
 - **Phase:** 2 — Tutorial Parity
-- **Status:** `remediation_in_progress` — Phase 2-n4 Tasks 0-6 complete
+- **Status:** `remediation_in_progress` — Phase 2-n5 complete
 - **Target Tag:** `v0.1-tutorial-parity`（用户验收通过后创建）
 
 ## Tasks

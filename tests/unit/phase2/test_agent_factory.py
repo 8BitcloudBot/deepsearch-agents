@@ -32,6 +32,11 @@ def _bundle() -> ProviderBundle:
     )
 
 
+def _wf():
+    """A trivial workspace factory stub for tests."""
+    return lambda tid: None
+
+
 # --- factory tests ---
 
 
@@ -53,7 +58,7 @@ def test_factory_calls_create_deep_agent():
     with patch(
         "deepagents.create_deep_agent", return_value="fake-graph"
     ) as mock_create:
-        result = create_tutorial_agent(model, bundle, events)
+        result = create_tutorial_agent(model, bundle, events, _wf())
         mock_create.assert_called_once()
         assert result == "fake-graph"
 
@@ -69,7 +74,7 @@ def test_factory_passes_model_argument():
     with patch(
         "deepagents.create_deep_agent", return_value="fake-graph"
     ) as mock_create:
-        create_tutorial_agent(model, bundle, events)
+        create_tutorial_agent(model, bundle, events, _wf())
         _, kwargs = mock_create.call_args
         assert kwargs["model"] is model
 
@@ -86,7 +91,7 @@ def test_factory_passes_main_prompt():
     with patch(
         "deepagents.create_deep_agent", return_value="fake-graph"
     ) as mock_create:
-        create_tutorial_agent(model, bundle, events)
+        create_tutorial_agent(model, bundle, events, _wf())
         _, kwargs = mock_create.call_args
         assert kwargs["system_prompt"] == MAIN_PROMPT
 
@@ -102,7 +107,7 @@ def test_factory_creates_exactly_three_subagents():
     with patch(
         "deepagents.create_deep_agent", return_value="fake-graph"
     ) as mock_create:
-        create_tutorial_agent(model, bundle, events)
+        create_tutorial_agent(model, bundle, events, _wf())
         _, kwargs = mock_create.call_args
         subs = kwargs["subagents"]
         assert len(subs) == 3
@@ -123,7 +128,7 @@ def test_factory_uses_in_memory_saver():
     with patch(
         "deepagents.create_deep_agent", return_value="fake-graph"
     ) as mock_create:
-        create_tutorial_agent(model, bundle, events)
+        create_tutorial_agent(model, bundle, events, _wf())
         _, kwargs = mock_create.call_args
         assert isinstance(kwargs["checkpointer"], InMemorySaver)
 
@@ -139,7 +144,7 @@ def test_factory_agent_name():
     with patch(
         "deepagents.create_deep_agent", return_value="fake-graph"
     ) as mock_create:
-        create_tutorial_agent(model, bundle, events)
+        create_tutorial_agent(model, bundle, events, _wf())
         _, kwargs = mock_create.call_args
         assert kwargs["name"] == "tutorial-research-agent"
 
@@ -158,7 +163,7 @@ def test_factory_main_tools_include_file_and_report_tools():
     with patch(
         "deepagents.create_deep_agent", return_value="fake-graph"
     ) as mock_create:
-        create_tutorial_agent(model, bundle, events)
+        create_tutorial_agent(model, bundle, events, _wf())
         _, kwargs = mock_create.call_args
         main_tools = kwargs["tools"]
         main_tool_names = {getattr(t, "name", str(t)) for t in main_tools}
@@ -205,7 +210,7 @@ def test_subagents_have_correct_tool_sets(sub_name, expected_tool_prefixes):
     with patch(
         "deepagents.create_deep_agent", return_value="fake-graph"
     ) as mock_create:
-        create_tutorial_agent(model, bundle, events)
+        create_tutorial_agent(model, bundle, events, _wf())
         _, kwargs = mock_create.call_args
         subs = kwargs["subagents"]
         target = next(s for s in subs if s["name"] == sub_name)
@@ -227,7 +232,7 @@ def test_factory_read_uploaded_file_calls_safe_reader():
     with patch(
         "deepagents.create_deep_agent", return_value="fake-graph"
     ) as mock_create:
-        _ = create_tutorial_agent(model, bundle, events)
+        _ = create_tutorial_agent(model, bundle, events, _wf())
         _, kwargs = mock_create.call_args
         main_tools = kwargs["tools"]
         reader_names = {getattr(t, "name", str(t)) for t in main_tools}

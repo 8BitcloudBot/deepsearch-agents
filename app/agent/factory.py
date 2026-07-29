@@ -22,12 +22,17 @@ def create_tutorial_agent(
     model: Any,
     bundle: ProviderBundle,
     events: InMemoryEventBus,
-    workspace_factory: Callable[[str], Any] | None = None,
+    workspace_factory: Callable[[str], Any],
 ):
     """Assemble the tutorial-research-agent DeepAgents graph.
 
-    workspace_factory is reserved for per-thread workspace assembly.
+    workspace_factory(thread_id) is a REQUIRED callable for per-thread
+    workspace assembly. It is validated for callability at construction.
     """
+    if not callable(workspace_factory):
+        raise TypeError(
+            f"workspace_factory must be callable, got {type(workspace_factory)}"
+        )
     from deepagents import create_deep_agent
 
     # Domain tools → each goes exclusively to its subagent
