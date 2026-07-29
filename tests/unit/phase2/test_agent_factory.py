@@ -265,3 +265,87 @@ def test_real_smoke_constructs_chat_model():
     from langchain_openai import ChatOpenAI
 
     assert ChatOpenAI is not None
+
+
+class TestWrapperFailureContract:
+    """Direct async test: _build_read_uploaded_file_tool failure semantics."""
+
+    @pytest.mark.asyncio
+    async def test_no_session_context_raises_and_no_completed(self):
+        """Without SessionContext, exception propagates; only tool_started."""
+
+        from app.agent.factory import _build_read_uploaded_file_tool
+        from app.api.events import InMemoryEventBus
+
+        events = InMemoryEventBus()
+        tool = _build_read_uploaded_file_tool(events)
+        thread_id = "00000000-0000-4000-8000-000000000001"
+
+        async with events.subscribe(thread_id) as sub:
+            with pytest.raises(Exception):
+                await tool.ainvoke(
+                    {"filename": "nonexistent.txt"},
+                    {"configurable": {"thread_id": thread_id}},
+                )
+            emitted = []
+            while not sub.queue.empty():
+                emitted.append(sub.queue.get_nowait())
+
+        types = [e.type for e in emitted]
+        tool_names = {e.data.get("tool_name") for e in emitted}
+        assert "tool_started" in types, f"Missing tool_started: {types}"
+        assert "tool_completed" not in types, (
+            f"tool_completed emitted on failure: {types}"
+        )
+        assert "read_uploaded_file" in tool_names
+
+    @pytest.mark.asyncio
+    async def test_failing_reader_no_completed(self):
+        """When reader fails, only tool_started, no completed."""
+
+        from app.agent.factory import _build_read_uploaded_file_tool
+        from app.api.context import SessionContext, session_context
+        from app.api.events import InMemoryEventBus
+        from app.tools.files import SessionWorkspace
+
+        events = InMemoryEventBus()
+        tool = _build_read_uploaded_file_tool(events)
+        thread_id = "00000000-0000-4000-8000-000000000002"
+        ws = SessionWorkspace.for_thread(
+            thread_id=thread_id,
+            base_upload="/tmp/up-fail",
+            base_output="/tmp/out-fail",
+        )
+        # Create a non-UTF-8 file that will fail validation
+        bad_file = ws.resolve_upload("bad.txt")
+        bad_file.write_bytes(b"\xff\xfe\x00\x00")
+        ctx = SessionContext(thread_id=thread_id, workspace=ws)
+
+        async with events.subscribe(thread_id) as sub:
+            with session_context(ctx):
+                with pytest.raises(Exception):
+                    await tool.ainvoke(
+                        {"filename": "bad.txt"},
+                        {"configurable": {"thread_id": thread_id}},
+                    )
+            emitted = []
+            while not sub.queue.empty():
+                emitted.append(sub.queue.get_nowait())
+
+        types = [e.type for e in emitted]
+        assert "tool_started" in types
+        assert "tool_completed" not in types, (
+            f"tool_completed emitted on reader failure: {types}"
+        )
+
+
+def test_factory_signature_exact_params():
+    """signature must be exactly model, bundle, events, workspace_factory."""
+    import inspect
+
+    from app.agent.factory import create_tutorial_agent
+
+    params = list(inspect.signature(create_tutorial_agent).parameters.keys())
+    assert params == ["model", "bundle", "events", "workspace_factory"], (
+        f"Wrong signature: {params}"
+    )
