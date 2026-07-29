@@ -27,7 +27,8 @@ class TestRAGFlowAskGenerator:
                 lambda *a, **kw: MagicMock(list_chats=lambda: [fake_chat]),
             )
             provider = RAGFlowKnowledgeProvider(
-                api_key="k", base_url="http://x"
+                api_key="k",  # pragma: allowlist secret
+                base_url="http://x",
             )  # pragma: allowlist secret
             answer = provider.ask("test", "question")
             assert answer.answer == "final answer text"
@@ -54,7 +55,8 @@ class TestRAGFlowAskGenerator:
                 lambda *a, **kw: MagicMock(list_chats=lambda: [fake_chat]),
             )
             provider = RAGFlowKnowledgeProvider(
-                api_key="k", base_url="http://x"
+                api_key="k",  # pragma: allowlist secret
+                base_url="http://x",
             )  # pragma: allowlist secret
             with pytest.raises(RuntimeError):
                 provider.ask("test", "question")
@@ -72,9 +74,17 @@ class TestToolsUseConfigThreadId:
 class TestSubagentBuilder:
     def test_subagents_use_real_tool_objects(self):
         """Subagent builder must inject real LangChain tool callables, not strs."""
-        from app.agent.subagents import TUTORIAL_SUBAGENTS
+        from app.agent.subagents import build_tutorial_subagents
 
-        for sub in TUTORIAL_SUBAGENTS:
+        def fake_tool():
+            pass
+
+        subs = build_tutorial_subagents(
+            web_tools=[fake_tool],
+            catalog_tools=[],
+            knowledge_tools=[],
+        )
+        for sub in subs:
             tools = sub["tools"]
             assert isinstance(tools, list)
             for tool in tools:

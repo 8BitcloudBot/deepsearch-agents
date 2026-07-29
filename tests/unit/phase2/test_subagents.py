@@ -1,28 +1,29 @@
-"""Tests for subagent definitions and tool assignments."""
+"""Tests for subagent builder."""
 
-from app.agent.subagents import (
-    KNOWLEDGE_BASE,
-    STRUCTURED_DATA,
-    TUTORIAL_SUBAGENTS,
-    WEB_RESEARCH,
-)
+from app.agent.subagents import build_tutorial_subagents
 
 
-class TestSubagentDefinitions:
-    def test_web_research_name_and_tools(self):
-        assert WEB_RESEARCH["name"] == "web-research"
-        assert "internet_search" in WEB_RESEARCH["tools"]
+class TestSubagentBuilder:
+    def test_builds_three_subagents(self):
+        subs = build_tutorial_subagents(
+            web_tools=[lambda x: x],
+            catalog_tools=[lambda x: x],
+            knowledge_tools=[lambda x: x],
+        )
+        assert len(subs) == 3
 
-    def test_structured_data_name_and_tools(self):
-        assert STRUCTURED_DATA["name"] == "structured-data"
-        assert "list_sql_tables" in STRUCTURED_DATA["tools"]
-        assert "execute_readonly_query" in STRUCTURED_DATA["tools"]
-
-    def test_knowledge_base_name_and_tools(self):
-        assert KNOWLEDGE_BASE["name"] == "knowledge-base"
-        assert "ask_knowledge_assistant" in KNOWLEDGE_BASE["tools"]
-
-    def test_all_three_in_tuple(self):
-        assert len(TUTORIAL_SUBAGENTS) == 3
-        names = [s["name"] for s in TUTORIAL_SUBAGENTS]
+    def test_subagent_names(self):
+        subs = build_tutorial_subagents([], [], [])
+        names = [s["name"] for s in subs]
         assert names == ["web-research", "structured-data", "knowledge-base"]
+
+    def test_tools_are_callable(self):
+        def fake_tool():
+            pass
+
+        subs = build_tutorial_subagents(
+            web_tools=[fake_tool],
+            catalog_tools=[],
+            knowledge_tools=[],
+        )
+        assert callable(subs[0]["tools"][0])
