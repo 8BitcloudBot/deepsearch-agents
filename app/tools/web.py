@@ -19,6 +19,7 @@ def _tid(c: RunnableConfig) -> str:
 def create_internet_search_tool(p: WebSearchProvider, ev: InMemoryEventBus):
     @tool
     async def internet_search(query: str, config: RunnableConfig) -> str:
+        """Search the web."""
         tid = _tid(config)
         ev.emit(tid, "tool_started", "search", {"tool_name": "internet_search"})
         r = await asyncio.to_thread(p.search, query)

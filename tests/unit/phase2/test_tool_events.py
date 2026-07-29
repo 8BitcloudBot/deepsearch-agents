@@ -76,20 +76,29 @@ async def test_all_seven_tools_emit_paired_events():
         for tool in all_tools:
             try:
                 if tool.name == "internet_search":
-                    await tool.ainvoke({"query": "x"}, config=RunnableConfigWrapper(config))
+                    await tool.ainvoke(
+                        {"query": "x"}, config=RunnableConfigWrapper(config)
+                    )
                 elif tool.name == "list_sql_tables":
                     await tool.ainvoke({}, config=RunnableConfigWrapper(config))
                 elif tool.name == "describe_table":
-                    await tool.ainvoke({"table_name": "drugs"}, config=RunnableConfigWrapper(config))
+                    await tool.ainvoke(
+                        {"tn": "drugs"}, config=RunnableConfigWrapper(config)
+                    )
                 elif tool.name == "preview_table":
-                    await tool.ainvoke({"table_name": "drugs"}, config=RunnableConfigWrapper(config))
+                    await tool.ainvoke(
+                        {"tn": "drugs"}, config=RunnableConfigWrapper(config)
+                    )
                 elif tool.name == "execute_readonly_query":
-                    await tool.ainvoke({"query": "SELECT * FROM drugs LIMIT 1"}, config=RunnableConfigWrapper(config))
+                    await tool.ainvoke(
+                        {"q": "SELECT * FROM drugs LIMIT 1"},
+                        config=RunnableConfigWrapper(config),
+                    )
                 elif tool.name == "list_knowledge_assistants":
                     await tool.ainvoke({}, config=RunnableConfigWrapper(config))
                 elif tool.name == "ask_knowledge_assistant":
                     await tool.ainvoke(
-                        {"assistant_name": "research-assistant", "question": "q"},
+                        {"an": "research-assistant", "q": "q"},
                         config=RunnableConfigWrapper(config),
                     )
             except Exception as exc:
@@ -100,8 +109,12 @@ async def test_all_seven_tools_emit_paired_events():
         collected.append(sub.queue.get_nowait())
 
     types = [e.type for e in collected]
-    assert types.count("tool_started") == 7, f"Expected 7 starts, got {types.count('tool_started')}"
-    assert types.count("tool_completed") == 7, f"Expected 7 completes, got {types.count('tool_completed')}"
+    assert types.count("tool_started") == 7, (
+        f"Expected 7 starts, got {types.count('tool_started')}"
+    )
+    assert types.count("tool_completed") == 7, (
+        f"Expected 7 completes, got {types.count('tool_completed')}"
+    )
     for e in collected:
         assert e.thread_id == "t-main"
 

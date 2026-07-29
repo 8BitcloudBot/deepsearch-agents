@@ -19,6 +19,7 @@ def _tid(c: RunnableConfig) -> str:
 def create_knowledge_tools(p: KnowledgeProvider, ev: InMemoryEventBus):
     @tool
     async def list_knowledge_assistants(config: RunnableConfig) -> str:
+        """List assistants."""
         tid = _tid(config)
         ev.emit(tid, "tool_started", "list", {"tool_name": "list_knowledge_assistants"})
         r = await asyncio.to_thread(p.list_assistants)
@@ -32,6 +33,7 @@ def create_knowledge_tools(p: KnowledgeProvider, ev: InMemoryEventBus):
 
     @tool
     async def ask_knowledge_assistant(an: str, q: str, config: RunnableConfig) -> str:
+        """Ask assistant."""
         tid = _tid(config)
         ev.emit(tid, "tool_started", an, {"tool_name": "ask_knowledge_assistant"})
         r = await asyncio.to_thread(p.ask, an, q)

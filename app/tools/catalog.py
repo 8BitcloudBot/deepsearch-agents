@@ -23,6 +23,7 @@ def _emit(ev, tid, phase, msg, tn):
 def create_catalog_tools(p: CatalogProvider, ev: InMemoryEventBus):
     @tool
     async def list_sql_tables(config: RunnableConfig) -> str:
+        """List tables."""
         tid = _tid(config)
         _emit(ev, tid, "tool_started", "list", "list_sql_tables")
         r = await asyncio.to_thread(p.list_tables)
@@ -31,6 +32,7 @@ def create_catalog_tools(p: CatalogProvider, ev: InMemoryEventBus):
 
     @tool
     async def describe_table(tn: str, config: RunnableConfig) -> str:
+        """Describe table."""
         tid = _tid(config)
         _emit(ev, tid, "tool_started", tn, "describe_table")
         r = await asyncio.to_thread(p.describe_table, tn)
@@ -39,6 +41,7 @@ def create_catalog_tools(p: CatalogProvider, ev: InMemoryEventBus):
 
     @tool
     async def preview_table(tn: str, config: RunnableConfig) -> str:
+        """Preview table."""
         tid = _tid(config)
         _emit(ev, tid, "tool_started", tn, "preview_table")
         r = await asyncio.to_thread(p.preview_table, tn)
@@ -48,6 +51,7 @@ def create_catalog_tools(p: CatalogProvider, ev: InMemoryEventBus):
 
     @tool
     async def execute_readonly_query(q: str, config: RunnableConfig) -> str:
+        """Execute query."""
         tid = _tid(config)
         _emit(ev, tid, "tool_started", "query", "execute_readonly_query")
         r = await asyncio.to_thread(p.execute_readonly, q)
