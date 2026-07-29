@@ -11,13 +11,12 @@ Complete Phase 2-n4 Tasks 0-6 remediation. See full plan at:
 
 ## Current State
 
-- **HEAD:** `d707c94` — Phase 2-n6 complete
+- **HEAD:** `bc41e3c` — Phase 2-n6 acceptance gate
 - **Tests:** 322 passed / 11 skipped
 - **Tags:** `v0.0-foundation`, `v0.0-deepagents-examples`
 - **Phase 2 Tasks 1-2:** ✅ Complete and accepted
-- **Phase 2 Tasks 3-4:** ❌ REJECTED — 8 items failed
-- **Phase 2-n4 Tasks 0-6:** ⬜ Pending remediation
-- **Task 5:** 🚫 Blocked — not authorized for this session
+- **Phase 2 Tasks 3-4:** remediated (n4/n5/n6 fixes applied, awaiting acceptance)
+- **Task 5:** 🚫 Blocked — not authorized
 
 ## Key Artifacts (new since b30cbc3)
 

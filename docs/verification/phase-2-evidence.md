@@ -52,7 +52,7 @@ non-str key → REJECTED (ValidationError)
 ## Known Limitations
 - `b"x"` inside a dict key → rejected at field_validator level
 - `.secrets.baseline` unchanged
-## Task 3 remediation status: REJECTED — Phase 2-n4 in progress
+## Task 3 remediation status: remediated (n4/n5/n6) — awaiting acceptance
 
 ### Independent rejection reproduction (2026-07-29)
 ```
@@ -73,7 +73,7 @@ Fixed `.name.tmp` symlink in workspace allows overwriting arbitrary files outsid
 - agent_started/agent_completed missing `agent_name` in data
 - real-model smoke reads MODEL_API_KEY but doesn't use it
 
-Phase 2-n4 Tasks 0-6 now in progress. See `docs/superpowers/plans/Phase 2-n4.md`.
+All remediation commits applied. Current HEAD: bc41e3c. 322 passed, 11 skipped.
 
 ## Task 3: Workspace & Reports Remediation
 

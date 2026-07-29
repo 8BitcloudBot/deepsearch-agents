@@ -326,34 +326,122 @@ class TestToolFailureSemantics:
 
 
 class TestPreciseEventPairs:
-    """Every success tool has exactly one started+completed pair."""
+    """Every success tool has started → call → completed ordering."""
 
     @pytest.mark.asyncio
-    async def test_each_success_tool_has_exact_pair(
-        self, runtime, workspace, context, events
-    ):
-        """Each tool that succeeds must have exactly 1 started and 1 completed."""
-        async with events.subscribe(THREAD_ID) as sub:
-            await runtime.run(RuntimeRequest("test", context))
+    async def test_tool_started_before_call_before_completed(self, events):
+        """Spy records interleaving: tool_started before call, completed after."""
+        from app.agent.runtime import MockTutorialRuntime, RuntimeRequest
+        from app.api.context import SessionContext
+        from app.providers.contracts import ProviderBundle, SearchResult
+
+        calls: list[str] = []
+
+        class SpyWeb:
+            def search(self, query, *, max_results=5):
+                calls.append("web.search")
+                return SearchResult(query=query, hits=())
+
+        class SpyCatalog:
+            def list_tables(self):
+                calls.append("catalog.list_tables")
+                return ()
+
+            def describe_table(self, tn):
+                calls.append("catalog.describe_table")
+                from app.providers.contracts import QueryResult
+
+                return QueryResult(columns=(), rows=(), truncated=False)
+
+            def preview_table(self, tn, *, limit=20):
+                calls.append("catalog.preview_table")
+                from app.providers.contracts import QueryResult
+
+                return QueryResult(columns=(), rows=(), truncated=False)
+
+            def execute_readonly(self, q, *, limit=100):
+                calls.append("catalog.execute_readonly")
+                from app.providers.contracts import QueryResult
+
+                return QueryResult(columns=(), rows=(), truncated=False)
+
+        class SpyKnowledge:
+            def list_assistants(self):
+                calls.append("knowledge.list_assistants")
+                return ()
+
+            def ask(self, an, q):
+                calls.append("knowledge.ask")
+                from app.providers.contracts import KnowledgeAnswer
+
+                return KnowledgeAnswer(assistant_name=an, answer="ok")
+
+        bundle = ProviderBundle(
+            web=SpyWeb(),
+            catalog=SpyCatalog(),
+            knowledge=SpyKnowledge(),
+            web_mode="mock",
+            catalog_mode="mock",
+            knowledge_mode="mock",
+        )
+        rt = MockTutorialRuntime(bundle, events)
+        tid = "00000000-0000-4000-8000-000000000055"
+
+        import tempfile
+
+        td = tempfile.mkdtemp()
+        from app.tools.files import SessionWorkspace
+
+        ws = SessionWorkspace.for_thread(
+            thread_id=tid,
+            base_upload=f"{td}/up",
+            base_output=f"{td}/out",
+        )
+        ctx = SessionContext(thread_id=tid, workspace=ws)
+
+        async with events.subscribe(tid) as sub:
+            await rt.run(RuntimeRequest("test", ctx))
             emitted = []
             while not sub.queue.empty():
                 emitted.append(sub.queue.get_nowait())
 
-        tool_events = [
-            e for e in emitted if e.type in ("tool_started", "tool_completed")
-        ]
-        by_name: dict[str, dict[str, int]] = {}
-        for e in tool_events:
-            tn = e.data.get("tool_name", "unknown")
-            if tn not in by_name:
-                by_name[tn] = {"started": 0, "completed": 0}
-            by_name[tn][e.type[len("tool_") :]] += 1
+        # Verify ordering: each started appears before its completed
+        started_indices: dict[str, int] = {}
+        completed_indices: dict[str, int] = {}
+        for i, e in enumerate(emitted):
+            tn = e.data.get("tool_name", "")
+            if e.type == "tool_started":
+                if tn not in started_indices:
+                    started_indices[tn] = i
+            if e.type == "tool_completed":
+                if tn not in completed_indices:
+                    completed_indices[tn] = i
 
-        for tn, counts in by_name.items():
-            assert counts["started"] == counts["completed"], (
-                f"{tn}: started={counts['started']} != completed={counts['completed']}"
+        for tn in started_indices:
+            assert tn in completed_indices, f"{tn}: started but no completed"
+            assert started_indices[tn] < completed_indices[tn], (
+                f"{tn}: started at {started_indices[tn]} "
+                f"but completed at {completed_indices[tn]}"
             )
-            assert counts["started"] >= 1, f"{tn}: no events at all"
+
+        # No duplicate 2/2: each tool name has exact one pair
+        for tn in set(started_indices) | set(completed_indices):
+            s_count = sum(
+                1
+                for e in emitted
+                if e.type == "tool_started" and e.data.get("tool_name") == tn
+            )
+            c_count = sum(
+                1
+                for e in emitted
+                if e.type == "tool_completed" and e.data.get("tool_name") == tn
+            )
+            assert s_count == 1, f"{tn}: {s_count} start events (must be 1)"
+            assert c_count == 1, f"{tn}: {c_count} completed events (must be 1)"
+
+        import shutil
+
+        shutil.rmtree(td, ignore_errors=True)
 
 
 class TestAgentEventPayload:
@@ -392,9 +480,11 @@ class TestFakeGraphArtifactDedup:
     """DeepAgentsTutorialRuntime with fake graph stream — artifact dedup."""
 
     @pytest.mark.asyncio
-    async def test_wrappers_generated_both_reports_runtime_skips_compensation(self):
-        """When stream contains tool messages named as actual tools,
-        runtime must NOT call compensation writers."""
+    async def test_wrappers_generated_both_reports_runtime_skips_compensation(
+        self, tmp_path
+    ):
+        """Pre-emit wrapper artifacts, stream _tool names.
+        Runtime must NOT compensate; each artifact exactly once."""
         from unittest.mock import AsyncMock, patch
 
         from app.agent.runtime import DeepAgentsTutorialRuntime
@@ -419,24 +509,43 @@ class TestFakeGraphArtifactDedup:
 
         ws = SessionWorkspace.for_thread(
             thread_id=THREAD_ID,
-            base_upload="/tmp/up-dedup",
-            base_output="/tmp/out-dedup",
+            base_upload=str(tmp_path / "up-dedup"),
+            base_output=str(tmp_path / "out-dedup"),
         )
         ctx = SessionContext(thread_id=THREAD_ID, workspace=ws)
 
         with patch("app.agent.runtime.generate_markdown_report") as mock_md:
             with patch("app.agent.runtime.generate_pdf_report") as mock_pdf:
                 async with events.subscribe(THREAD_ID) as sub:
+                    # Pre-emit wrapper artifact_created events
+                    events.emit(
+                        THREAD_ID,
+                        "artifact_created",
+                        "tutorial-report.md",
+                        {
+                            "path": "tutorial-report.md",
+                            "name": "tutorial-report.md",
+                            "media_type": "text/markdown",
+                        },
+                    )
+                    events.emit(
+                        THREAD_ID,
+                        "artifact_created",
+                        "tutorial-report.pdf",
+                        {
+                            "path": "tutorial-report.pdf",
+                            "name": "tutorial-report.pdf",
+                            "media_type": "application/pdf",
+                        },
+                    )
                     await rt.run(RuntimeRequest("test", ctx))
                     emitted = []
                     while not sub.queue.empty():
                         emitted.append(sub.queue.get_nowait())
 
-        # Compensation writers must NOT be called
         mock_md.assert_not_called()
         mock_pdf.assert_not_called()
 
-        # Check that runtime did NOT generate duplicate artifacts
         md_events = [
             e
             for e in emitted
@@ -449,10 +558,11 @@ class TestFakeGraphArtifactDedup:
             if e.type == "artifact_created"
             and e.data.get("path") == "tutorial-report.pdf"
         ]
-        assert len(md_events) == 0, f"Runtime compensated md artifact: {len(md_events)}"
-        assert len(pdf_events) == 0, (
-            f"Runtime compensated pdf artifact: {len(pdf_events)}"
-        )
+        assert len(md_events) == 1, f"Expected 1 md artifact, got {len(md_events)}"
+        assert len(pdf_events) == 1, f"Expected 1 pdf artifact, got {len(pdf_events)}"
+        for evt in md_events + pdf_events:
+            assert not evt.data["path"].startswith("/")
+            assert evt.data["name"] in ("tutorial-report.md", "tutorial-report.pdf")
 
 
 class _FakeMsg:

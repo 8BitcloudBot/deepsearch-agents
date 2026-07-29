@@ -271,9 +271,8 @@ class TestWrapperFailureContract:
     """Direct async test: _build_read_uploaded_file_tool failure semantics."""
 
     @pytest.mark.asyncio
-    async def test_no_session_context_raises_and_no_completed(self):
-        """Without SessionContext, exception propagates; only tool_started."""
-
+    async def test_no_session_context_raises_exact_events(self, tmp_path):
+        """No SessionContext: exception propagates; exact event tuple."""
         from app.agent.factory import _build_read_uploaded_file_tool
         from app.api.events import InMemoryEventBus
 
@@ -291,18 +290,14 @@ class TestWrapperFailureContract:
             while not sub.queue.empty():
                 emitted.append(sub.queue.get_nowait())
 
-        types = [e.type for e in emitted]
-        tool_names = {e.data.get("tool_name") for e in emitted}
-        assert "tool_started" in types, f"Missing tool_started: {types}"
-        assert "tool_completed" not in types, (
-            f"tool_completed emitted on failure: {types}"
+        events_tuple = [(e.type, e.data.get("tool_name")) for e in emitted]
+        assert events_tuple == [("tool_started", "read_uploaded_file")], (
+            f"Wrong events: {events_tuple}"
         )
-        assert "read_uploaded_file" in tool_names
 
     @pytest.mark.asyncio
-    async def test_failing_reader_no_completed(self):
-        """When reader fails, only tool_started, no completed."""
-
+    async def test_failing_reader_exact_events(self, tmp_path):
+        """Failing reader: exception propagates; exact event tuple."""
         from app.agent.factory import _build_read_uploaded_file_tool
         from app.api.context import SessionContext, session_context
         from app.api.events import InMemoryEventBus
@@ -313,10 +308,9 @@ class TestWrapperFailureContract:
         thread_id = "00000000-0000-4000-8000-000000000002"
         ws = SessionWorkspace.for_thread(
             thread_id=thread_id,
-            base_upload="/tmp/up-fail",
-            base_output="/tmp/out-fail",
+            base_upload=str(tmp_path / "up-fail"),
+            base_output=str(tmp_path / "out-fail"),
         )
-        # Create a non-UTF-8 file that will fail validation
         bad_file = ws.resolve_upload("bad.txt")
         bad_file.write_bytes(b"\xff\xfe\x00\x00")
         ctx = SessionContext(thread_id=thread_id, workspace=ws)
@@ -332,10 +326,9 @@ class TestWrapperFailureContract:
             while not sub.queue.empty():
                 emitted.append(sub.queue.get_nowait())
 
-        types = [e.type for e in emitted]
-        assert "tool_started" in types
-        assert "tool_completed" not in types, (
-            f"tool_completed emitted on reader failure: {types}"
+        events_tuple = [(e.type, e.data.get("tool_name")) for e in emitted]
+        assert events_tuple == [("tool_started", "read_uploaded_file")], (
+            f"Wrong events: {events_tuple}"
         )
 
 
