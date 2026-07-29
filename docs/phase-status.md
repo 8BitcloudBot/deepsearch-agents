@@ -14,7 +14,7 @@
 | 2 | Providers+Tools+SQL | `cba9315` | factory, tools, subagents, SQL policy |
 | 2-n | Phase 2 remediation | various | event contracts, strict JSON, evidence |
 | **3** | **Workspace & Reports** | **`397d9bb`** | **SessionWorkspace, ContextVar, file readers, Markdown/PDF, 27 tests** |
-| 4 | Agent & Runtimes | pending | — |
+| 4 | Agent & Runtimes | pending | factory, mock runtime, deepagents runtime, 24 new tests |
 | 5 | FastAPI/WebSocket | pending | — |
 | 6 | React Workbench | pending | — |
 | 7 | Document & Verify | pending | — |
@@ -24,8 +24,8 @@
 None.
 
 ## Tests
-- Unit: 214 passed
-- Integration: 8 skipped (no model key), 2 skipped (no external config)
+- Unit: 238 passed
+- Integration: 8 skipped (no model key), 2 skipped (smoke — no external config)
 - MySQL: 6 passed (PHASE2_MYSQL_INTEGRATION=1)
 
 ## JsonValue Contract
