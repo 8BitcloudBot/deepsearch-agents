@@ -9,11 +9,16 @@ import datetime
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 JsonValue = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
+
+_JsonDict = Annotated[
+    dict[str, Any],
+    BeforeValidator(lambda v: (_validate_json_value(v), v)[1]),
+]
 
 
 def _validate_json_value(v: Any, path: str = "data") -> None:
@@ -54,9 +59,7 @@ class TutorialEvent(BaseModel):
     thread_id: str
     type: TutorialEventType
     message: str
-    data: dict[str, Any] = Field(
-        default_factory=dict
-    )  # validated at runtime by _validate_json_value
+    data: _JsonDict = Field(default_factory=dict)
     timestamp: datetime.datetime
 
 
@@ -79,7 +82,7 @@ class InMemoryEventBus:
         thread_id: str,
         event_type: TutorialEventType,
         message: str,
-        data: dict[str, Any] | None = None,  # validated by _validate_json_value
+        data: dict[str, "JsonValue"] | None = None,
     ) -> TutorialEvent:
         if data is not None:
             _validate_json_value(data)

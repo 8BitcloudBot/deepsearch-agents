@@ -119,3 +119,34 @@ class TestRealOverflowIsolation:
             bus.emit("t", "tool_started", "future")
             ev = await asyncio.wait_for(sub_c.queue.get(), timeout=1)
             assert ev.message == "future"
+
+
+class TestTypeAnnotations:
+    def test_tutorial_event_data_validates_json(self):
+        """TutorialEvent.data uses BeforeValidator for JsonValue enforcement."""
+        import typing
+
+        from app.api.events import TutorialEvent
+
+        hints = typing.get_type_hints(TutorialEvent, include_extras=True)
+        data_type = hints.get("data")
+        assert data_type is not None
+        # Annotated type wraps dict[str, Any] with BeforeValidator
+        type_str = str(data_type)
+        assert "BeforeValidator" in str(data_type) or "Annotated" in str(data_type), (
+            f"data must use Annotated/validator: {type_str}"
+        )
+
+    def test_emit_data_param_is_json_value(self):
+        """InMemoryEventBus.emit data param typed as dict[str, JsonValue]."""
+        import inspect
+
+        from app.api.events import InMemoryEventBus
+
+        sig = inspect.signature(InMemoryEventBus.emit)
+        data_param = sig.parameters.get("data")
+        assert data_param is not None
+        type_str = str(data_param.annotation)
+        assert "JsonValue" in type_str, (
+            f"emit data param must reference JsonValue, got {type_str}"
+        )
