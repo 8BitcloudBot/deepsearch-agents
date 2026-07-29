@@ -10,6 +10,10 @@ from app.providers.contracts import QueryResult, TableInfo
 _TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
+def _clamp_limit(limit: int) -> int:
+    return max(1, min(limit, 100))
+
+
 def _validate_table_name(name: str) -> None:
     if not _TABLE_NAME_RE.match(name):
         raise ReadOnlyQueryError(f"Invalid table name: {name!r}")
@@ -131,13 +135,11 @@ class MySQLCatalogProvider:
 
     def preview_table(self, table_name: str, *, limit: int = 20) -> QueryResult:
         _validate_table_name(table_name)
-        limit = max(1, min(limit, 100))
+        limit = _clamp_limit(limit)
         conn = self._connect()
         try:
             cursor = conn.cursor()
-            cursor.execute(
-                f"SELECT * FROM `{table_name}` LIMIT {max(1, min(limit, 100))}"
-            )
+            cursor.execute(f"SELECT * FROM `{table_name}` LIMIT {_clamp_limit(limit)}")
             columns = (
                 tuple(d[0] for d in cursor.description) if cursor.description else ()
             )
@@ -151,14 +153,14 @@ class MySQLCatalogProvider:
             conn.close()
 
     def execute_readonly(self, query: str, *, limit: int = 100) -> QueryResult:
-        limit = max(1, min(limit, 1000))
+        limit = _clamp_limit(limit)
         validate_readonly_query(query, database=self._database)
         conn = self._connect()
         try:
             cursor = conn.cursor()
             wrapped = (
                 f"SELECT /*+ MAX_EXECUTION_TIME(5000) */ * "
-                f"FROM ({query}) AS phase2_query LIMIT {max(1, min(limit, 1000))}"
+                f"FROM ({query}) AS phase2_query LIMIT {_clamp_limit(limit)}"
             )
             cursor.execute(wrapped)
             columns = (
