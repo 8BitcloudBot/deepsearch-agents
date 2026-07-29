@@ -63,14 +63,6 @@ class TestRAGFlowAskGenerator:
             fake_chat.delete_sessions.assert_called_once_with(["sess-err"])
 
 
-class TestToolsUseConfigThreadId:
-    def test_tool_uses_config_thread_id(self):
-        """Tools must read thread_id from RunnableConfig, not use UNKNOWN."""
-        # This test verifies the contract: tool wrappers accept a config
-        # parameter and extract config.configurable.thread_id
-        pass  # will be implemented as async test with mock event bus
-
-
 class TestSubagentBuilder:
     def test_subagents_use_real_tool_objects(self):
         """Subagent builder must inject real LangChain tool callables, not strs."""
@@ -133,10 +125,54 @@ class TestProviderEnumValidation:
 
 
 class TestExecuteReadonlyLimits:
-    def test_limit_clamped_to_max_100(self):
-        from app.providers.mysql import validate_readonly_query
+    def test_provider_execute_readonly_clamps_limit_999(self):
+        """Provider must clamp limit=999 to 100 in generated SQL."""
+        from unittest.mock import MagicMock
 
-        validate_readonly_query("SELECT * FROM drugs", database="research_copilot")
+        from app.providers.mysql import MySQLCatalogProvider
+
+        # Create provider with mocked connection
+        provider = MySQLCatalogProvider(
+            host="h",
+            port=1,
+            user="u",
+            password="p",  # pragma: allowlist secret
+            database="d",  # pragma: allowlist secret
+        )
+        fake_cursor = MagicMock()
+        fake_cursor.description = [("col",)]
+        fake_cursor.fetchall.return_value = [(1,)]
+        fake_conn = MagicMock()
+        fake_conn.cursor.return_value = fake_cursor
+
+        provider._connect = lambda: fake_conn
+        provider.execute_readonly("SELECT * FROM drugs", limit=999)
+        sql = fake_cursor.execute.call_args[0][0]
+        assert "LIMIT 100" in sql, f"Expected LIMIT 100 in SQL, got: {sql}"
+
+    def test_provider_execute_readonly_clamps_limit_0_to_1(self):
+        """Provider must clamp limit=0 to 1."""
+        from unittest.mock import MagicMock
+
+        from app.providers.mysql import MySQLCatalogProvider
+
+        provider = MySQLCatalogProvider(
+            host="h",
+            port=1,
+            user="u",
+            password="p",  # pragma: allowlist secret
+            database="d",  # pragma: allowlist secret
+        )
+        fake_cursor = MagicMock()
+        fake_cursor.description = [("col",)]
+        fake_cursor.fetchall.return_value = [(1,)]
+        fake_conn = MagicMock()
+        fake_conn.cursor.return_value = fake_cursor
+
+        provider._connect = lambda: fake_conn
+        provider.execute_readonly("SELECT * FROM drugs", limit=0)
+        sql = fake_cursor.execute.call_args[0][0]
+        assert "LIMIT 1" in sql, f"Expected LIMIT 1 in SQL, got: {sql}"
 
     def test_semicolon_trailing_rejected(self):
         from app.providers.mysql import ReadOnlyQueryError, validate_readonly_query
@@ -146,24 +182,6 @@ class TestExecuteReadonlyLimits:
 
 
 class TestEventBusOverflow:
-    def test_overflow_isolates_single_subscriber(self):
-        """Full queue sets only that subscription's overflowed, not others."""
-        import asyncio
-
-        from app.api.events import InMemoryEventBus
-
-        async def _test():
-            bus = InMemoryEventBus()
-            async with bus.subscribe("t") as sub_a:
-                async with bus.subscribe("t") as sub_b:
-                    # Fill sub_a to overflow by using a tiny queue
-                    # Actually the queue is fixed at 256, hard to overflow in test
-                    # Instead, verify the overflowed event starts unset
-                    assert not sub_a.overflowed.is_set()
-                    assert not sub_b.overflowed.is_set()
-
-        asyncio.run(_test())
-
     def test_data_is_json_value(self):
         """TutorialEvent.data must accept only JsonValue-compatible values."""
         from app.api.events import InMemoryEventBus
