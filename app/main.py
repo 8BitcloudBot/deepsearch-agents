@@ -1,18 +1,44 @@
-"""Phase 0 FastAPI application — health contract only."""
+"""Phase 2 FastAPI application entry point."""
 
 from fastapi import FastAPI
 
+from app.providers.factory import build_providers
+from app.settings import Phase2Settings
+
 
 def create_app() -> FastAPI:
-    """Create and configure the FastAPI application.
+    """Create and configure the Phase 2 FastAPI application.
 
-    Returns a minimal app with only the /health endpoint.
-    No database connections, external providers, or agent logic in Phase 0.
+    Returns a fully wired app with HTTP routes, WebSocket, and
+    /health reporting phase: "2" without secrets.
     """
-    app = FastAPI(title="research-copilot-api")
+    from app.agent.factory import create_tutorial_agent
+    from app.agent.runtime import MockTutorialRuntime
+    from app.api.events import InMemoryEventBus
+    from app.api.server import create_app as create_server
 
-    @app.get("/health")
-    async def health():
-        return {"status": "ok", "service": "research-copilot-api", "phase": "0"}
+    settings = Phase2Settings.from_env()
+    events = InMemoryEventBus()
+    bundle = build_providers(settings)
 
-    return app
+    if settings.tutorial_runtime == "deepagents":
+        # Real runtime requires a model
+        from langchain_openai import ChatOpenAI
+
+        if not settings.model_api_key:
+            raise RuntimeError("MODEL_API_KEY required for deepagents runtime")
+        model = ChatOpenAI(
+            model=settings.model_name,
+            api_key=settings.model_api_key,
+            base_url=settings.model_base_url,
+        )
+        graph = create_tutorial_agent(model, bundle, events, lambda tid: None)
+        from app.agent.runtime import DeepAgentsTutorialRuntime
+
+        runtime = DeepAgentsTutorialRuntime(graph, bundle, events)
+    else:
+        runtime = MockTutorialRuntime(bundle, events)
+
+    return create_server(
+        settings=settings, bundle=bundle, runtime=runtime, events=events
+    )
