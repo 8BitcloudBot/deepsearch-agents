@@ -33,9 +33,9 @@ test_semicolon_trailing_rejected (semicolon passed)
 
 ## Round 2 GREEN Evidence
 
-**149 unit tests pass, 10 skipped, MySQL integration 6 pass, external smoke 2 skip**
-
-### Fixes Applied
+Round 2 provider fixes pass their current tests, but acceptance is rejected:
+tool event routing, recursive JsonValue validation, overflow isolation, and
+execute limit 1..100 are not yet proven. Task 3 remains blocked.
 1. **RAGFlow generator**: `Session.ask(stream=False)` iterated, `msg.content` extracted, `delete_sessions` in finally
 2. **Provider enums**: WEB=mock|tavily, CATALOG=mock|mysql, KNOWLEDGE=mock|ragflow, APP_PROFILE=tutorial only
 3. **tutorial_reader enforced**: factory rejects MYSQL_USER=root

@@ -18,7 +18,8 @@
 | F1 | Fix: Provider Contracts | completed | `bd38a60` | RAGFlow 0.26.0, SQL validation |
 | R2 | RED: Remediation 2 | completed | `9b2422b` | 8 RED failures |
 | F2 | Fix: Remediation 2 | completed | `f1b87bc` | generator, enums, tutorial_reader, semicolons |
-| 3 | Workspace & Reports | pending | — | — |
+| R2-n | RED: tool/event/limit/evidence gaps | in_progress | — | Acceptance rejected at c5f32ca; Task 3 blocked |
+| 3 | Workspace & Reports | blocked | — | — |
 | 4 | Agent & Runtimes | pending | — | — |
 | 5 | FastAPI/WebSocket | pending | — | — |
 | 6 | React Workbench | pending | — | — |
@@ -26,7 +27,14 @@
 
 ## Blockers
 
-None.
+| # | Blocker | Status |
+|---|---------|--------|
+| 1 | Tool thread/event contract | pending |
+| 2 | Recursive JsonValue validation | pending |
+| 3 | Real overflow test (257 events) | pending |
+| 4 | execute limit must be 1..100 | pending |
+| 5 | Evidence/baseline correction | pending |
+| 6 | Task 3 blocked until all accepted | active |
 
 ## Key Remediation Results (Round 2)
 
