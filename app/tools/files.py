@@ -481,29 +481,36 @@ def read_xlsx_file(path: Path) -> str:
     except Exception:
         raise ValueError("Unable to parse XLSX workbook")
 
-    output_lines: list[str] = []
-    for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        rows_list = list(ws.iter_rows(values_only=True))
-        row_count = len(rows_list)
-        col_count = ws.max_column or 0
-        headers = []
-        if rows_list:
-            headers = [str(c) if c is not None else "" for c in rows_list[0]]
-        output_lines.append(f"## Sheet: {sheet_name}")
-        output_lines.append(f"Rows: {row_count}, Columns: {col_count}")
-        if headers:
-            output_lines.append(f"Headers: {' | '.join(headers)}")
-        output_lines.append("")
-        display_rows = rows_list[1:21]  # up to 20 data rows
-        for row in display_rows:
-            row_str = " | ".join(str(c) if c is not None else "" for c in row)
-            output_lines.append(row_str)
-        if row_count > 21:
-            output_lines.append(f"... ({row_count - 21} more rows not shown)")
-        output_lines.append("")
+    import itertools
 
-    wb.close()
+    output_lines: list[str] = []
+    try:
+        for sheet_name in wb.sheetnames:
+            ws = wb[sheet_name]
+            # Bound: only iterate header + 20 data rows using islice
+            all_rows = ws.iter_rows(values_only=True)
+            header_row = next(all_rows, None)
+            headers = (
+                [str(c) if c is not None else "" for c in header_row]
+                if header_row
+                else []
+            )
+            data_rows = list(itertools.islice(all_rows, 20))
+
+            col_count = ws.max_column or len(headers)
+            row_count = len(data_rows) + (1 if header_row else 0)
+
+            output_lines.append(f"## Sheet: {sheet_name}")
+            output_lines.append(f"Rows (bounded): {row_count}, Columns: {col_count}")
+            if headers:
+                output_lines.append(f"Headers: {' | '.join(headers)}")
+            output_lines.append("")
+            for row in data_rows:
+                row_str = " | ".join(str(c) if c is not None else "" for c in row)
+                output_lines.append(row_str)
+            output_lines.append("")
+    finally:
+        wb.close()
     text = "\n".join(output_lines)
     if len(text) > MAX_TEXT_CHARS:
         text = text[:MAX_TEXT_CHARS] + TRUNCATION_SUFFIX
