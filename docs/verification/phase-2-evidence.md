@@ -52,7 +52,68 @@ non-str key → REJECTED (ValidationError)
 ## Known Limitations
 - `b"x"` inside a dict key → rejected at field_validator level
 - `.secrets.baseline` unchanged
-- Task 3 remains blocked
+## Task 3 remediation status: `87a4373` (RED), `e74c64a` (GREEN) — awaiting acceptance
+
+## Task 3: Workspace & Reports Remediation
+
+**Date:** 2026-07-29
+
+### RED Phase (87a4373)
+- 4 test files rewritten: 91 total tests
+- 42 RED failures covering: UnsafeWorkspacePath rejection (no silent basename), nested traversal, pypdf/docx/openpyxl real parsing, macro/ZIP bomb defense, untrusted source delimiters, report contracts
+- Representative failures:
+  - `test_rejects_parent_traversal_single` → ValueError → UnsafeWorkspacePath
+  - `test_rejects_directory_component` → basename sanitization rejected
+  - `test_pdf_extracts_text_not_placeholder` → real pypdf text required
+  - `test_rejects_macro_enabled_docx` → vbaProject.bin rejection
+  - `test_rejects_zip_bomb` → entry/size/ratio checks
+  - `test_untrusted_delimiters_warn_about_instructions` → BEGIN/END markers
+  - `test_uses_current_session_workspace` → session-based output_dir
+
+### GREEN Phase (e74c64a)
+- `app/tools/files.py`: UnsafeWorkspacePath, is_relative_to containment, read_uploaded_file with untrusted delimiters, pypdf PdfReader, python-docx with macro content-type/entry/ZIP bomb checks, openpyxl read_only/data_only with sheet info
+- `app/tools/reports.py`: session_context-based output_dir, atomic Markdown/PDF, STSong-Light CJK font, ReportGenerationError without raw paths
+- `app/agent/factory.py` + `runtime.py`: updated report call signatures
+
+```bash
+.venv/bin/python -m pytest tests/unit/phase2/test_workspace.py \
+  tests/unit/phase2/test_context.py \
+  tests/unit/phase2/test_file_reader.py \
+  tests/unit/phase2/test_reports.py -q
+# 91 passed
+
+.venv/bin/python -m pytest tests/ -q
+# 302 passed, 11 skipped
+
+.venv/bin/ruff check app tests
+# All checks passed
+
+.venv/bin/ruff format --check app tests
+# All files already formatted
+
+.venv/bin/pre-commit run --all-files
+# ruff, ruff-format, detect-secrets all passed
+```
+
+### Security evidence
+- Path traversal: 13 negative tests (../, absolute, Windows, backslash, symlink, directory component) → all UnsafeWorkspacePath
+- Macro rejection: vbaProject.bin entry + macro content type → rejected
+- ZIP bomb: excessive entries, compression ratio, uncompressed size → rejected
+- MIME spoofing: .pdf extension + text content → rejected by PDF header check
+- Untrusted delimiters: [BEGIN UNTRUSTED]...[END UNTRUSTED] with instruction warning
+- Atomaticity: tmp file clean; failed upload preserves old file; failed PDF preserves Markdown
+- Error redaction: ReportGenerationError without paths; current_session error without paths/credentials
+
+### Artifact return example
+```python
+generate_markdown_report("# Report\n\nContent.")
+# Returns: "tutorial-report.md"  (relative path, not absolute)
+```
+
+### Remaining blockers
+- None for Task 3
+- Task 4 already completed (c5b579e) — unaffected by remediation
+- Task 5 not yet started
 
 ## Task 4: Agent Factory & Runtimes
 

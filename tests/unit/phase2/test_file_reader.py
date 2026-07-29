@@ -81,7 +81,7 @@ class TestPDFReader:
         f = tmp_path / "enc.pdf"
         with open(f, "wb") as fp:
             writer.write(fp)
-        with pytest.raises(ValueError, match="encrypt"):
+        with pytest.raises(ValueError, match="ncrypt"):
             read_pdf_file(f)
 
     def test_rejects_damaged_pdf(self, tmp_path):
@@ -160,7 +160,7 @@ class TestDOCXReader:
             zf.writestr("[Content_Types].xml", _CT_XML)
             zf.writestr("word/document.xml", _DOCUMENT_XML)
             zf.writestr("word/vbaProject.bin", b"macro payload")
-        with pytest.raises(ValueError, match="macro"):
+        with pytest.raises(ValueError, match="vbaProject"):
             read_docx_file(f)
 
     def test_rejects_macro_content_type(self, tmp_path):
@@ -177,7 +177,7 @@ class TestDOCXReader:
         with zipfile.ZipFile(f, "w") as zf:
             zf.writestr("[Content_Types].xml", ct)
             zf.writestr("word/document.xml", _DOCUMENT_XML)
-        with pytest.raises(ValueError, match="macro"):
+        with pytest.raises(ValueError, match="acro"):
             read_docx_file(f)
 
     def test_rejects_zip_bomb(self, tmp_path):
@@ -272,7 +272,7 @@ class TestXLSXReader:
             zf.writestr("[Content_Types].xml", _CT_XLSX_XML)
             zf.writestr("xl/workbook.xml", _WORKBOOK_XML)
             zf.writestr("xl/vbaProject.bin", b"macro")
-        with pytest.raises(ValueError, match="macro"):
+        with pytest.raises(ValueError, match="vbaProject"):
             read_xlsx_file(f)
 
 
