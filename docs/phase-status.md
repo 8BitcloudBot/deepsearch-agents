@@ -19,11 +19,6 @@
 **None.** Task 3 remains blocked until full Phase 2 user acceptance.
 
 ## Tests
-- Unit: 167 passed
+- Unit: 166 passed
 - Integration: 8 skipped (no model key), 2 skipped (no external config)
 - MySQL: 6 passed (PHASE2_MYSQL_INTEGRATION=1)
-
-## Known Limitations
-- Pydantic 2.13 不支持递归类型；`TutorialEvent.data` 字段类型为 `dict[str, Any]`，由 `model_validator` 在构造时执行 `_validate_json_value`
-- `InMemoryEventBus.emit` 参数类型为 `dict[str, "JsonValue"] | None`
-- 前向引用 `"JsonValue"` 在 Pydantic 模型中引发递归；`Any` + 运行时验证是当前版本的最优方案

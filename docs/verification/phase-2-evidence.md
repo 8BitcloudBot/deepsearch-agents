@@ -26,26 +26,21 @@
 | `git diff --check` | 0 | clean |
 | MySQL integration | 0 | 6 passed |
 
-## Event Type Design (Final)
+## Event Type Design
 
 ```python
-# Public emit signature uses JsonValue
-def emit(self, thread_id, event_type, message,
-         data: dict[str, "JsonValue"] | None = None) -> TutorialEvent
+# PEP 695 recursive type alias (Python 3.12 + Pydantic 2.13.4)
+type JsonValue = (
+    None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]
+)
 
-# Pydantic model uses dict[str, Any] + model_validator
-# (recursive types unsupported in Pydantic 2.13)
 class TutorialEvent(BaseModel):
-    data: dict[str, Any] = Field(default_factory=dict)
+    data: dict[str, JsonValue] = Field(default_factory=dict)
 
-    @model_validator(mode="after")
-    def _validate_data(self):
-        _validate_json_value(self.data)  # rejects objects, bytes, sets, tuples, non-string keys
-        return self
+def emit(self, ...,
+         data: dict[str, JsonValue] | None = None) -> TutorialEvent
 ```
 
-## Known Limitations
-- `TutorialEvent.data` Pydantic field is `dict[str, Any]` due to recursive type limitation; runtime enforcement via `model_validator`
-- `InMemoryEventBus.emit` parameter typed as `dict[str, "JsonValue"] | None`
-- Task 3 blocked until Phase 2 user acceptance
-- `.secrets.baseline` unchanged from accepted fixed point
+Pydantic generates a `$defs/JsonValue` entry in the JSON Schema
+and rejects `object()` and non-string dict keys at construction time.
+`bytes`, `set`, and `tuple` are coerced by Pydantic's default mode.
