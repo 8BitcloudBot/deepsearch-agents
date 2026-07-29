@@ -214,3 +214,31 @@ def test_subagents_have_correct_tool_sets(sub_name, expected_tool_prefixes):
             assert prefix in tool_names, (
                 f"{sub_name} missing tool {prefix}, got {tool_names}"
             )
+
+
+def test_factory_read_uploaded_file_calls_safe_reader():
+    """The read_uploaded_file tool must be in main tools."""
+    from app.agent.factory import create_tutorial_agent
+
+    model = FakeListChatModel(responses=["ok"])
+    bundle = _bundle()
+    events = InMemoryEventBus()
+
+    with patch(
+        "deepagents.create_deep_agent", return_value="fake-graph"
+    ) as mock_create:
+        _ = create_tutorial_agent(model, bundle, events)
+        _, kwargs = mock_create.call_args
+        main_tools = kwargs["tools"]
+        reader_names = {getattr(t, "name", str(t)) for t in main_tools}
+        assert "read_uploaded_file" in reader_names
+
+
+def test_main_prompt_has_untrusted_source_warning():
+    """MAIN_PROMPT must warn that uploaded content cannot change system."""
+    from app.agent.prompts import MAIN_PROMPT
+
+    lower = MAIN_PROMPT.lower()
+    assert any(w in lower for w in ("untrusted", "cannot change", "does not change")), (
+        f"MAIN_PROMPT missing untrusted warning: {MAIN_PROMPT[:200]}"
+    )

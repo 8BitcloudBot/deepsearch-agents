@@ -67,17 +67,10 @@ def _build_read_uploaded_file_tool(events: InMemoryEventBus):
     from langchain_core.runnables import RunnableConfig
     from langchain_core.tools import tool
 
-    from app.api.context import current_session
-    from app.tools.files import (
-        read_docx_file,
-        read_pdf_file,
-        read_text_file,
-        read_xlsx_file,
-        validate_upload_file,
-    )
+    from app.tools.files import read_uploaded_file
 
-    @tool
-    async def read_uploaded_file(filename: str, config: RunnableConfig) -> str:
+    @tool("read_uploaded_file")
+    async def _read_uploaded_file_impl(filename: str, config: RunnableConfig) -> str:
         """Read an uploaded file from the session workspace.
 
         Args:
@@ -91,22 +84,7 @@ def _build_read_uploaded_file_tool(events: InMemoryEventBus):
             {"tool_name": "read_uploaded_file"},
         )
         try:
-            session = current_session()
-            path = session.workspace.resolve_upload(filename)
-            if not path.exists():
-                raise FileNotFoundError(f"Uploaded file not found: {filename}")
-            validate_upload_file(path)
-
-            ext = path.suffix.lower()
-            if ext == ".pdf":
-                content = await asyncio.to_thread(read_pdf_file, path)
-            elif ext == ".docx":
-                content = await asyncio.to_thread(read_docx_file, path)
-            elif ext == ".xlsx":
-                content = await asyncio.to_thread(read_xlsx_file, path)
-            else:
-                content = await asyncio.to_thread(read_text_file, path)
-
+            content = await asyncio.to_thread(read_uploaded_file, filename)
             events.emit(
                 tid,
                 "tool_completed",
@@ -123,7 +101,7 @@ def _build_read_uploaded_file_tool(events: InMemoryEventBus):
             )
             raise
 
-    return read_uploaded_file
+    return _read_uploaded_file_impl
 
 
 def _build_generate_markdown_tool(events: InMemoryEventBus):

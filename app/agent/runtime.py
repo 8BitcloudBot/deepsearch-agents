@@ -117,14 +117,15 @@ class MockTutorialRuntime:
             if upload_files:
                 self._emit_tool_pair(tid, "read_uploaded_file", "reading upload")
                 for fpath in upload_files:
-                    if fpath.suffix.lower() == ".md":
-                        try:
-                            text = fpath.read_text(encoding="utf-8")
-                            if len(text) > 5000:
-                                text = text[:5000] + "\n\n[TRUNCATED]\n"
-                            uploaded_content = text
-                        except Exception:
-                            uploaded_content = f"[Could not read {fpath.name}]"
+                    try:
+                        from app.tools.files import read_uploaded_file
+
+                        text = read_uploaded_file(fpath.name)
+                        if len(text) > 5000:
+                            text = text[:5000] + "\n\n[TRUNCATED]\n"
+                        uploaded_content = text
+                    except Exception:
+                        uploaded_content = f"[Could not read {fpath.name}]"
 
             # 5. Build report content
             report_lines = [
