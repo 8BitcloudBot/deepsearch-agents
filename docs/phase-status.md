@@ -19,6 +19,11 @@
 **None.** Task 3 remains blocked until full Phase 2 user acceptance.
 
 ## Tests
-- Unit: 166 passed
+- Unit: 185 passed
 - Integration: 8 skipped (no model key), 2 skipped (no external config)
 - MySQL: 6 passed (PHASE2_MYSQL_INTEGRATION=1)
+
+## JsonValue Contract
+- PEP 695 `type` recursive alias: `None | bool | int | float | str | list[JsonValue] | dict[str, JsonValue]`
+- `@field_validator("data", mode="before")` rejects bytes/set/tuple/object/non-str keys before Pydantic coercion
+- JSON Schema contains `$defs/JsonValue`
