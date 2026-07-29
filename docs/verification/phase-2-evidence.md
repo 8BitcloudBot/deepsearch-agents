@@ -32,7 +32,7 @@ class TutorialEvent(BaseModel):
 
 | Gate | Exit | Result |
 |------|------|--------|
-| `pytest tests/ -q` | 0 | 185 passed, 10 skipped |
+| `pytest tests/ -q` | 0 | 187 passed, 10 skipped |
 | `ruff check` | 0 | clean |
 | `ruff format --check` | 0 | all formatted |
 | `pre-commit run --all-files` | 0 | 3/3 passed |

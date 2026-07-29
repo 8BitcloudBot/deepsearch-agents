@@ -9,17 +9,17 @@
 
 | Task | Name | Commit | Notes |
 |------|------|--------|-------|
-| 1 | Recursive Event Type | `6e79fa6` | JsonValue annotations, model_validator |
+| 1 | Recursive Event Type | `6e79fa6` | JsonValue annotations, field_validator(mode="before") |
 | 2 | Delete False-Green Tests | `5df1ac5` | removed pass/placeholder, added provider SQL limit test |
 | 3 | Exact Subagent Contracts | `08630a4` | 10 tests: names, prompts, tools, domain isolation |
-| 4 | Remove Any Exposure + Evidence | `c252de0` / `92a28d2` / `b7eadda` | PEP695 type, field_validator(mode="before"), strict rejection |
+| 4 | Remove Any Exposure + Evidence | `c252de0`/`92a28d2`/`b7eadda`/`a368eb6` | PEP695 type, field_validator(mode="before"), strict rejection |
 
 ## Blockers
 
 **None.** Task 3 remains blocked until full Phase 2 user acceptance.
 
 ## Tests
-- Unit: 185 passed
+- Unit: 187 passed
 - Integration: 8 skipped (no model key), 2 skipped (no external config)
 - MySQL: 6 passed (PHASE2_MYSQL_INTEGRATION=1)
 
