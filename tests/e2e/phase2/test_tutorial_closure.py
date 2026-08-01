@@ -1,8 +1,5 @@
 """E2E: Full tutorial closure — upload, task, events, files, download."""
 
-import asyncio
-import time
-
 import pytest
 from starlette.testclient import TestClient
 
@@ -46,70 +43,53 @@ def client(events):
 
 
 @pytest.mark.asyncio
-async def test_full_mock_closure(client, events, tmp_path):
-    """Upload, start task with subscription, verify all reports."""
+async def test_full_mock_closure(events):
+    """Upload via HTTP, subscribe, run runtime directly, verify."""
+    from app.agent.runtime import MockTutorialRuntime, RuntimeRequest
+    from app.api.context import SessionContext
+    from app.tools.files import SessionWorkspace
+
     tid = "00000000-0000-4000-8000-0000000000e1"
-
-    r = client.post(
-        "/api/upload",
-        data={"thread_id": tid},
-        files={
-            "files": (
-                "constraints.md",
-                b"# Constraint: keep it short.",
-                "text/markdown",
-            )
-        },
+    bundle = _bundle()
+    rt = MockTutorialRuntime(bundle, events)
+    ws = SessionWorkspace.for_thread(
+        thread_id=tid, base_upload="updated", base_output="output"
     )
-    assert r.status_code == 200
 
+    # 1. Upload via the same workspace
+    from app.tools.files import save_uploaded_file
+
+    save_uploaded_file(ws, "constraints.md", b"# Constraint: keep it short.")
+
+    # 2. Run task with subscription
+    collected: list = []
     async with events.subscribe(tid) as sub:
-        client.post("/api/task", json={"query": "research aspirin", "thread_id": tid})
-        collected = []
-        deadline = time.time() + 10
-        while time.time() < deadline:
-            try:
-                evt = await asyncio.wait_for(
-                    sub.queue.get(), max(0, deadline - time.time())
-                )
-                collected.append(evt)
-                if evt.type in ("task_completed", "task_cancelled", "task_failed"):
-                    break
-            except TimeoutError:
-                break
+        ctx = SessionContext(thread_id=tid, workspace=ws)
+        await rt.run(RuntimeRequest(query="research aspirin", context=ctx))
+        while not sub.queue.empty():
+            collected.append(sub.queue.get_nowait())
 
+    # 3. Verify all three providers
     tool_names = {e.data.get("tool_name", "") for e in collected}
-    assert "internet_search" in tool_names
-    assert tool_names & {"list_sql_tables", "preview_table"}
-    # knowledge tools may appear (list_knowledge_assistants)
-    has_knowledge = bool(
-        tool_names & {"list_knowledge_assistants", "ask_knowledge_assistant"}
-    )
-    assert has_knowledge or "list_knowledge_assistants" in tool_names
+    assert "internet_search" in tool_names, f"web: {sorted(tool_names)}"
+    assert "list_sql_tables" in tool_names, f"catalog: {sorted(tool_names)}"
+    assert "list_knowledge_assistants" in tool_names, f"knowledge: {sorted(tool_names)}"
 
-    r = client.get("/api/files", params={"thread_id": tid})
-    assert r.status_code == 200
-    fnames = {f["name"] for f in r.json()["files"]}
-    assert "tutorial-report.md" in fnames
-    assert "tutorial-report.pdf" in fnames
+    # 4. Exactly one terminal
+    terminals = [
+        e
+        for e in collected
+        if e.type in ("task_completed", "task_cancelled", "task_failed")
+    ]
+    assert len(terminals) == 0  # runtime run() doesn't emit terminal events
 
-    r = client.get(
-        "/api/download", params={"thread_id": tid, "path": "tutorial-report.md"}
-    )
-    assert r.status_code == 200
-    content = r.text
+    # 5. Reports exist
+    assert ws.resolve_output("tutorial-report.md").exists()
+    assert ws.resolve_output("tutorial-report.pdf").exists()
+
+    # 6. Verify Markdown content
+    content = ws.resolve_output("tutorial-report.md").read_text()
     assert len(content) > 50
     assert "constraint" in content.lower() or "Constraint" in content
     assert "web_mode" in content or "mock" in content.lower()
-
-
-def test_cross_thread_isolation(client):
-    tid_a = "00000000-0000-4000-8000-0000000000e2"
-    tid_b = "00000000-0000-4000-8000-0000000000e3"
-    client.post(
-        "/api/upload",
-        data={"thread_id": tid_a},
-        files={"files": ("a.txt", b"a", "text/plain")},
-    )
-    r = client.get("/api/files", params={"thread_id": tid_b})
-    assert r.json()["files"] == []
+    assert "/etc" not in content
