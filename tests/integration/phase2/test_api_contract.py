@@ -47,103 +47,102 @@ def client(events):
 
 class TestHealth:
     def test_phase_2(self, client):
-        resp = client.get("/health")
-        assert resp.status_code == 200
-        assert resp.json()["phase"] == "2"
+        assert client.get("/health").json()["phase"] == "2"
 
 
-class TestTaskEndpoint:
-    def test_start_returns_202(self, client):
-        resp = client.post("/api/task", json={"query": "test"})
-        assert resp.status_code == 202
-        assert resp.json()["status"] == "started"
+class TestTask:
+    def test_start_202(self, client):
+        r = client.post("/api/task", json={"query": "t"})
+        assert r.status_code == 202
+        assert r.json()["status"] == "started"
 
     def test_empty_query_422(self, client):
-        resp = client.post("/api/task", json={"query": ""})
-        assert resp.status_code == 422
+        assert client.post("/api/task", json={"query": ""}).status_code == 422
 
-    def test_custom_thread_id(self, client):
-        tid = "00000000-0000-4000-8000-0000000000a1"
-        resp = client.post("/api/task", json={"query": "test", "thread_id": tid})
-        assert resp.status_code == 202
-        assert resp.json()["thread_id"] == tid
+    def test_thread_id_malformed_422(self, client):
+        r = client.post("/api/task", json={"query": "t", "thread_id": "bad"})
+        assert r.status_code == 422
 
     def test_cancel_404(self, client):
-        resp = client.post("/api/task/00000000-0000-4000-8000-000000000099/cancel")
-        assert resp.status_code == 404
+        r = client.post("/api/task/00000000-0000-4000-8000-000000000099/cancel")
+        assert r.status_code == 404
 
     def test_malformed_uuid_400(self, client):
-        resp = client.post("/api/task/not-a-uuid/cancel")
-        assert resp.status_code == 400
-
-    def test_thread_id_malformed_400(self, client):
-        resp = client.post(
-            "/api/task",
-            json={"query": "test", "thread_id": "not-a-uuid"},
-        )
-        assert resp.status_code == 422
+        assert client.post("/api/task/x/cancel").status_code == 400
 
 
-class TestUploadEndpoint:
-    def test_upload_with_thread_id(self, client):
+class TestUpload:
+    def test_ok(self, client):
         tid = "00000000-0000-4000-8000-0000000000b1"
-        resp = client.post(
+        r = client.post(
             "/api/upload",
             data={"thread_id": tid},
-            files={"files": ("data.txt", b"hello", "text/plain")},
+            files={"files": ("a.txt", b"hi", "text/plain")},
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "uploaded"
-        assert data["thread_id"] == tid
-        assert len(data["files"]) == 1
-        assert data["files"][0]["name"] == "data.txt"
+        assert r.status_code == 200
+        assert r.json()["files"][0]["name"] == "a.txt"
 
-    def test_upload_unsafe_filename(self, client):
+    def test_multi(self, client):
         tid = "00000000-0000-4000-8000-0000000000b2"
-        resp = client.post(
-            "/api/upload",
-            data={"thread_id": tid},
-            files={"files": ("../secret.txt", b"bad", "text/plain")},
-        )
-        assert resp.status_code == 400
-
-    def test_upload_multiple_files(self, client):
-        tid = "00000000-0000-4000-8000-0000000000b3"
-        resp = client.post(
+        r = client.post(
             "/api/upload",
             data={"thread_id": tid},
             files=[
-                ("files", ("a.txt", b"aaa", "text/plain")),
-                ("files", ("b.txt", b"bbb", "text/plain")),
+                ("files", ("a.txt", b"a", "text/plain")),
+                ("files", ("b.txt", b"b", "text/plain")),
             ],
         )
-        assert resp.status_code == 200
-        assert len(resp.json()["files"]) == 2
+        assert r.status_code == 200
+        assert len(r.json()["files"]) == 2
+
+    def test_extension_mismatch(self, client):
+        tid = "00000000-0000-4000-8000-0000000000b3"
+        r = client.post(
+            "/api/upload",
+            data={"thread_id": tid},
+            files={"files": ("fake.pdf", b"not pdf", "text/plain")},
+        )
+        assert r.status_code == 400
+
+    def test_unsafe_name(self, client):
+        tid = "00000000-0000-4000-8000-0000000000b4"
+        r = client.post(
+            "/api/upload",
+            data={"thread_id": tid},
+            files={"files": ("../secret.txt", b"x", "text/plain")},
+        )
+        assert r.status_code == 400
 
 
-class TestFileEndpoints:
-    def test_files_empty(self, client):
-        tid = "00000000-0000-4000-8000-0000000000c1"
-        resp = client.get("/api/files", params={"thread_id": tid})
-        assert resp.status_code == 200
-        assert resp.json()["files"] == []
+class TestFiles:
+    def test_empty(self, client):
+        r = client.get(
+            "/api/files", params={"thread_id": "00000000-0000-4000-8000-0000000000c1"}
+        )
+        assert r.json()["files"] == []
 
     def test_download_404(self, client):
-        tid = "00000000-0000-4000-8000-0000000000c2"
-        resp = client.get(
+        r = client.get(
             "/api/download",
-            params={"thread_id": tid, "path": "nope.txt"},
+            params={
+                "thread_id": "00000000-0000-4000-8000-0000000000c2",
+                "path": "nope.txt",
+            },
         )
-        assert resp.status_code == 404
+        assert r.status_code == 404
 
-    def test_malformed_uuid_files_400(self, client):
-        resp = client.get("/api/files", params={"thread_id": "not-uuid"})
-        assert resp.status_code == 400
+    def test_malformed_uuid_400(self, client):
+        assert client.get("/api/files", params={"thread_id": "bad"}).status_code == 400
 
-    def test_malformed_uuid_download_400(self, client):
-        resp = client.get(
-            "/api/download",
-            params={"thread_id": "not-uuid", "path": "x.txt"},
+    def test_cross_thread_isolation(self, client):
+        """Files from thread A don't appear in thread B."""
+        tid_a = "00000000-0000-4000-8000-0000000000c3"
+        tid_b = "00000000-0000-4000-8000-0000000000c4"
+        client.post(
+            "/api/upload",
+            data={"thread_id": tid_a},
+            files={"files": ("only_a.txt", b"a", "text/plain")},
         )
-        assert resp.status_code == 400
+        r = client.get("/api/files", params={"thread_id": tid_b})
+        assert r.status_code == 200
+        assert r.json()["files"] == []

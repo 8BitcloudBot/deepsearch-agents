@@ -1,7 +1,4 @@
-"""In-memory TaskRegistry — sole owner of task lifecycle events.
-
-Phase 2 stores tasks and events in memory only.
-"""
+"""In-memory TaskRegistry — sole owner of task lifecycle events."""
 
 import asyncio
 import uuid
@@ -19,8 +16,9 @@ class DuplicateTaskError(ValueError):
 class TaskRegistry:
     """In-memory task lifecycle manager.
 
-    Owns task_started and exactly one of task_completed/task_cancelled/
-    task_failed. No persistence, replay, or recovery in Phase 2.
+    Owns task_started and exactly one terminal event. Pre-entry
+    cancellation emits task_cancelled and cleans registry without
+    leaking CancelledError to callers.
     """
 
     def __init__(
@@ -37,69 +35,55 @@ class TaskRegistry:
         self._tasks: dict[str, asyncio.Task[object]] = {}
 
     def start(self, query: str, thread_id: str | None = None) -> str:
-        """Start a task. Returns thread_id.
-
-        Uses provided thread_id or generates a UUID. Atomically rejects
-        if an active task already exists for the given thread_id.
-        task_started is emitted synchronously before the asyncio task.
-        """
         tid = thread_id or str(uuid.uuid4())
-
         existing = self._tasks.get(tid)
         if existing is not None and not existing.done():
             raise DuplicateTaskError(f"Task {tid} is already running")
-
         ws = SessionWorkspace.for_thread(
             thread_id=tid,
             base_upload=self._base_upload,
             base_output=self._base_output,
         )
         ctx = SessionContext(thread_id=tid, workspace=ws)
-
-        # task_started emitted synchronously before create_task
         self._events.emit(tid, "task_started", query, {})
-
         request = RuntimeRequest(query=query, context=ctx)
         task = asyncio.create_task(self._run_lifecycle(request, tid))
         self._tasks[tid] = task
         return tid
 
-    def get(self, thread_id: str) -> asyncio.Task[object] | None:
-        return self._tasks.get(thread_id)
-
     async def cancel(self, thread_id: str) -> str:
-        """Cancel a running task."""
         task = self._tasks.get(thread_id)
         if task is None or task.done():
             return "not_found"
         was_cancelled = task.cancel()
-        if was_cancelled:
-            try:
-                await asyncio.wait_for(task, timeout=1.0)
-            except Exception:
-                pass
+        try:
+            await asyncio.wait_for(task, timeout=1.0)
+        except BaseException:
+            pass
+        # If coroutine never ran, emit task_cancelled manually
+        if was_cancelled and task.cancelled():
+            self._emit_terminal(thread_id, "task_cancelled")
+            self._tasks.pop(thread_id, None)
+            return "cancelled"
+        if task.done():
             return "cancelled"
         return "cancelling"
 
+    def _emit_terminal(self, thread_id: str, etype: str) -> None:
+        """Emit a stable, non-sensitive terminal event."""
+        self._events.emit(thread_id, etype, "", {})
+
     async def _run_lifecycle(self, request: RuntimeRequest, thread_id: str) -> None:
-        """Run the runtime and emit exactly one terminal event."""
         try:
-            result = await self._runtime.run(request)
-            self._events.emit(
-                thread_id,
-                "task_completed",
-                result.answer[:200],
-                {"artifacts": list(result.artifacts)},
-            )
-        except asyncio.CancelledError:
-            self._events.emit(thread_id, "task_cancelled", "cancelled", {})
-        except Exception:
-            self._events.emit(
-                thread_id,
-                "task_failed",
-                "task execution failed",
-                {},
-            )
+            await self._runtime.run(request)
+            self._emit_terminal(thread_id, "task_completed")
+        except BaseException as exc:
+            if isinstance(exc, asyncio.CancelledError):
+                self._emit_terminal(thread_id, "task_cancelled")
+            elif isinstance(exc, Exception):
+                self._emit_terminal(thread_id, "task_failed")
+            else:
+                raise
         finally:
             self._tasks.pop(thread_id, None)
 

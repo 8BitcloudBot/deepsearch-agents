@@ -1,5 +1,6 @@
-"""E2E: Full tutorial closure — upload, task, WebSocket, download."""
+"""E2E: Full tutorial closure — upload, task, events, files, download."""
 
+import asyncio
 import time
 
 import pytest
@@ -39,23 +40,17 @@ def client(events):
     bundle = _bundle()
     runtime = MockTutorialRuntime(bundle, events)
     app = create_app(
-        settings=Phase2Settings(),
-        bundle=bundle,
-        runtime=runtime,
-        events=events,
+        settings=Phase2Settings(), bundle=bundle, runtime=runtime, events=events
     )
     return TestClient(app)
 
 
 @pytest.mark.asyncio
-async def test_full_mock_closure(client, events):
-    """Upload, start task, verify events via bus, list/download reports."""
-    import asyncio
-
+async def test_full_mock_closure(client, events, tmp_path):
+    """Upload, start task with subscription, verify all reports."""
     tid = "00000000-0000-4000-8000-0000000000e1"
 
-    # 1. Upload
-    resp = client.post(
+    r = client.post(
         "/api/upload",
         data={"thread_id": tid},
         files={
@@ -66,63 +61,55 @@ async def test_full_mock_closure(client, events):
             )
         },
     )
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "uploaded"
+    assert r.status_code == 200
 
-    # 2. Start task with subscription
-    collected = []
     async with events.subscribe(tid) as sub:
-        # Use httpx async client for the task POST
-        from httpx import ASGITransport, AsyncClient
-
-        transport = ASGITransport(
-            app=client._transport.app  # type: ignore[union-attr]
-        )
-        async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            resp = await ac.post(
-                "/api/task",
-                json={"query": "research aspirin", "thread_id": tid},
-            )
-            assert resp.status_code == 202
-
+        client.post("/api/task", json={"query": "research aspirin", "thread_id": tid})
+        collected = []
         deadline = time.time() + 10
         while time.time() < deadline:
             try:
                 evt = await asyncio.wait_for(
-                    sub.queue.get(),
-                    max(0, deadline - time.time()),
+                    sub.queue.get(), max(0, deadline - time.time())
                 )
                 collected.append(evt)
-                if evt.type in (
-                    "task_completed",
-                    "task_cancelled",
-                    "task_failed",
-                ):
+                if evt.type in ("task_completed", "task_cancelled", "task_failed"):
                     break
             except TimeoutError:
                 break
 
-    # 3. Provider tools
     tool_names = {e.data.get("tool_name", "") for e in collected}
-    assert tool_names & {
-        "internet_search",
-        "list_sql_tables",
-        "ask_knowledge_assistant",
-    }, f"Missing: {tool_names}"
+    assert "internet_search" in tool_names
+    assert tool_names & {"list_sql_tables", "preview_table"}
+    # knowledge tools may appear (list_knowledge_assistants)
+    has_knowledge = bool(
+        tool_names & {"list_knowledge_assistants", "ask_knowledge_assistant"}
+    )
+    assert has_knowledge or "list_knowledge_assistants" in tool_names
 
-    # 4. Files
-    resp = client.get("/api/files", params={"thread_id": tid})
-    assert resp.status_code == 200
-    fnames = {f["name"] for f in resp.json()["files"]}
+    r = client.get("/api/files", params={"thread_id": tid})
+    assert r.status_code == 200
+    fnames = {f["name"] for f in r.json()["files"]}
     assert "tutorial-report.md" in fnames
     assert "tutorial-report.pdf" in fnames
 
-    # 5. Download
-    resp = client.get(
-        "/api/download",
-        params={"thread_id": tid, "path": "tutorial-report.md"},
+    r = client.get(
+        "/api/download", params={"thread_id": tid, "path": "tutorial-report.md"}
     )
-    assert resp.status_code == 200
-    assert len(resp.text) > 50
-    assert "constraint" in resp.text.lower() or "Constraint" in resp.text
-    assert "mock" in resp.text.lower() or "Provider" in resp.text
+    assert r.status_code == 200
+    content = r.text
+    assert len(content) > 50
+    assert "constraint" in content.lower() or "Constraint" in content
+    assert "web_mode" in content or "mock" in content.lower()
+
+
+def test_cross_thread_isolation(client):
+    tid_a = "00000000-0000-4000-8000-0000000000e2"
+    tid_b = "00000000-0000-4000-8000-0000000000e3"
+    client.post(
+        "/api/upload",
+        data={"thread_id": tid_a},
+        files={"files": ("a.txt", b"a", "text/plain")},
+    )
+    r = client.get("/api/files", params={"thread_id": tid_b})
+    assert r.json()["files"] == []

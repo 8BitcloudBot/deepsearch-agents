@@ -87,8 +87,13 @@ class EventSubscription:
 class InMemoryEventBus:
     """Per-thread monotonic event bus with bounded live subscriptions."""
 
-    def __init__(self, clock: Callable[[], datetime.datetime] | None = None):
+    def __init__(
+        self,
+        clock: Callable[[], datetime.datetime] | None = None,
+        max_queue_size: int = 256,
+    ):
         self._clock = clock or (lambda: datetime.datetime.now(datetime.UTC))
+        self._max_queue_size = max_queue_size
         self._sequences: dict[str, int] = {}
         self._subscriptions: dict[str, list[EventSubscription]] = {}
 
@@ -123,7 +128,9 @@ class InMemoryEventBus:
 
     @asynccontextmanager
     async def subscribe(self, thread_id: str) -> AsyncIterator[EventSubscription]:
-        queue: asyncio.Queue[TutorialEvent] = asyncio.Queue(maxsize=256)
+        queue: asyncio.Queue[TutorialEvent] = asyncio.Queue(
+            maxsize=self._max_queue_size
+        )
         sub = EventSubscription(queue=queue, overflowed=asyncio.Event())
         if thread_id not in self._subscriptions:
             self._subscriptions[thread_id] = []
