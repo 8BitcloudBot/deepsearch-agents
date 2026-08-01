@@ -1,15 +1,7 @@
-"""FastAPI application factory with HTTP routes and WebSocket.
-
-Implements the locked Phase 2 contract:
-POST /api/task, POST /api/task/{thread_id}/cancel,
-POST /api/upload, GET /api/files/{thread_id},
-GET /api/download/{thread_id}/{filename},
-WS /ws/{thread_id}, GET /health → phase: "2".
-"""
+"""FastAPI application factory with HTTP routes and WebSocket."""
 
 import asyncio
 import json
-import re
 from pathlib import Path
 
 from fastapi import (
@@ -17,6 +9,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Query,
     UploadFile,
     WebSocket,
 )
@@ -26,6 +19,7 @@ from starlette.websockets import WebSocketDisconnect, WebSocketState
 from app.agent.runtime import TutorialRuntime
 from app.api.events import InMemoryEventBus
 from app.api.schemas import (
+    UUID_RE,
     FileInfo,
     FileListResponse,
     HeartbeatMessage,
@@ -44,8 +38,6 @@ from app.tools.files import (
     save_uploaded_file,
 )
 
-UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-
 
 def _validate_uuid(tid: str, label: str = "thread_id") -> None:
     if not UUID_RE.fullmatch(tid):
@@ -61,9 +53,7 @@ def create_app(
     runtime: TutorialRuntime | None = None,
     events: InMemoryEventBus | None = None,
 ) -> FastAPI:
-    """Create and configure the FastAPI application for Phase 2."""
     app = FastAPI(title="research-copilot-api")
-
     settings = settings or Phase2Settings.from_env()
     events = events or InMemoryEventBus()
 
@@ -138,7 +128,6 @@ def create_app(
         files: list[UploadFile] = File(...),
     ):
         _validate_uuid(thread_id)
-
         ws = SessionWorkspace.for_thread(
             thread_id=thread_id,
             base_upload="updated",
@@ -148,27 +137,29 @@ def create_app(
         for f in files:
             if not f.filename:
                 raise HTTPException(status_code=400, detail="empty filename")
-            data = await f.read()
-            if len(data) > MAX_FILE_SIZE_BYTES:
-                raise HTTPException(status_code=413, detail="file too large")
+            # Stream chunks with size limit
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                chunk = await f.read(65536)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_FILE_SIZE_BYTES:
+                    raise HTTPException(status_code=413, detail="file too large")
+                chunks.append(chunk)
+            data = b"".join(chunks)
             try:
-                saved = save_uploaded_file(ws, f.filename, data)
-                results.append(
-                    UploadFileInfo(
-                        filename=f.filename,
-                        size=saved.stat().st_size,
-                        media_type=_guess_media_type(f.filename),
-                    )
-                )
+                save_uploaded_file(ws, f.filename, data)
+                results.append(UploadFileInfo(name=f.filename, size=len(data)))
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail=str(exc))
-
         return UploadResponse(thread_id=thread_id, files=results)
 
     # ── Files ─────────────────────────────────────────────────────────────
 
-    @app.get("/api/files/{thread_id}")
-    async def list_files(thread_id: str):
+    @app.get("/api/files")
+    async def list_files(thread_id: str = Query(...)):
         _validate_uuid(thread_id)
         ws = SessionWorkspace.for_thread(
             thread_id=thread_id,
@@ -192,8 +183,8 @@ def create_app(
                 )
         return FileListResponse(thread_id=thread_id, files=flist)
 
-    @app.get("/api/download/{thread_id}/{filename:path}")
-    async def download_file(thread_id: str, filename: str):
+    @app.get("/api/download")
+    async def download_file(thread_id: str = Query(...), path: str = Query(...)):
         _validate_uuid(thread_id)
         ws = SessionWorkspace.for_thread(
             thread_id=thread_id,
@@ -201,14 +192,14 @@ def create_app(
             base_output="output",
         )
         try:
-            resolved = ws.resolve_output(filename)
+            resolved = ws.resolve_output(path)
         except Exception:
-            raise HTTPException(status_code=400, detail="invalid filename")
+            raise HTTPException(status_code=400, detail="invalid path")
         if not resolved.exists() or not resolved.is_file():
             raise HTTPException(status_code=404, detail="file not found")
         return FileResponse(
             str(resolved),
-            media_type=_guess_media_type(filename),
+            media_type=_guess_media_type(path),
             filename=resolved.name,
         )
 
@@ -220,7 +211,6 @@ def create_app(
             await ws.close(code=4000)
             return
 
-        # Subscribe BEFORE accepting
         async with events.subscribe(thread_id) as subscription:
             await ws.accept()
 

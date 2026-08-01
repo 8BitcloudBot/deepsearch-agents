@@ -68,19 +68,18 @@ class TaskRegistry:
         return self._tasks.get(thread_id)
 
     async def cancel(self, thread_id: str) -> str:
-        """Cancel a running task. Returns 'cancelled', 'cancelling',
-        or 'not_found'."""
+        """Cancel a running task."""
         task = self._tasks.get(thread_id)
         if task is None or task.done():
             return "not_found"
-        task.cancel()
-        try:
-            await asyncio.wait_for(asyncio.shield(task), timeout=1.0)
+        was_cancelled = task.cancel()
+        if was_cancelled:
+            try:
+                await asyncio.wait_for(task, timeout=1.0)
+            except Exception:
+                pass
             return "cancelled"
-        except TimeoutError:
-            return "cancelling"
-        except asyncio.CancelledError:
-            return "cancelled"
+        return "cancelling"
 
     async def _run_lifecycle(self, request: RuntimeRequest, thread_id: str) -> None:
         """Run the runtime and emit exactly one terminal event."""

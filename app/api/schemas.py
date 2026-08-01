@@ -1,6 +1,12 @@
 """Phase 2 HTTP request/response and WebSocket message schemas."""
 
-from pydantic import BaseModel, Field
+import re
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
 
 # ── Task ─────────────────────────────────────────────────────────────────────
 
@@ -9,28 +15,34 @@ class TaskStartRequest(BaseModel):
     query: str = Field(min_length=1, max_length=10000)
     thread_id: str | None = None
 
+    @field_validator("thread_id")
+    @classmethod
+    def _validate_thread_id(cls, v: str | None) -> str | None:
+        if v is not None and not UUID_RE.fullmatch(v):
+            raise ValueError(f"thread_id must be a UUID, got {v!r}")
+        return v
+
 
 class TaskStartResponse(BaseModel):
-    status: str = "started"
+    status: Literal["started"] = "started"
     thread_id: str
 
 
 class TaskCancelResponse(BaseModel):
     thread_id: str
-    status: str  # "cancelled" | "cancelling" | "not_found"
+    status: Literal["cancelled", "cancelling", "not_found"]
 
 
 # ── Upload ───────────────────────────────────────────────────────────────────
 
 
 class UploadFileInfo(BaseModel):
-    filename: str
+    name: str
     size: int
-    media_type: str
 
 
 class UploadResponse(BaseModel):
-    status: str = "uploaded"
+    status: Literal["uploaded"] = "uploaded"
     thread_id: str
     files: list[UploadFileInfo]
 
@@ -54,4 +66,4 @@ class FileListResponse(BaseModel):
 
 
 class HeartbeatMessage(BaseModel):
-    type: str = "pong"
+    type: Literal["pong"] = "pong"

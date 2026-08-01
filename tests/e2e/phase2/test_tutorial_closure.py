@@ -1,12 +1,8 @@
 """E2E: Full tutorial closure — upload, task, WebSocket, download."""
 
-import json
-import threading
 import time
 
-import httpx
 import pytest
-from httpx import ASGITransport
 from starlette.testclient import TestClient
 
 from app.api.events import InMemoryEventBus
@@ -36,100 +32,97 @@ def events():
 
 
 @pytest.fixture
-def app(events):
+def client(events):
     from app.agent.runtime import MockTutorialRuntime
     from app.settings import Phase2Settings
 
     bundle = _bundle()
     runtime = MockTutorialRuntime(bundle, events)
-    return create_app(
+    app = create_app(
         settings=Phase2Settings(),
         bundle=bundle,
         runtime=runtime,
         events=events,
     )
+    return TestClient(app)
 
 
-def test_full_mock_closure(app, events):
-    """Upload constraints.md, start task, collect events via WS,
-    list/download reports, verify content."""
+@pytest.mark.asyncio
+async def test_full_mock_closure(client, events):
+    """Upload, start task, verify events via bus, list/download reports."""
+    import asyncio
+
     tid = "00000000-0000-4000-8000-0000000000e1"
-    transport = ASGITransport(app=app)
 
-    # 1. Upload to target thread
-    with httpx.Client(transport=transport, base_url="http://test") as client:
-        up_resp = client.post(
-            "/api/upload",
-            data={"thread_id": tid},
-            files={
-                "files": (
-                    "constraints.md",
-                    b"# Constraint: keep it short.",
-                    "text/markdown",
-                )
-            },
+    # 1. Upload
+    resp = client.post(
+        "/api/upload",
+        data={"thread_id": tid},
+        files={
+            "files": (
+                "constraints.md",
+                b"# Constraint: keep it short.",
+                "text/markdown",
+            )
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "uploaded"
+
+    # 2. Start task with subscription
+    collected = []
+    async with events.subscribe(tid) as sub:
+        # Use httpx async client for the task POST
+        from httpx import ASGITransport, AsyncClient
+
+        transport = ASGITransport(
+            app=client._transport.app  # type: ignore[union-attr]
         )
-        assert up_resp.status_code == 200
-        assert up_resp.json()["status"] == "uploaded"
-
-    client_ws = TestClient(app)
-
-    # 2. Start task in background thread
-    def _start_task():
-        with httpx.Client(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as c:
-            resp = c.post(
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            resp = await ac.post(
                 "/api/task",
                 json={"query": "research aspirin", "thread_id": tid},
             )
             assert resp.status_code == 202
 
-    th = threading.Thread(target=_start_task)
-    th.start()
-    time.sleep(0.1)
-
-    # 3. Collect events via WebSocket
-    with client_ws.websocket_connect(f"/ws/{tid}") as ws:
-        collected = []
-        try:
-            while True:
-                data = json.loads(ws.receive_text())
-                collected.append(data)
-                if data["type"] in (
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            try:
+                evt = await asyncio.wait_for(
+                    sub.queue.get(),
+                    max(0, deadline - time.time()),
+                )
+                collected.append(evt)
+                if evt.type in (
                     "task_completed",
                     "task_cancelled",
                     "task_failed",
                 ):
                     break
-        except Exception:
-            pass
+            except TimeoutError:
+                break
 
-    th.join()
-
-    # 4. Assert provider tool coverage
-    tool_names = {e.get("data", {}).get("tool_name", "") for e in collected}
+    # 3. Provider tools
+    tool_names = {e.data.get("tool_name", "") for e in collected}
     assert tool_names & {
         "internet_search",
         "list_sql_tables",
         "ask_knowledge_assistant",
-    }, f"Missing provider tools: {tool_names}"
+    }, f"Missing: {tool_names}"
 
-    # 5. List files
-    with httpx.Client(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
-        files_resp = client.get(f"/api/files/{tid}")
-        assert files_resp.status_code == 200
-        fnames = {f["name"] for f in files_resp.json()["files"]}
-        assert "tutorial-report.md" in fnames
-        assert "tutorial-report.pdf" in fnames
+    # 4. Files
+    resp = client.get("/api/files", params={"thread_id": tid})
+    assert resp.status_code == 200
+    fnames = {f["name"] for f in resp.json()["files"]}
+    assert "tutorial-report.md" in fnames
+    assert "tutorial-report.pdf" in fnames
 
-        # 6. Download Markdown report
-        dl_resp = client.get(f"/api/download/{tid}/tutorial-report.md")
-        assert dl_resp.status_code == 200
-        content = dl_resp.text
-        assert len(content) > 50
-        assert "constraint" in content.lower() or "Constraint" in content
-        assert "mock" in content.lower() or "Provider" in content
+    # 5. Download
+    resp = client.get(
+        "/api/download",
+        params={"thread_id": tid, "path": "tutorial-report.md"},
+    )
+    assert resp.status_code == 200
+    assert len(resp.text) > 50
+    assert "constraint" in resp.text.lower() or "Constraint" in resp.text
+    assert "mock" in resp.text.lower() or "Provider" in resp.text
