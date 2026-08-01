@@ -1,4 +1,11 @@
-"""E2E: Full tutorial closure — upload, task, events, files, download."""
+"""E2E: Full API closure — HTTP endpoints + event verification.
+
+Uses TestClient for all HTTP endpoints. Event verification via event bus
+because Starlette's sync TestClient cannot support concurrent WS+HTTP
+from separate threads. WS behavior is covered by test_websocket_flow.py.
+"""
+
+import asyncio
 
 import pytest
 from starlette.testclient import TestClient
@@ -13,8 +20,17 @@ from app.providers.mock import (
 )
 
 
-def _bundle():
-    return ProviderBundle(
+@pytest.fixture
+def events():
+    return InMemoryEventBus()
+
+
+@pytest.fixture
+def app(events):
+    from app.agent.runtime import MockTutorialRuntime
+    from app.settings import Phase2Settings
+
+    bundle = ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
         knowledge=MockKnowledgeProvider(),
@@ -22,52 +38,68 @@ def _bundle():
         catalog_mode="mock",
         knowledge_mode="mock",
     )
-
-
-@pytest.fixture
-def events():
-    return InMemoryEventBus()
-
-
-@pytest.fixture
-def client(events):
-    from app.agent.runtime import MockTutorialRuntime
-    from app.settings import Phase2Settings
-
-    bundle = _bundle()
     runtime = MockTutorialRuntime(bundle, events)
-    app = create_app(
-        settings=Phase2Settings(), bundle=bundle, runtime=runtime, events=events
+    return create_app(
+        settings=Phase2Settings(),
+        bundle=bundle,
+        runtime=runtime,
+        events=events,
     )
-    return TestClient(app)
 
 
 @pytest.mark.asyncio
-async def test_full_mock_closure(events):
-    """Upload via HTTP, subscribe, run runtime directly, verify."""
-    from app.agent.runtime import MockTutorialRuntime, RuntimeRequest
-    from app.api.context import SessionContext
-    from app.tools.files import SessionWorkspace
+async def test_full_mock_closure(app, events):
+    """Upload → task start → events → files → download. All via real API."""
+    import time
 
     tid = "00000000-0000-4000-8000-0000000000e1"
-    bundle = _bundle()
-    rt = MockTutorialRuntime(bundle, events)
-    ws = SessionWorkspace.for_thread(
-        thread_id=tid, base_upload="updated", base_output="output"
+    client = TestClient(app)
+
+    # 1. POST /api/upload
+    r = client.post(
+        "/api/upload",
+        data={"thread_id": tid},
+        files={
+            "files": (
+                "constraints.md",
+                b"# Constraint: keep it short.",
+                "text/markdown",
+            )
+        },
     )
+    assert r.status_code == 200
+    assert r.json()["status"] == "uploaded"
 
-    # 1. Upload via the same workspace
-    from app.tools.files import save_uploaded_file
+    # 2. Subscribe to events, then POST /api/task via async client
+    from httpx import ASGITransport, AsyncClient
 
-    save_uploaded_file(ws, "constraints.md", b"# Constraint: keep it short.")
-
-    # 2. Run task with subscription
+    transport = ASGITransport(app=app)
     collected: list = []
+
     async with events.subscribe(tid) as sub:
-        ctx = SessionContext(thread_id=tid, workspace=ws)
-        await rt.run(RuntimeRequest(query="research aspirin", context=ctx))
-        while not sub.queue.empty():
-            collected.append(sub.queue.get_nowait())
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            r2 = await ac.post(
+                "/api/task",
+                json={"query": "research aspirin", "thread_id": tid},
+            )
+            assert r2.status_code == 202
+
+        # Drain events
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            try:
+                evt = await asyncio.wait_for(
+                    sub.queue.get(), max(0, deadline - time.time())
+                )
+                collected.append(evt)
+                if evt.type in (
+                    "task_completed",
+                    "task_cancelled",
+                    "task_failed",
+                ):
+                    break
+            except TimeoutError:
+                break
 
     # 3. Verify all three providers
     tool_names = {e.data.get("tool_name", "") for e in collected}
@@ -81,15 +113,33 @@ async def test_full_mock_closure(events):
         for e in collected
         if e.type in ("task_completed", "task_cancelled", "task_failed")
     ]
-    assert len(terminals) == 0  # runtime run() doesn't emit terminal events
+    assert len(terminals) == 1
+    assert terminals[0].type == "task_completed"
 
-    # 5. Reports exist
-    assert ws.resolve_output("tutorial-report.md").exists()
-    assert ws.resolve_output("tutorial-report.pdf").exists()
+    # 5. GET /api/files
+    r = client.get("/api/files", params={"thread_id": tid})
+    assert r.status_code == 200
+    fnames = {f["name"] for f in r.json()["files"]}
+    assert "tutorial-report.md" in fnames
+    assert "tutorial-report.pdf" in fnames
 
-    # 6. Verify Markdown content
-    content = ws.resolve_output("tutorial-report.md").read_text()
-    assert len(content) > 50
-    assert "constraint" in content.lower() or "Constraint" in content
-    assert "web_mode" in content or "mock" in content.lower()
-    assert "/etc" not in content
+    # 6. GET /api/download Markdown
+    r = client.get(
+        "/api/download",
+        params={"thread_id": tid, "path": "tutorial-report.md"},
+    )
+    assert r.status_code == 200
+    md = r.text
+    assert len(md) > 50
+    assert "constraint" in md.lower() or "Constraint" in md
+    assert "web_mode" in md
+    assert "catalog_mode" in md
+    assert "knowledge_mode" in md
+
+    # 7. GET /api/download PDF
+    r = client.get(
+        "/api/download",
+        params={"thread_id": tid, "path": "tutorial-report.pdf"},
+    )
+    assert r.status_code == 200
+    assert r.content[:4] == b"%PDF"
