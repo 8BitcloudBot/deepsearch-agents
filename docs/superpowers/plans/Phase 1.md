@@ -1,5 +1,8 @@
 # Phase 1 DeepAgents 能力示例精确实施计划
 
+> **Historical plan:** Phase 1 is accepted. Current boundaries live in
+> [`docs/phases/phase-1-capability-examples.md`](../../phases/phase-1-capability-examples.md).
+
 > 本阶段对应教程前置章节，只建立 DeepAgents 能力示例和学习证据。禁止提前实现 Phase 2 的一主三从业务系统、Web/MySQL/RAGFlow 工具、WebSocket、报告生成和业务前端。
 
 ## 1. 阶段目标
@@ -547,4 +550,3 @@ docs/phase-status.md 设置 awaiting_user_acceptance。不得创建 v0.0-deepage
 -禁止 git add .；
 -禁止 Phase 2+ 实现；
 -完成后停止等待用户验收。
-

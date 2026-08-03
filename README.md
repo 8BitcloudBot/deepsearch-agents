@@ -4,9 +4,13 @@
 
 ## Status
 
-✅ **Phase 1 — DeepAgents Capability Examples** (accepted: `v0.0-deepagents-examples`)
+Phase 0 (`v0.0-foundation`) and Phase 1
+(`v0.0-deepagents-examples`) are accepted. Phase 2 — Tutorial Parity is in
+progress, currently prioritizing the demo-first backend and React workbench
+closure. Phase 3 has not started and `v0.1-tutorial-parity` does not exist yet.
 
-Phase 0 foundation (`v0.0-foundation`) and Phase 1 learning examples are accepted. Phase 2 is ready to begin: it will build the tutorial-parity application closure. Agent business capabilities and full system integration are not implemented yet.
+See [Current Phase Status](./docs/phase-status.md) for the live state and
+[Roadmap](./docs/roadmap.md) for Phase 0-9 boundaries.
 
 ### Phase 1 Examples
 
@@ -30,7 +34,7 @@ See [examples/phase1/README.md](./examples/phase1/README.md) for details.
 
 # Install dependencies
 uv sync --extra dev --frozen
-pnpm install --frozen-lockfile --dir frontend
+pnpm --dir frontend install --frozen-lockfile
 
 # Run tests
 uv run pytest -q
@@ -46,7 +50,7 @@ uv run python scripts/doctor.py --offline
 uv run python scripts/doctor.py --mysql
 
 # Start API
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
 
 # Start frontend
 pnpm --dir frontend dev
@@ -58,11 +62,16 @@ pnpm --dir frontend dev
 React Research Workspace → FastAPI Service → Research Runtime → Agents → Tools → Data Sources
 ```
 
-详细的架构设计请参阅 [docs/superpowers/specs/](./docs/superpowers/specs/)。
+当前架构边界参阅 [Roadmap](./docs/roadmap.md) 和
+[Phase Documents](./docs/phases/)。历史设计稿保留在
+[docs/superpowers/specs/](./docs/superpowers/specs/) 供审计参考。
 
 ## Documentation
 
+- [Documentation Index](./docs/README.md)
+- [Roadmap](./docs/roadmap.md)
 - [Phase Status](./docs/phase-status.md)
+- [Phase Documents](./docs/phases/)
 - [ADR Index](./docs/adr/)
 - [Verification Evidence](./docs/verification/)
 - [Changelog](./CHANGELOG.md)

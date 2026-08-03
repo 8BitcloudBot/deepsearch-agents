@@ -1,5 +1,8 @@
 # Agent Engineering Research Copilot Implementation Outline
 
+> **Historical plan:** superseded by [`docs/roadmap.md`](../../roadmap.md) and
+> [`docs/phases/`](../../phases/). Retained for project-history reference.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to execute the selected phase task-by-task. Do not begin a later phase before the user explicitly accepts the current phase evidence.
 
 **Goal:** 按 v3 设计从零实现 Agent Engineering Research Copilot，先完成可重复的教程基线，再逐步迁移到 AI Agent 技术研究领域，并最终形成可评测、可恢复、可追踪、可解释的 Agent 作品集项目。

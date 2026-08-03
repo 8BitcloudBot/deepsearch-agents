@@ -1,5 +1,8 @@
 # Agent Engineering Research Copilot Phase 0 Implementation Plan
 
+> **Historical plan:** Phase 0 is accepted. Current boundaries live in
+> [`docs/phases/phase-0-foundation.md`](../../phases/phase-0-foundation.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax. Stop after Phase 0 acceptance; do not start Phase 1 without explicit user approval.
 
 **Goal:** 建立可重复安装、测试、构建和验收的项目基础设施，为教程基线提供稳定边界。

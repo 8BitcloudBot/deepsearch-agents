@@ -1,5 +1,7 @@
 # Phase 0-1 验收阻塞修复实施计划
 
+> **Historical remediation plan:** archived context for the accepted Phase 0 release.
+
 > 本文档只修复 Phase 0 验收阻塞，不新增 Phase 1 能力。完成后仍需用户确认，才能创建 v0.0-foundation。
 
 ## 1. 修复目标
@@ -208,4 +210,3 @@ docs: finalize phase zero acceptance evidence
 10. 每个 Task 使用独立 Conventional Commit。
 
 遇到网络或环境阻塞时，记录真实错误并停止，不伪造结果。最终不要创建 v0.0-foundation tag；完成后输出所有 commit SHA、测试结果、git status 和剩余阻塞。只有用户确认验收后才允许创建 tag 和进入 Phase 1。
-

@@ -1,5 +1,7 @@
 # Phase 0-2 最终验收一致性修复实施计划
 
+> **Historical remediation plan:** archived context for the accepted Phase 0 release.
+
 > 本阶段只处理 Phase 0-1 验收后的文档一致性和最终交接事项，不新增任何业务能力。完成后等待用户确认，再由用户决定是否创建 v0.0-foundation。
 
 ## 1. 目标
@@ -272,4 +274,3 @@ docs/superpowers/plans/Phase 0-2.md
 10. 不要创建 v0.0-foundation tag，不要编写或执行 Phase 1。
 
 遇到环境或网络问题时记录真实错误，不得伪造通过结果。完成后输出修改文件、commit SHA、全部门禁退出码、最终 git status 和剩余阻塞。
-

@@ -1,5 +1,7 @@
 # Phase 1-1 能力行为与验收证据修复计划
 
+> **Historical remediation plan:** archived context for the accepted Phase 1 release.
+
 > 本阶段只修复 Phase 1 验收发现的实现与证据缺口。不得新增 Phase 2 业务能力；用户验收前不得创建 `v0.0-deepagents-examples`。
 
 ## 1. 修复目标
@@ -532,4 +534,3 @@ Memory source 固定在每个 thread 的虚拟路径：
 - 需要修改 app、前端、数据库或 Phase 2 目录；
 - 测试需要真实模型才能运行；
 - pre-commit 或 secrets scan 无法通过。
-
