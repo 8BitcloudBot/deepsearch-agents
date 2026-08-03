@@ -1,5 +1,7 @@
 # Phase 2-n4 Task 3-4 Remediation Implementation Plan
 
+> **Historical remediation plan:** archived context for earlier Phase 2 review.
+
 > **For agentic workers:** Read this file completely before editing. Execute Tasks 0-6 in order with RED -> GREEN evidence. This plan does not authorize Task 5.
 
 **Goal:** 修复 Task 3-4 独立验收发现的 workspace 外部覆写、安全 reader 旁路、错误事件时序、重复事件、factory 接口和 smoke 配置缺口。

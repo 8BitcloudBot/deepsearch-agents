@@ -1,5 +1,7 @@
 # Phase 2-n2 Residual Remediation Plan
 
+> **Historical remediation plan:** archived context for earlier Phase 2 review.
+
 > Read completely before editing. Execute tasks in order with RED -> GREEN evidence. This plan does not authorize Task 3.
 
 **Goal:** 修复 Phase 2-n 验收剩余的类型、假绿测试、subagent 合同和证据缺口。

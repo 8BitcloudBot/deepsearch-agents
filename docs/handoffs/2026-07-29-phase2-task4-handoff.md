@@ -1,5 +1,7 @@
 # Phase 2 Handoff — Tasks 3-4 Remediation Complete
 
+> **Historical handoff:** superseded by [`docs/phase-status.md`](../phase-status.md).
+
 **Created:** 2026-07-29
 **Updated:** 2026-07-29
 **Acceptance Base:** `bc41e3c` (all n4/n5/n6 fixes applied)

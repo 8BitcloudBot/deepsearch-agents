@@ -1,5 +1,15 @@
 # Phase 2 Verification Evidence
 
+> **Current acceptance note — 2026-08-01:** Phase 2 is in progress at
+> Phase 2A Demo Closure. HEAD `397ae23` contains Task 5 remediation, but the
+> latest independent focused E2E check still failed because no Knowledge
+> Provider tool event was observed. Phase 2 is not accepted, Task 6/React has
+> not started, and no `v0.1*` tag exists. Older rejection labels, commit bases,
+> test totals and “remaining blockers” below are chronological evidence, not
+> the current status. See [`../phase-status.md`](../phase-status.md).
+
+## Historical Evidence (Chronological)
+
 ## Environment
 - **OS:** darwin/arm64 **Date:** 2026-07-29
 - **Python:** 3.12, **Pydantic:** 2.13.4
@@ -134,7 +144,7 @@ generate_markdown_report("# Report\n\nContent.")
 ### Remaining blockers
 - None for Task 3
 - Task 4 already completed (c5b579e) — unaffected by remediation
-- Task 5 not yet started
+- Historical snapshot: Task 5 not yet started
 
 ## Task 4: Agent Factory & Runtimes
 

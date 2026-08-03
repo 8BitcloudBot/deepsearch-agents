@@ -1,5 +1,7 @@
 # Phase 1-2 SkillsMiddleware 真实加载与证据修复实施计划
 
+> **Historical remediation plan:** archived context for the accepted Phase 1 release.
+
 > **For agentic workers:** 必须逐项执行本计划。推荐使用 `superpowers:executing-plans`；每个步骤使用复选框跟踪。不得自行扩展需求、创建 Phase 1 tag 或开始 Phase 2。
 
 **目标：** 将 Phase 1-1 中基于 `Path.iterdir()` 的伪 Skills 发现替换为 DeepAgents 0.6.12 `SkillsMiddleware.before_agent()` 的真实加载链路，并以行为测试证明 YAML frontmatter 解析、校验、一次加载和系统提示注入。

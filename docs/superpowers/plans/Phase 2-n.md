@@ -1,5 +1,7 @@
 # Phase 2-n Remediation Implementation Plan
 
+> **Historical remediation plan:** archived context for earlier Phase 2 review.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use subagent-driven-development or executing-plans. Execute tasks in order. Do not begin Phase 3 or Task 3 until the final gate is green.
 
 **Goal:** 完成 Phase 2 Tasks 0-2 remediation 的剩余合同缺口，并用真实 RED/GREEN 证据重新验收。

@@ -1,5 +1,9 @@
 # DeepSeek Phase 2 Execution Prompt
 
+> **Historical execution prompt:** do not use as the current task queue. Read
+> [`docs/phase-status.md`](../../phase-status.md) and
+> [`docs/phases/phase-2-tutorial-parity.md`](../../phases/phase-2-tutorial-parity.md) first.
+
 你将在仓库 `/Users/wxhu/Documents/reasonix/deepsearch-agents` 中执行 Phase 2（Tutorial Parity）。
 
 唯一实施依据是：

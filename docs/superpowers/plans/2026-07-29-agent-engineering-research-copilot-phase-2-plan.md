@@ -1,5 +1,7 @@
 # Agent Engineering Research Copilot Phase 2 Implementation Plan
 
+> **Historical plan:** superseded by [`docs/phases/phase-2-tutorial-parity.md`](../../phases/phase-2-tutorial-parity.md). Detailed task history remains useful for audit only.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Stop after each task's commit and again after the final evidence commit. Do not create the release tag.
 
 **Goal:** Build the `tutorial` profile from tutorial chapters 8-14 as one testable main-agent workflow with Web, controlled MySQL, RAGFlow, file/report delivery, FastAPI, WebSocket, and React closure.
