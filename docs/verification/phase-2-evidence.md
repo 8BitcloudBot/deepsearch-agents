@@ -1,12 +1,24 @@
 # Phase 2 Verification Evidence
 
-> **Current acceptance note — 2026-08-01:** Phase 2 is in progress at
-> Phase 2A Demo Closure. HEAD `397ae23` contains Task 5 remediation, but the
-> latest independent focused E2E check still failed because no Knowledge
-> Provider tool event was observed. Phase 2 is not accepted, Task 6/React has
-> not started, and no `v0.1*` tag exists. Older rejection labels, commit bases,
+> **Current acceptance note — 2026-08-03:** Phase 2 Tasks 0-6 are accepted
+> (base HEAD `5988a8a`); Task 7 (documentation, verification, CI) is
+> **locally complete but uncommitted** in the worktree — not part of HEAD.
+> The full fresh gate passes locally (348 passed, 11 honest skips; frontend
+> Vitest/lint/build/Playwright green; Compose MySQL bootstrapped idempotently;
+> `PHASE2_MYSQL_INTEGRATION=1` 6 passed; focused E2E 1 passed). Status:
+> `blocked_pending_node22_ci` — release and user acceptance are **blocked** until
+> the required Node 22 CI frontend gate
+> actually runs and passes: **the Ubuntu CI job (Node 22 + pnpm 10) has not been
+> run** (the full local gate ran under default Node v26.5.1, bundled v24.14.0; a
+> focused frontend rerun under Homebrew Node v22.23.2 with pnpm 11.9.0 passed —
+> see “Node 22 local compatibility rerun” below). The `v0.1-tutorial-parity` tag has **not**
+> been created and Phase 3 has not started. Task 7 changes remain uncommitted
+> in the worktree (worker must not commit; the user authorizes the commit
+> after the Node 22 CI gate passes). Older rejection labels, commit bases,
 > test totals and “remaining blockers” below are chronological evidence, not
-> the current status. See [`../phase-status.md`](../phase-status.md).
+> the current status. See
+> [`../phase-status.md`](../phase-status.md) and
+> [`../phase-2-tutorial.md`](../phase-2-tutorial.md).
 
 ## Historical Evidence (Chronological)
 
@@ -186,3 +198,109 @@ generate_markdown_report("# Report\n\nContent.")
 .venv/bin/python -m pytest tests/ -q
 # 238 passed, 11 skipped
 ```
+
+## Task 7: Document, Verify, and Stop for Acceptance — 2026-08-03
+
+**Base HEAD:** `5988a8a`（`codex/phase2a-websocket-e2e`）。Task 7 变更**未提交**
+（worker 禁止 commit/tag/push；不属于 HEAD `5988a8a`）。
+**状态：** Task 7 本地完成；release/用户验收 **blocked** —— 在要求的
+Node 22 CI 前端门禁实际运行并通过之前不验收；`v0.1-tutorial-parity` 未创建；
+Phase 3 未开始。
+
+### Environment
+
+- **OS:** darwin/arm64（Docker Desktop 29.4.0）
+- **Python:** 3.12.7（uv 管理，`requires-python = ">=3.12,<3.13"`）
+- **Node:** 默认 v26.5.1（本机）；bundled v24.14.0；Homebrew `node@22`
+  v22.23.2（`/opt/homebrew/opt/node@22/bin/node`）可用 —— 本地 Node 22
+  聚焦兼容重跑已通过（见下文），但 **Ubuntu CI job（Node 22 + pnpm 10）
+  尚未运行**（前端 release 门禁必须在验收前于 CI 执行）
+- **uv:** 0.11.7 环境；Playwright Chromium 使用本机已缓存浏览器
+- 安装版本（与 ADR 0003 一致）：deepagents 0.6.12、langgraph 1.2.9、
+  langchain-core 1.5.1、langchain-openai 1.4.1、tavily-python 0.7.26、
+  ragflow-sdk 0.26.0、sqlglot 29.0.1、pypdf 6.14.2、python-docx 1.2.0、
+  openpyxl 3.1.5、reportlab 4.5.1、httpx 0.28.1、mysql-connector-python 9.7.0
+
+### Fresh Gate — exact commands and exits
+
+| # | Command | Exit | Result |
+|---|---------|------|--------|
+| 1 | `uv sync --extra dev --frozen` | 0 | Python 3.12.7 venv 创建（`.venv` 已 ignore） |
+| 2 | `.venv/bin/python -m pytest tests/ -q` | 0 | **348 passed, 11 skipped, 1 warning** |
+| 3 | `.venv/bin/ruff check app examples tests scripts` | 0 | All checks passed |
+| 4 | `.venv/bin/ruff format --check app examples tests scripts` | 0 | 83 files already formatted |
+| 5 | `.venv/bin/pre-commit run --all-files` | 0 | ruff / ruff-format / detect-secrets 3/3 Passed（未运行会改写 baseline 的 `detect-secrets scan`） |
+| 6 | `pnpm --dir frontend exec vitest run` | 0 | 2 files, **22 passed** |
+| 7 | `pnpm --dir frontend lint` | 0 | eslint clean |
+| 8 | `pnpm --dir frontend build` | 0 | tsc -b && vite build，built in 3.26s |
+| 9 | `pnpm --dir frontend exec playwright install chromium` | 0 | 本机缓存命中，无新下载 |
+| 10 | `pnpm --dir frontend exec playwright test` | 0 | **2 passed, 2 skipped**（跳过为有意设计：desktop 流程测试在 mobile project 跳过，mobile 布局测试在 desktop project 跳过） |
+| 11 | `docker compose config` | 0 | valid |
+| 12 | `docker compose up -d mysql` + healthcheck | healthy | mysql:8.0，host 3307→container 3306 |
+| 13 | bootstrap `010_tutorial.sql`（见下） | 0 | 幂等：连续执行 3 次均 exit 0 |
+| 14 | `PHASE2_MYSQL_INTEGRATION=1 .venv/bin/python -m pytest tests/integration/phase2/test_mysql_provider.py -q` | 0 | **6 passed** |
+| 15 | `.venv/bin/python -m pytest tests/e2e/phase2/test_tutorial_closure.py -q` | 0 | **1 passed**（+ 既有 Starlette deprecation warning） |
+| 16 | `.venv/bin/python scripts/doctor.py --offline` / `--mysql` | 0 | offline OK；`phase_0_health` 含 'ok'（Phase 0 表在保留卷中完好） |
+| 17 | `git diff --check` | 0 | clean |
+
+1 warning 为既有 Starlette `TestClient` + httpx deprecation，非阻塞。
+
+### Node 22 local compatibility rerun (follow-up, 2026-08-03)
+
+上方 Fresh Gate 全量门禁在默认 Node v26.5.1 下执行；本小节记录新完成的聚焦
+前端兼容重跑（工具链更接近 CI：Node 22 + pnpm），**不是**实际 Ubuntu CI。
+
+- **工具链与版本：** `PATH=/opt/homebrew/opt/node@22/bin:$PATH node --version`
+  → `v22.23.2`（Homebrew `node@22`，`/opt/homebrew/opt/node@22/bin/node`）；
+  默认 shell Node 仍为 v26.5.1、bundled v24.14.0；pnpm 11.9.0
+  （`COREPACK_ENABLE_NETWORK=0` —— pnpm 10 本地未缓存，未尝试网络下载）。
+- **命令与结果（全部 `COREPACK_ENABLE_NETWORK=0`）：**
+  - `pnpm install --offline --frozen-lockfile --dir frontend` → 0，already up to date
+  - `pnpm --dir frontend exec vitest run` → 0，2 files，**22 passed**
+  - `pnpm --dir frontend lint` → 0，clean
+  - `pnpm --dir frontend build` → 0，通过
+  - `pnpm --dir frontend exec playwright test` → 0，**2 passed + 2 个有意的
+    跨 project 跳过**（desktop/mobile project 路由跳过，与后端无关）
+  - `git diff --check` → 0，clean
+- **工作树状态不变：** 无新增 tracked/untracked 变更；仅既有 ignored 的
+  frontend build/test 产物被刷新。
+- **边界：** 这是本地兼容性证据；实际 Ubuntu CI（Node 22 + pnpm 10）job
+  **尚未执行**，release/验收仍为 `blocked_pending_node22_ci`。
+
+### Skip enumeration (11, all honest opt-ins)
+
+- `tests/integration/phase1/test_real_model_smoke.py` ×2 — `MODEL_API_KEY not set`（Phase 1 既有）
+- `tests/integration/phase2/test_external_provider_smoke.py` ×2 — `PHASE2_TAVILY_SMOKE` / `PHASE2_RAGFLOW_SMOKE` not set
+- `tests/integration/phase2/test_mysql_provider.py` ×6 — `PHASE2_MYSQL_INTEGRATION` not set（全量 run 未开启；聚焦 run 见 #14 全过）
+- `tests/integration/phase2/test_real_model_smoke.py` ×1 — `PHASE2_REAL_MODEL_SMOKE` + `MODEL_API_KEY` not set
+
+未运行的外部 smoke（需要显式 opt-in + 凭据，本次不执行）：真实模型/DeepAgents
+runtime、Tavily、RAGFlow。
+
+### Compose MySQL: preserved volume facts
+
+- 保留卷（`mysql_data`）初始状态：root 无密码、无 `research_copilot` 数据库
+  （数据目录早于 `MYSQL_DATABASE` 配置创建）。容器 entrypoint 完成初始化后，
+  卷状态与 compose 契约一致（root/root、`research_copilot` 含 Phase 0
+  `phase_0_health`）。
+- 引导命令（`docker/mysql/init/010_tutorial.sql` 原文，未改动）连续执行 3 次，
+  全部 exit 0 —— 幂等成立；`tutorial_reader` 由 `CREATE USER IF NOT EXISTS`
+  + `ALTER USER` 管理。
+- `tutorial_reader` 验证：`SELECT COUNT(*) FROM drugs` → `3`；
+  `INSERT INTO drugs ...` → `ERROR 1142 (42000): INSERT command denied to
+  user 'tutorial_reader'@'localhost' for table 'drugs'`（SELECT-only 成立）。
+- 保留卷缺数据库时的一次性非破坏步骤记录在 runbook §4.3
+  （`CREATE DATABASE IF NOT EXISTS research_copilot`）。
+
+### Stop-condition confirmation
+
+1. 无新依赖/服务/路由/事件字段/provider 模式/前端功能被加入（仅 6 个允许文件）。
+2. 无绝对路径、凭据、上传内容或 Provider 响应体进入事件（既有脱敏契约不变）。
+3. 离线测试无模型/网络/RAGFlow/宿主机 MySQL 依赖（348 全量离线通过）。
+4. 未运行外部 smoke（honest skip，未执行）。
+5. **本地 Node 22（v22.23.2）聚焦兼容门禁已通过，但 Ubuntu CI（Node 22 +
+   pnpm 10）gate 未运行**：已如实记录为验收前必须执行的 gate（不伪造
+   “已通过”；pnpm 10 未缓存、未尝试下载）。
+6. 既有非 Phase 2 测试无回归（全量通过）。
+7. 未开始 Phase 2B/2C/3；未创建 `v0.1-tutorial-parity`。
+8. 除预存 untracked 文件外工作树干净；Task 7 的 6 个允许文件改动未提交。

@@ -20,6 +20,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync --extra dev --frozen
+      # All Phase 2 tests below run offline: no model, no Tavily, no RAGFlow,
+      # no host MySQL. Real-service smokes skip honestly unless their opt-in
+      # env vars are set. Compose MySQL integration stays a documented
+      # local/release gate (docker compose up -d mysql + idempotent bootstrap
+      # of docker/mysql/init/010_tutorial.sql), not a CI service.
       - name: Run tests
         run: uv run pytest tests/ -q
       - name: Lint
@@ -50,9 +55,16 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --dir frontend
+      # Node 22 release gate: install Playwright Chromium, then run the unit,
+      # static, build and browser gates. Playwright uses deterministic in-test
+      # HTTP/WebSocket fixtures and never starts the Phase 2 API.
+      - name: Install Playwright Chromium
+        run: pnpm --dir frontend exec playwright install --with-deps chromium
       - name: Run tests
         run: pnpm --dir frontend exec vitest run
       - name: Lint
         run: pnpm --dir frontend lint
       - name: Build
         run: pnpm --dir frontend build
+      - name: Run Playwright browser tests
+        run: pnpm --dir frontend exec playwright test
