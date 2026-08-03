@@ -20,8 +20,9 @@ venv/
 node_modules/
 frontend/dist/
 frontend/node_modules/
+frontend/test-results/
+frontend/playwright-report/
 .pnpm-store/
-frontend/pnpm-workspace.yaml
 
 # Testing & Coverage
 .pytest_cache/
