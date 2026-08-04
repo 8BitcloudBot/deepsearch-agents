@@ -5,11 +5,11 @@
 ## Status
 
 Phase 0 and Phase 1 are accepted. Phase 2 — Tutorial Parity: Tasks 0-7 are
-accepted, and the B3 (failure/cancel/rerun) closure tests plus the initial
-B4 evidence documentation are committed and CI-verified at the remote
-branch head `27832bc` (`codex/phase2a-websocket-e2e`): commit
-`27832bc5c3ba31d23a77e3187bf9e0e016a504c4` (parent `9839440`) was pushed
-and GitHub Actions push run **30906797763** (head 27832bc) is **success** —
+accepted. The B3 (failure/cancel/rerun) closure tests and B4 evidence
+documentation are committed and CI-verified at the remote branch head
+`ed4552f` (`codex/phase2a-websocket-e2e`): evidence finalization commit
+`ed4552f8f3b82ddd4cf097a9c70322a3f46e3215` (parent `27832bc`) was pushed,
+and GitHub Actions push run **30907212389** (head ed4552f) is **success** —
 Python 3.12 install/tests/lint/format/pre-commit/compose/doctor and the
 frontend Node 22 + pnpm 10 frozen install, Chromium install, Vitest, lint,
 build, and Playwright browser tests are all green. The earlier Task 7 CI
@@ -18,10 +18,8 @@ gate (run 30878728964, head 9839440) remains as historical evidence.
 `v0.1-tutorial-parity` has **not** been created and nothing has been
 released; Phase 3-9 remain deferred. Default startup is full mock mode
 with no API key; real Tavily/RAGFlow/model providers are opt-in and
-require credentials. The current worktree document edits are an
-evidence-only status refresh — they do not change runtime or test
-behavior and are not yet committed, so no commit SHA or CI run is claimed
-for them.
+require credentials. The evidence-only finalization at `ed4552f` changes
+no runtime or test behavior and is covered by push run **30907212389**.
 
 The current execution order is B1-B4 in the
 [pragmatic-closure entry](./docs/pragmatic-closure.md): remote CI, reproducible

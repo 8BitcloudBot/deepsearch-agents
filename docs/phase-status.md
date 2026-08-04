@@ -4,10 +4,11 @@
 
 **Current Phase:** Phase 2 — Tutorial Parity
 
-**Status:** B1-B4 已按顺序执行完毕：B1/B2/B3 通过；**B3/B4 已提交
-`27832bc5c3ba31d23a77e3187bf9e0e016a504c4`（parent `9839440`）并 push 至
-`codex/phase2a-websocket-e2e`**，GitHub Actions push run **30906797763**
-（head 27832bc）**success**；`v0.1-tutorial-parity` 未创建、未 release，
+**Status:** B1-B4 已按顺序执行完毕：B1/B2/B3 通过；**B4 evidence-only
+finalization 已提交 `ed4552f8f3b82ddd4cf097a9c70322a3f46e3215`（parent
+`27832bc`）并 push 至 `codex/phase2a-websocket-e2e`**，GitHub Actions
+push run **30907212389**（head ed4552f）**success**；
+`v0.1-tutorial-parity` 未创建、未 release，
 Phase 3-9 deferred
 
 **Task 7 head（历史 gate）：** `98394404`（Task 7 提交已 push；GitHub
@@ -20,11 +21,14 @@ head 27832bc，**success**：Python 3.12 install/tests/lint/format/
 pre-commit/compose/doctor 全绿 + frontend Node 22 + pnpm 10 frozen
 install / Chromium install / Vitest / lint / build / Playwright browser
 tests 全绿。该提交包含 B3 测试与初始 B4 文档。
+**Evidence finalization head（现行）：**
+`ed4552f8f3b82ddd4cf097a9c70322a3f46e3215`（parent `27832bc`）已 push；
+GitHub Actions push run **30907212389**（head ed4552f）**success**。该提交仅
+刷新证据文档，不改变 runtime/test behavior。
 **Target Tag:** `v0.1-tutorial-parity`（**尚未创建**）
 
-> 当前工作树中的文档改动是 B4 的 evidence-only 状态刷新：只更新事实记录，
-> 不改变 runtime/test behavior，尚未提交，不为其声称独立 commit SHA 或
-> CI run。
+> B4 的 evidence-only 状态刷新已提交为 `ed4552f`，并由 push run
+> 30907212389 验证；这不是 runtime/test behavior 变更。
 
 ## Accepted Baseline
 
@@ -34,7 +38,7 @@ tests 全绿。该提交包含 B3 测试与初始 B4 文档。
 | Phase 1 — Capability Examples | accepted | `v0.0-deepagents-examples` |
 | Phase 2 Tasks 0-6 | accepted | 见下表（真实 SHA） |
 | Phase 2 Task 7 | completed；已 push，远端 head `98394404`；B1 CI（run 30878728964）通过 | 本文档、`docs/phase-2-tutorial.md`、`docs/verification/phase-2-evidence.md`、`.github/workflows/ci.yml` |
-| Phase 2 B3/B4 | committed `27832bc`（parent `9839440`）；push run 30906797763 success | B3 测试文件（integration + e2e）+ 初始 B4 文档（README / phase-status / evidence / CHANGELOG） |
+| Phase 2 B3/B4 | B3 + 初始 B4 committed `27832bc`；evidence finalization committed `ed4552f`；push run 30907212389 success | B3 测试文件（integration + e2e）+ B4 文档（README / phase-status / evidence / CHANGELOG） |
 
 ## Task Completion (real SHAs)
 
@@ -86,7 +90,7 @@ Phase 2 垂直闭环已全部完成并通过本地完整门禁：
 | B1 — Ubuntu CI gate | **completed** | Task 7 状态：push run 30878728964（head 9839440）success（历史 gate）；B3/B4 提交后由 push run 30906797763（head 27832bc）再次全绿 |
 | B2 — Reproducible happy path | **completed**（本地） | 后端 API/WS closure 1 passed；mock integration 30 passed；desktop Playwright happy path 1 passed；默认 mock 模式从输入到 Markdown/PDF 预览和下载可复现 |
 | B3 — Failure/cancel/rerun | **completed；已提交 `27832bc`，远端 CI 通过** | 全量 Python 353 passed/11 opt-in skips；B3 focused 11 passed；Vitest 24 passed；desktop Playwright 3 passed/1 project skip；Starlette httpx deprecation warning 仍在；提交 27832bc 的 push run 30906797763 success（含 B3 测试的远端 CI 覆盖） |
-| B4 — Evidence closure | **completed；初始 B4 文档已随 `27832bc` 提交** | 本文档、README、evidence、changelog 事实与边界一致（mock 默认 / opt-in / deferred 明确）；当前工作树改动为 evidence-only 状态刷新 |
+| B4 — Evidence closure | **completed；finalization 已提交 `ed4552f`，远端 CI 通过** | 本文档、README、evidence、changelog 事实与边界一致（mock 默认 / opt-in / deferred 明确）；push run 30907212389 success |
 
 **Phase 3 未开始。** 目标 tag `v0.1-tutorial-parity` 尚未创建、未 release；
 用户最终发布验收（创建 tag / release）仍未进行。
@@ -127,8 +131,8 @@ pre-commit/compose/doctor 全绿 + frontend Node 22 + pnpm 10 frozen
 install / Chromium install / Vitest / lint / build / Playwright 全绿。
 
 **下一步（需要用户）：** 用户最终发布验收 —— 创建 `v0.1-tutorial-parity`
-tag 与 release（尚未进行）。本次工作树改动为 evidence-only 状态刷新，
-不改变 runtime/test behavior。
+tag 与 release（尚未进行）。`ed4552f` 的 evidence-only 状态刷新已提交并由
+push run 30907212389 验证，不改变 runtime/test behavior。
 
 本轮封版不实现 Phase 3-9 的可信引用、复杂评测、持久化恢复、审批和成本治理。旧 plans、specs 和 handoffs 只作历史参考。
 

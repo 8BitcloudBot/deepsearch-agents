@@ -1,11 +1,10 @@
 # Phase 2 Verification Evidence
 
 > **Current acceptance note — 2026-08-04 (updated):** B1-B4 closure gates
-> have all run and B3/B4 are committed. Commit
-> `27832bc5c3ba31d23a77e3187bf9e0e016a504c4` (parent `9839440`) containing
-> the B3 failure/cancel/rerun tests and the initial B4 documentation was
-> pushed to `codex/phase2a-websocket-e2e`; GitHub Actions push run
-> **30906797763** (head 27832bc) is **success** — the Python 3.12
+> have all run and B3/B4 are committed. Evidence finalization commit
+> `ed4552f8f3b82ddd4cf097a9c70322a3f46e3215` (parent `27832bc`) was pushed
+> to `codex/phase2a-websocket-e2e`; GitHub Actions push run **30907212389**
+> (head ed4552f) is **success** — the Python 3.12
 > install/tests/lint/format/pre-commit/compose/doctor steps and the
 > frontend Node 22 + pnpm 10 job (frozen install, Playwright Chromium
 > install, Vitest, lint, build, Playwright browser tests) are all green.
@@ -17,9 +16,8 @@
 > `v0.1-tutorial-parity` has **not** been created and nothing has been
 > released; Phase 3-9 remain deferred; default startup is full mock mode
 > (no API key) and real Tavily/RAGFlow/model providers are explicit opt-ins
-> requiring credentials. The current worktree document edits are an
-> evidence-only status refresh (no runtime/test behavior change) and are
-> not yet committed; no commit SHA or CI run is claimed for them. See
+> requiring credentials. The evidence-only finalization at `ed4552f`
+> changes no runtime/test behavior and is covered by push run 30907212389. See
 > [`../phase-status.md`](../phase-status.md) for the current status and
 > [“B1-B4 Closure Gates (2026-08-04)”](#b1-b4-closure-gates-2026-08-04)
 > below for the exact commands and results. Older rejection labels, commit
@@ -421,14 +419,15 @@ provider failure、user cancel、duplicate cancel、failure 后 rerun 的终态�
   Playwright browser tests 全绿。提交前"未获远端 CI 覆盖"的表述仅适用于历史
   状态（见上方 Historical acceptance note）。
 
-### B4 — Evidence closure（completed；初始文档已提交于 `27832bc`）
+### B4 — Evidence closure（completed；finalization 已提交于 `ed4552f`）
 
 README、phase-status、phase-2-evidence、CHANGELOG 已统一为 2026-08-04 事实：
 
 - 默认 mock 启动（无 API key）；真实 provider（Tavily / RAGFlow / 真实模型）
   为显式 opt-in 且需要凭据；外部 smoke 未运行。
-- B1 远端 CI 通过（run 30878728964，历史 gate）；B2/B3 本地通过；B3/B4 已提交
-  `27832bc`，push run 30906797763 success（远端 CI 覆盖 B3 测试与初始 B4 文档）。
+- B1 远端 CI 通过（run 30878728964，历史 gate）；B2/B3 本地通过；B3 测试与
+  初始 B4 文档已提交 `27832bc`；evidence finalization 已提交 `ed4552f`，push
+  run 30907212389 success。
 - Phase 3-9 deferred；`v0.1-tutorial-parity` 未创建、未 release。
-- 后续：用户最终发布验收（创建 tag / release）。当前工作树的文档改动为
-  evidence-only 状态刷新，不改变 runtime/test behavior，尚未提交。
+- 后续：用户最终发布验收（创建 tag / release）。`ed4552f` 的 evidence-only
+  状态刷新已提交并由 push run 30907212389 验证，不改变 runtime/test behavior。
