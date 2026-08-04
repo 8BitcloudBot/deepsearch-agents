@@ -93,15 +93,62 @@ const EVENTS = [
 ];
 
 /**
+ * Event stream for a run that fails inside the provider: the socket pushes
+ * work events, then a single task_failed terminal (redacted message).
+ */
+const FAILURE_EVENTS = [
+  {
+    version: 1,
+    sequence: 1,
+    thread_id: THREAD_ID,
+    type: "task_started",
+    message: "research aspirin",
+    data: {},
+    timestamp: "2026-01-01T00:00:00Z",
+  },
+  {
+    version: 1,
+    sequence: 2,
+    thread_id: THREAD_ID,
+    type: "agent_started",
+    message: "mock-research-agent started",
+    data: { agent_name: "mock-research-agent" },
+    timestamp: "2026-01-01T00:00:01Z",
+  },
+  {
+    version: 1,
+    sequence: 3,
+    thread_id: THREAD_ID,
+    type: "tool_started",
+    message: "internet_search started",
+    data: { tool_name: "internet_search" },
+    timestamp: "2026-01-01T00:00:02Z",
+  },
+  {
+    version: 1,
+    sequence: 4,
+    thread_id: THREAD_ID,
+    type: "task_failed",
+    message: "",
+    data: {},
+    timestamp: "2026-01-01T00:00:03Z",
+  },
+];
+
+/**
  * Installs HTTP + WebSocket mocks mirroring the locked backend contract.
  * Returns the mocked socket so tests can push events after the task POST.
+ * Supports multi-run scenarios: every task POST and every WebSocket
+ * connection is recorded, and pushEventStream(events, runIndex) targets the
+ * run-th connection — the same way a re-run after failure/cancel opens a
+ * fresh socket and starts a new task.
  */
 async function mockBackend(page: import("@playwright/test").Page) {
-  let wsRoute: import("@playwright/test").WebSocketRoute | null = null;
-  let taskPosted = false;
+  const wsRoutes: import("@playwright/test").WebSocketRoute[] = [];
+  let taskPostedCount = 0;
 
   await page.route("**/api/task", (route) => {
-    taskPosted = true;
+    taskPostedCount += 1;
     route.fulfill({
       status: 202,
       contentType: "application/json",
@@ -148,16 +195,25 @@ async function mockBackend(page: import("@playwright/test").Page) {
         ws.send(JSON.stringify({ type: "pong" }));
       }
     });
-    wsRoute = ws;
+    wsRoutes.push(ws);
   });
 
   return {
-    /** Push the event stream after the task POST fires, mirroring the real
-     * server (the socket opens before /api/task is called). */
-    async pushEventStream() {
-      await expect.poll(() => taskPosted, { timeout: 10_000 }).toBe(true);
-      for (const event of EVENTS) {
-        wsRoute?.send(JSON.stringify(event));
+    /** Push an event stream for a specific run (defaults to the first).
+     * Mirrors the real server: the socket opens before POST /api/task, so
+     * wait for both the task POST and the run-th socket to exist. */
+    async pushEventStream(
+      events: unknown[] = EVENTS,
+      runIndex = 0
+    ): Promise<void> {
+      await expect
+        .poll(() => taskPostedCount, { timeout: 10_000 })
+        .toBeGreaterThan(runIndex);
+      await expect
+        .poll(() => wsRoutes.length, { timeout: 10_000 })
+        .toBeGreaterThan(runIndex);
+      for (const event of events) {
+        wsRoutes[runIndex].send(JSON.stringify(event));
       }
     },
   };
@@ -247,6 +303,63 @@ test("desktop: run a task, follow events, review and preview artifacts", async (
     page.getByRole("heading", { level: 2, name: "Findings" })
   ).toBeVisible();
   await expect(page.getByText("bold")).toBeVisible();
+});
+
+test("desktop: a failed run can be re-run on the same workbench", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "desktop-only flow");
+
+  const backend = await mockBackend(page);
+  await page.goto("/");
+
+  await page.getByLabel("Task query").fill("research aspirin");
+  await page.getByRole("button", { name: "Run Task" }).click();
+  await expect(page.getByRole("button", { name: "Cancel Task" })).toBeVisible();
+
+  // Provider failure terminal arrives over the socket.
+  await backend.pushEventStream(FAILURE_EVENTS, 0);
+  await expect(page.getByText("Failed")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cancel Task" })).toHaveCount(0);
+
+  // The same workbench can Run again: fresh socket, new task, completion.
+  await page.getByRole("button", { name: "Run Task" }).click();
+  await backend.pushEventStream(EVENTS, 1);
+  await expect(page.getByText("Tutorial run complete")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Download tutorial-report.md" })
+  ).toBeVisible();
+});
+
+test("desktop: cancel a running task, then re-run", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "desktop-only flow");
+
+  const backend = await mockBackend(page);
+  await page.goto("/");
+
+  await page.getByLabel("Task query").fill("research aspirin");
+  await page.getByRole("button", { name: "Run Task" }).click();
+  await expect(page.getByRole("button", { name: "Cancel Task" })).toBeVisible();
+
+  // A few work events, no terminal yet — the run is still in flight.
+  await backend.pushEventStream(EVENTS.slice(0, 3), 0);
+
+  // User cancels; the cancel endpoint answers cancelled.
+  await page.getByRole("button", { name: "Cancel Task" }).click();
+  await expect(page.getByText("Cancelled")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run Task" })).toBeVisible();
+
+  // The workbench can Run again after cancel: fresh socket, new task.
+  await page.getByRole("button", { name: "Run Task" }).click();
+  await backend.pushEventStream(EVENTS, 1);
+  await expect(page.getByText("Tutorial run complete")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Download tutorial-report.pdf" })
+  ).toBeVisible();
 });
 
 test("mobile: single-column layout, every control visible, no horizontal overflow", async ({

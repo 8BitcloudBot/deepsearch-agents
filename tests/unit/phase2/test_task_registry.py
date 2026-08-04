@@ -4,8 +4,21 @@ import asyncio
 
 import pytest
 
-from app.api.events import InMemoryEventBus
+from app.api.events import InMemoryEventBus, TutorialEvent
 from app.api.tasks import DuplicateTaskError, TaskRegistry
+
+
+class RecordingBus(InMemoryEventBus):
+    """Records every emit through the public API for whole-lifecycle counts."""
+
+    def __init__(self):
+        super().__init__()
+        self.emitted: list[TutorialEvent] = []
+
+    def emit(self, thread_id, event_type, message, data=None):
+        event = super().emit(thread_id, event_type, message, data)
+        self.emitted.append(event)
+        return event
 
 
 class SpyRuntime:
@@ -39,7 +52,7 @@ class SpyRuntime:
 
 @pytest.fixture
 def events():
-    return InMemoryEventBus()
+    return RecordingBus()
 
 
 @pytest.fixture
@@ -122,19 +135,35 @@ class TestTaskRegistry:
         reg.start("first", thread_id=tid)
         with pytest.raises(DuplicateTaskError):
             reg.start("second", thread_id=tid)
+        # The first task is still pending behind the 5s spy delay: cancel it
+        # and await its teardown so no task outlives this test's event loop.
+        assert await reg.cancel(tid) == "cancelled"
 
     @pytest.mark.asyncio
     async def test_exactly_one_terminal(self, runtime, events):
         reg = _reg(runtime, events)
-        tid = reg.start("test")
-        async with events.subscribe(tid) as sub:
-            await asyncio.sleep(0.3)
-            emitted = []
-            while not sub.queue.empty():
-                emitted.append(sub.queue.get_nowait())
+        reg.start("test")
+        # Wait until the recorded stream is quiet (lifecycle fully settled),
+        # then count terminals over the WHOLE run — a duplicate terminal
+        # emitted after the first one is still caught.
+        loop = asyncio.get_running_loop()
+        last = len(events.emitted)
+        quiet_since = loop.time()
+        deadline = loop.time() + 5.0
+        while True:
+            await asyncio.sleep(0.05)
+            count = len(events.emitted)
+            now = loop.time()
+            if count != last:
+                last = count
+                quiet_since = now
+            elif now - quiet_since >= 0.4:
+                break
+            if now >= deadline:
+                raise AssertionError("event stream did not stabilise within 5s")
         cnt = sum(
             1
-            for e in emitted
+            for e in events.emitted
             if e.type in ("task_completed", "task_cancelled", "task_failed")
         )
         assert cnt == 1

@@ -2,8 +2,8 @@
 
 ## 项目目标
 
-构建一个面向 AI Agent 框架选型、工程调研和技术决策的多智能体研究系统，最终形成
-可运行、可评测、可追踪、可恢复并能由仓库证据支撑简历表述的个人作品集项目。
+构建一个面向 AI Agent 框架选型、工程调研和技术决策的多智能体研究系统。近期先形成
+可运行、可演示、可复现的工作台闭环；评测、追踪、恢复和治理按后续阶段独立验收。
 
 项目采用渐进路线：先证明教程闭环，再迁移到真实研究领域；随后用评测验证引用和
 编排收益，最后增加生产可靠性与治理能力。后续能力必须复用前一阶段已经证明的垂直
@@ -20,8 +20,8 @@
    闭环；不在多层重复验证相同内部细节。
 5. **证据服务于决策。** 最终门禁记录真实命令和结果；开发过程中不为同步测试数字
    反复修改状态文档。
-6. **简历数字可复现。** 质量、成本、延迟和成功率必须绑定数据、模型、Prompt 与
-   commit，未实测不得写入简历。
+6. **对外陈述可复现。** 质量、成本、延迟和成功率必须绑定数据、模型、Prompt 与
+   commit，未实测不得作为完成结果。
 
 ## 发布线
 
@@ -47,6 +47,12 @@
 | [6 — Observability](phases/phase-6-observability.md) | 版本化事件、trace、指标 | 未开始 |
 | [7 — Persistence & Recovery](phases/phase-7-persistence-recovery.md) | 持久化、重试和恢复 | 未开始 |
 | [8 — Approval & Governance](phases/phase-8-approval-governance.md) | 人工审批和预算治理 | 未开始 |
-| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | 演示、复盘和简历证据 | 未开始 |
+| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | 演示、复盘和发布证据 | 未开始 |
 
-当前唯一执行入口见 [phase-status.md](phase-status.md)。
+当前状态以 [phase-status.md](phase-status.md) 为准；当前任务顺序、范围和停止条件以 [pragmatic-closure.md](pragmatic-closure.md) 为准。
+
+## 务实封版目标
+
+本轮不追求一次完成可信引用、复杂评测、持久化恢复、人工审批或成本治理。当前唯一近期目标是完成 Phase 2 Tutorial Parity：多 Agent 调研任务通过 WebSocket 展示实时事件，生成 Markdown/PDF 报告，并在 React 工作台中预览和下载。
+
+执行顺序、文件白名单和停止条件见 [pragmatic-closure.md](pragmatic-closure.md)。Phase 3-9 继续保留为后续路线，不得被旧 plan、spec 或 handoff 自动带入当前任务。

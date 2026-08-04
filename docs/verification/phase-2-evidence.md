@@ -1,6 +1,30 @@
 # Phase 2 Verification Evidence
 
-> **Current acceptance note — 2026-08-03:** Phase 2 Tasks 0-6 are accepted
+> **Current acceptance note — 2026-08-04:** B1-B4 closure gates have all run.
+> B1 — the Ubuntu Node 22 + pnpm 10 CI gate — passed on GitHub Actions push
+> run 30878728964 (head `9839440`, remote `codex/phase2a-websocket-e2e` =
+> `98394404`): the Python 3.12 job and the frontend Node 22 + pnpm 10 job
+> (frozen install, Playwright Chromium install, Vitest, lint, build, Playwright
+> browser tests) are all green. B2 passed locally (backend API/WS closure 1
+> passed; mock integration 30 passed; desktop Playwright happy path 1 passed).
+> B3 passed locally (full Python 353 passed / 11 opt-in skips; B3 focused 11
+> passed; frontend Vitest 24 passed; desktop Playwright 3 passed / 1 project
+> skip; the pre-existing Starlette `TestClient` + httpx deprecation warning
+> remains). **The B3 test files and the B3/B4 documentation changes are NOT
+> committed** — they exist only in the local worktree and therefore have no
+> remote CI coverage; nothing above claims CI coverage for them. User
+> acceptance is pending: the user must review the results and separately
+> authorize committing the B3/B4 changes and re-running CI. `v0.1-tutorial-parity`
+> has **not** been created and nothing has been released; Phase 3-9 remain
+> deferred; default startup is full mock mode (no API key) and real
+> Tavily/RAGFlow/model providers are explicit opt-ins requiring credentials.
+> See [`../phase-status.md`](../phase-status.md) for the current status and
+> [“B1-B4 Closure Gates (2026-08-04)”](#b1-b4-closure-gates-2026-08-04) below
+> for the exact commands and results. Older rejection labels, commit bases,
+> test totals and “remaining blockers” below are chronological evidence, not
+> the current status.
+
+> **Historical note — 2026-08-03 (superseded):** Phase 2 Tasks 0-6 are accepted
 > (base HEAD `5988a8a`); Task 7 (documentation, verification, CI) is
 > **locally complete but uncommitted** in the worktree — not part of HEAD.
 > The full fresh gate passes locally (348 passed, 11 honest skips; frontend
@@ -201,6 +225,11 @@ generate_markdown_report("# Report\n\nContent.")
 
 ## Task 7: Document, Verify, and Stop for Acceptance — 2026-08-03
 
+> **Historical section:** 以下为 Task 7 当时的记录（"未 push"、"Ubuntu CI 未运行"
+> 等表述仅指当时）。2026-08-04 之后 Task 7 提交已 push 至远端 head `98394404`，
+> B1 实际 Ubuntu CI 已通过 —— 见文末
+> [“B1-B4 Closure Gates (2026-08-04)”](#b1-b4-closure-gates-2026-08-04)。
+
 **Base HEAD:** `5988a8a`（`codex/phase2a-websocket-e2e`）。Task 7 变更**未提交**
 （worker 禁止 commit/tag/push；不属于 HEAD `5988a8a`）。
 **状态：** Task 7 本地完成；release/用户验收 **blocked** —— 在要求的
@@ -304,3 +333,63 @@ runtime、Tavily、RAGFlow。
 6. 既有非 Phase 2 测试无回归（全量通过）。
 7. 未开始 Phase 2B/2C/3；未创建 `v0.1-tutorial-parity`。
 8. 除预存 untracked 文件外工作树干净；Task 7 的 6 个允许文件改动未提交。
+
+## B1-B4 Closure Gates — 2026-08-04
+
+> 本节是 B1-B4 封版门禁的现行记录。B3/B4 的测试与文档变更**未提交**，
+> 无远端 CI 覆盖；除 B1 外所有结果均为本地证据。
+
+### B1 — Ubuntu CI gate（completed）
+
+Task 7 提交已由用户授权 push；远端 `codex/phase2a-websocket-e2e` head =
+`98394404`。GitHub Actions push run **30878728964**（head `9839440`）：
+**success**，全部步骤通过：
+
+- **Python 3.12 job：** `uv sync --extra dev --frozen` → `uv run python -m pytest
+  tests/ -q` → ruff check → ruff format --check → pre-commit（ruff /
+  ruff-format / detect-secrets）全绿。
+- **frontend job（Node 22 + pnpm 10）：** frozen install（`pnpm install
+  --frozen-lockfile`）→ `playwright install --with-deps chromium` → Vitest →
+  lint → build → Playwright browser tests 全绿。
+
+该 run 覆盖的是已提交的 Task 7 状态（不含工作树中的 B3/B4 变更）。
+
+### B2 — Reproducible happy path（completed，本地）
+
+默认 mock 模式（runtime + web + catalog + knowledge 均 "mock"，无 API key）
+从输入/约束文件到 Markdown/PDF 预览和下载的闭环复现：
+
+| Command | Result |
+|---|---|
+| 后端 API/WS closure（`tests/e2e/phase2/test_tutorial_closure.py`） | **1 passed** |
+| mock integration（`tests/integration/phase2/test_mock_providers.py` + `test_mock_runtime.py` + `test_websocket_flow.py` + `test_api_contract.py`） | **30 passed** |
+| desktop Playwright happy path（`frontend/e2e/tutorial-workbench.spec.ts`，desktop project） | **1 passed** |
+
+### B3 — Failure/cancel/rerun（completed，本地，未提交）
+
+provider failure、user cancel、duplicate cancel、failure 后 rerun 的终态唯一性
+与 React 可再次 Run：
+
+| Command | Result |
+|---|---|
+| 全量 Python `uv run python -m pytest tests/ -q` | **353 passed, 11 opt-in skips** |
+| B3 focused（`tests/unit/phase2/test_task_registry.py` + `tests/integration/phase2/test_failure_cancel_rerun.py` + `tests/e2e/phase2/test_failure_cancel_rerun_closure.py`） | **11 passed** |
+| frontend Vitest（`pnpm --dir frontend exec vitest run`） | **24 passed** |
+| desktop Playwright（`pnpm --dir frontend exec playwright test`，desktop project） | **3 passed, 1 project skip** |
+
+- 每个场景只产生一个终态事件（task_failed / task_cancelled / task_completed），
+  无重复终态；FlakyWebProvider 失败一次后成功（rerun 证据）。
+- 既有 Starlette `TestClient` + httpx deprecation warning 仍存在（非阻塞）。
+- **未提交：** `tests/integration/phase2/test_failure_cancel_rerun.py`、
+  `tests/e2e/phase2/test_failure_cancel_rerun_closure.py` 及 B3/B4 文档改动均在
+  本地工作树中，**未获远端 CI 覆盖**；不得称其已过 CI。
+
+### B4 — Evidence closure（completed，本地，未提交）
+
+README、phase-status、phase-2-evidence、CHANGELOG 已统一为 2026-08-04 事实：
+
+- 默认 mock 启动（无 API key）；真实 provider（Tavily / RAGFlow / 真实模型）
+  为显式 opt-in 且需要凭据；外部 smoke 未运行。
+- B1 远端 CI 通过；B2/B3 本地通过；B3/B4 变更未提交、无远端 CI 覆盖。
+- Phase 3-9 deferred；`v0.1-tutorial-parity` 未创建、未 release。
+- 后续：用户验收 B1-B4；验收后**另行授权**提交 B3/B4 变更并再跑 CI。

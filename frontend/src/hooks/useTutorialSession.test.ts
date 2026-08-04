@@ -540,6 +540,101 @@ describe("useTutorialSession", () => {
     expect(result.current.status).toBe("error");
   });
 
+  it("allows a second run after a task_failed terminal event", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/task")) {
+        return okJson({ status: "started", thread_id: "t" });
+      }
+      if (url.includes("/api/files")) {
+        return okJson({ thread_id: "t", files: [] });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    const { result } = renderHook(() => useTutorialSession(BASE));
+
+    // First run ends in a provider failure terminal event.
+    act(() => {
+      void result.current.run("first");
+    });
+    let ws = FakeWebSocket.instances[0];
+    act(() => ws.open());
+    act(() =>
+      ws.receive(
+        makeEvent("task_failed", { thread_id: result.current.threadId })
+      )
+    );
+    await waitFor(() => expect(result.current.status).toBe("failed"));
+    expect(ws.closed).toBe(true);
+
+    // The failed run releases the socket, so Run can start a fresh task.
+    act(() => {
+      void result.current.run("second");
+    });
+    ws = FakeWebSocket.instances[1];
+    expect(ws).toBeDefined();
+    expect(ws.url).toBe(`ws://127.0.0.1:8000/ws/${result.current.threadId}`);
+    act(() => ws.open());
+    await waitFor(() => {
+      const taskCalls = fetchMock.mock.calls.filter((c) =>
+        String(c[0]).endsWith("/api/task")
+      );
+      expect(taskCalls).toHaveLength(2);
+      expect(JSON.parse(String(taskCalls[1]![1]!.body))).toMatchObject({
+        query: "second",
+      });
+    });
+    expect(result.current.status).toBe("running");
+  });
+
+  it("allows a second run after cancel", async () => {
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/api/task")) {
+        return okJson({ status: "started", thread_id: "t" });
+      }
+      if (url.includes("/cancel")) {
+        return okJson({ thread_id: "t", status: "cancelled" });
+      }
+      if (url.includes("/api/files")) {
+        return okJson({ thread_id: "t", files: [] });
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+    const { result } = renderHook(() => useTutorialSession(BASE));
+
+    act(() => {
+      void result.current.run("first");
+    });
+    const ws0 = FakeWebSocket.instances[0];
+    act(() => ws0.open());
+
+    await act(async () => {
+      await result.current.cancel();
+    });
+    expect(result.current.status).toBe("cancelled");
+    expect(ws0.closed).toBe(true);
+
+    // After cancel the workbench can run again on a fresh socket.
+    act(() => {
+      void result.current.run("second");
+    });
+    const ws1 = FakeWebSocket.instances[1];
+    expect(ws1).toBeDefined();
+    expect(ws1).not.toBe(ws0);
+    act(() => ws1.open());
+    await waitFor(() => {
+      const taskCalls = fetchMock.mock.calls.filter((c) =>
+        String(c[0]).endsWith("/api/task")
+      );
+      expect(taskCalls).toHaveLength(2);
+      expect(JSON.parse(String(taskCalls[1]![1]!.body))).toMatchObject({
+        query: "second",
+      });
+    });
+    expect(result.current.status).toBe("running");
+  });
+
   it("clears the heartbeat and closes the socket on unmount", async () => {
     fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
       if (String(input).endsWith("/api/task")) {

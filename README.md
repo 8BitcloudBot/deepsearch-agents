@@ -1,29 +1,31 @@
 # Agent Engineering Research Copilot
 
-面向 AI Agent 框架选型、技术调研和工程决策的多智能体可信研究系统。
+面向 AI Agent 框架选型、技术调研和工程决策的多智能体研究工作台。
 
 ## Status
 
-Phase 0 (`v0.0-foundation`) and Phase 1
-(`v0.0-deepagents-examples`) are accepted. Phase 2 — Tutorial Parity
-(`blocked_pending_node22_ci`): Tasks 0-6 are accepted at base HEAD `5988a8a` (including the Task 5 backend
-closure); Task 7 (documentation, verification, CI) is **locally complete but
-uncommitted** — its changes exist only in the worktree and are not part of
-HEAD. The full local gate is green under the default Node v26.5.1 (Python
-348 passed, frontend Vitest/lint/build/Playwright green, Compose MySQL
-integration 6 passed), and a focused frontend compatibility rerun under
-Homebrew Node v22.23.2 (`/opt/homebrew/opt/node@22/bin/node`) with pnpm
-11.9.0 also passed (offline frozen install, Vitest 22 passed, lint, build,
-Playwright 2 passed + 2 intentional cross-project skips), but release and
-user acceptance are still **blocked** until the actual Ubuntu CI job — Node
-22 with pnpm 10 — runs and passes its frontend gate (Playwright Chromium);
-that job has not been run yet. Phase 3 has not started and
-`v0.1-tutorial-parity` does not exist yet.
-See [docs/phase-2-tutorial.md](./docs/phase-2-tutorial.md) §10-11 for the
-gate requirements.
+Phase 0 and Phase 1 are accepted. Phase 2 — Tutorial Parity: Tasks 0-7 are
+accepted at the remote branch head `98394404`
+(`codex/phase2a-websocket-e2e`), and the Ubuntu Node 22 + pnpm 10 CI gate
+passed (GitHub Actions push run 30878728964, head 9839440: Python 3.12
+steps plus frontend frozen install, Chromium install, Vitest, lint, build,
+and Playwright browser tests all green). B2 (reproducible mock happy path)
+and B3 (failure/cancel/rerun) passed the local gates; the B3 test files and
+the B3/B4 documentation changes are **not committed yet**, so they have no
+remote CI coverage and must not be described as CI-verified.
 
-See [Current Phase Status](./docs/phase-status.md) for the live state and
-[Roadmap](./docs/roadmap.md) for Phase 0-9 boundaries.
+User acceptance is pending: the user must review, then separately authorize
+committing the B3/B4 changes and re-running CI. `v0.1-tutorial-parity` has
+**not** been created and nothing has been released; Phase 3-9 remain
+deferred. Default startup is full mock mode with no API key; real
+Tavily/RAGFlow/model providers are opt-in and require credentials.
+
+The current execution order is B1-B4 in the
+[pragmatic-closure entry](./docs/pragmatic-closure.md): remote CI, reproducible
+mock happy path, failure/cancel/rerun paths, then evidence closure. See
+[Current Phase Status](./docs/phase-status.md) for facts and
+[Roadmap](./docs/roadmap.md) for future boundaries. Historical plans, specs,
+and handoffs are not current instructions.
 
 ### Phase 2 Tutorial (chapters 8-14)
 
@@ -71,7 +73,7 @@ uv sync --extra dev --frozen
 pnpm --dir frontend install --frozen-lockfile
 
 # Run tests
-uv run pytest -q
+uv run python -m pytest tests/ -q
 pnpm --dir frontend exec vitest run
 
 # Start MySQL (local dev)
@@ -102,6 +104,7 @@ React Research Workspace → FastAPI Service → Research Runtime → Agents →
 
 ## Documentation
 
+- [Pragmatic Closure Entry](./docs/pragmatic-closure.md)
 - [Documentation Index](./docs/README.md)
 - [Phase 2 Tutorial Runbook](./docs/phase-2-tutorial.md)
 - [Roadmap](./docs/roadmap.md)
