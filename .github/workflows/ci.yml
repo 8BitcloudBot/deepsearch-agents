@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # Branch gate for the phase-2a delivery branch so pushes to it run the
+    # same CI that main runs; pull_request below keeps PRs to main covered.
+    branches: [main, codex/phase2a-websocket-e2e]
   pull_request:
     branches: [main]
 
@@ -26,7 +28,10 @@ jobs:
       # local/release gate (docker compose up -d mysql + idempotent bootstrap
       # of docker/mysql/init/010_tutorial.sql), not a CI service.
       - name: Run tests
-        run: uv run pytest tests/ -q
+        # Module execution (python -m) puts the checkout root on sys.path so
+        # `app` and `examples` packages are importable; bare `pytest` only
+        # adds tests/ and rootdir-relative entries.
+        run: uv run python -m pytest tests/ -q
       - name: Lint
         run: uv run ruff check app examples tests scripts
       - name: Check formatting

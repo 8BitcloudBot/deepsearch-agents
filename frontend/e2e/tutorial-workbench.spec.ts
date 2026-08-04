@@ -166,14 +166,21 @@ async function mockBackend(page: import("@playwright/test").Page) {
 /**
  * Asserts the element is fully inside the viewport and has non-zero size,
  * so no control is clipped, off-screen, or collapsed on the small screen.
- * The element is scrolled into view first (mobile pages scroll naturally);
- * clipping or horizontal overflow still fails the bounds checks below.
+ * The element is scrolled to the viewport center first: the center scroll is
+ * deterministic, while scrollIntoViewIfNeeded performs the minimum scroll
+ * and can leave a fractional lower edge (Linux Chromium once measured
+ * 844.203125 against a 844px viewport), which fails the strict bounds check
+ * below. Centering clamps to the scroll limits, so an element smaller than
+ * the viewport always ends up fully visible; clipping or horizontal overflow
+ * still fails the bounds checks.
  */
 async function expectInViewport(
   locator: Locator,
   viewport: { width: number; height: number }
 ) {
-  await locator.scrollIntoViewIfNeeded();
+  await locator.evaluate((el) =>
+    el.scrollIntoView({ block: "center", inline: "nearest" })
+  );
   const box = await locator.boundingBox();
   expect(box, `expected ${locator} to be laid out`).not.toBeNull();
   expect(box!.width).toBeGreaterThan(0);
