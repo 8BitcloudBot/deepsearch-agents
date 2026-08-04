@@ -6,8 +6,8 @@
 
 Phase 0 and Phase 1 are accepted. Phase 2 — Tutorial Parity: Tasks 0-7 are
 accepted. The B3 (failure/cancel/rerun) closure tests and B4 evidence
-documentation are committed and CI-verified at the remote branch head
-`ed4552f` (`codex/phase2a-websocket-e2e`): evidence finalization commit
+documentation are committed and CI-verified on
+`codex/phase2a-websocket-e2e`: evidence finalization commit
 `ed4552f8f3b82ddd4cf097a9c70322a3f46e3215` (parent `27832bc`) was pushed,
 and GitHub Actions push run **30907212389** (head ed4552f) is **success** —
 Python 3.12 install/tests/lint/format/pre-commit/compose/doctor and the

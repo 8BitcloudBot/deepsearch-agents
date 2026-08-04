@@ -15,13 +15,13 @@ Phase 3-9 deferred
 Actions push run 30878728964，head 9839440，**success**：Python 3.12
 全步骤 + frontend Node 22 + pnpm 10 frozen install / Chromium install /
 Vitest / lint / build / Playwright browser tests 全绿）。
-**B3/B4 head（现行）：** `27832bc5c3ba31d23a77e3187bf9e0e016a504c4`
+**B3/B4 baseline（已验证）：** `27832bc5c3ba31d23a77e3187bf9e0e016a504c4`
 （parent `9839440`）已 push；GitHub Actions push run **30906797763**，
 head 27832bc，**success**：Python 3.12 install/tests/lint/format/
 pre-commit/compose/doctor 全绿 + frontend Node 22 + pnpm 10 frozen
 install / Chromium install / Vitest / lint / build / Playwright browser
 tests 全绿。该提交包含 B3 测试与初始 B4 文档。
-**Evidence finalization head（现行）：**
+**Evidence finalization baseline（已验证）：**
 `ed4552f8f3b82ddd4cf097a9c70322a3f46e3215`（parent `27832bc`）已 push；
 GitHub Actions push run **30907212389**（head ed4552f）**success**。该提交仅
 刷新证据文档，不改变 runtime/test behavior。
