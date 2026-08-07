@@ -17,6 +17,19 @@ change production code only when a focused RED test proves a real defect.
 **Tech Stack:** Python 3.12, asyncio, FastAPI/Starlette, Pydantic, pytest,
 Ruff, pre-commit, existing React/Vitest regression suite.
 
+## Execution Status
+
+| Node | Status | Evidence |
+|---|---|---|
+| B1 — Cancellation Before Coroutine Entry | accepted | 7 focused tests; public-subscription proof; no production change |
+| B2 — Active Cancellation And Terminal Ownership | accepted | 14 focused tests; active/repeated cancellation and normal terminal ownership; duplicate teardown clean |
+| B3 — WebSocket Disconnect And Slow Consumer | accepted | 48 focused tests; disconnect, overflow and subscriber cleanup isolated |
+| B4 — HTTP Negative Contracts And Thread Isolation | accepted | 104 focused tests; negative HTTP, isolation and containment boundaries |
+| B5 — File Parsing And Atomic Report Cleanup | accepted (B8 re-verified) | 77 file_reader/reports tests; xlsx parsed from binary file object (extension-independent); atomic cleanup proven |
+| B6 — Provider Failure Redaction And Cleanup | accepted (B8 re-verified) | 42 external-adapter/provider/runtime tests; stable operation names, redacted SDK errors, ai-only answer collection |
+| B7 — Test Responsibility And Brittleness Cleanup | accepted (B8 re-verified) | 124 lines removed from test_remediation_2; full phase2 suite 355 passed / 9 skipped |
+| B8 — Integrated Safety Acceptance | accepted | Codex independent rerun and refreshed `.secrets.baseline` passed all gates |
+
 ## Global Constraints
 
 - Baseline checkpoint is commit `1d6166c`.
@@ -34,7 +47,7 @@ Ruff, pre-commit, existing React/Vitest regression suite.
 
 ---
 
-## B1 — Cancellation Before Coroutine Entry
+## B1 — Cancellation Before Coroutine Entry — Accepted
 
 **Goal:** Prove that cancelling immediately after `start()` emits exactly one
 `task_cancelled`, removes the registry entry and never emits success/failure.
@@ -63,7 +76,7 @@ Ruff, pre-commit, existing React/Vitest regression suite.
 git diff --check
 ```
 
-## B2 — Active Cancellation And Terminal Ownership
+## B2 — Active Cancellation And Terminal Ownership — Accepted
 
 **Goal:** Prove active cancellation, ordinary failure and successful
 completion each emit exactly one terminal event and always clean the registry.
@@ -91,7 +104,7 @@ completion each emit exactly one terminal event and always clean the registry.
 git diff --check
 ```
 
-## B3 — WebSocket Disconnect And Slow Consumer
+## B3 — WebSocket Disconnect And Slow Consumer — Accepted
 
 **Goal:** Prove disconnect only removes the subscriber, never cancels the
 backend task, and queue overflow closes that subscriber with code `1013` while
@@ -122,7 +135,7 @@ other subscribers and future subscriptions remain usable.
 git diff --check
 ```
 
-## B4 — HTTP Negative Contracts And Thread Isolation
+## B4 — HTTP Negative Contracts And Thread Isolation — Accepted
 
 **Goal:** Harden malformed IDs, duplicate starts, missing cancellation, upload
 rejection, cross-thread listing and download containment at the HTTP boundary.
@@ -257,7 +270,7 @@ traceability.
 git diff --check
 ```
 
-## B8 — Integrated Safety Acceptance And Canonical Evidence
+## B8 — Integrated Safety Acceptance And Canonical Evidence — Accepted
 
 **Goal:** Independently accept the complete Phase 2B safety package and update
 canonical status/evidence without changing product behavior.
@@ -271,14 +284,31 @@ canonical status/evidence without changing product behavior.
 
 **Steps:**
 
-- [ ] Run all backend and frontend regression gates from the accepted B1–B7
+- [x] Run all backend and frontend regression gates from the accepted B1–B7
   working tree.
-- [ ] Confirm the Phase 2A browser evidence remains valid; rerun browser smoke
+- [x] Confirm the Phase 2A browser evidence remains valid; rerun browser smoke
   only if B1–B7 changed a user-observable HTTP/WebSocket behavior.
-- [ ] Record actual HEAD/baseline, commands, exit codes, test totals and known
+- [x] Record actual HEAD/baseline, commands, exit codes, test totals and known
   limitations.
-- [ ] Mark Phase 2B accepted only after Codex independently reruns the gates.
-- [ ] Keep Phase 2C pending; do not create `v0.1-tutorial-parity`.
+- [x] Codex independently reran the gates on 2026-08-07; results match B8.
+- [x] Mark Phase 2B accepted after `.secrets.baseline` is refreshed and committed.
+- [x] Start Phase 2C; do not create or move `v0.1-tutorial-parity` (pre-existing tag `50680e6`).
+
+**B8 node record — 2026-08-07:** baseline `1d6166c`, actual HEAD `8dec2b7`
+with the uncommitted B1–B7 worktree (per plan: no commits inside Reasonix).
+Fresh gate results: E2E 1 passed; integration/unit 355 passed / 9 skipped;
+frontend vitest 60 passed, eslint clean, build OK (identical bundle sizes to
+2A); ruff check / ruff format clean; `git diff --check` clean. The first
+pre-commit run refreshed
+`.secrets.baseline` line-number refresh (fake-key entry in
+`tests/unit/phase2/test_external_adapters.py` moved 23 → 39 after B6; no new
+secrets). The refreshed baseline is included in the closeout commit.
+
+**Codex independent acceptance run — 2026-08-07:** E2E 1 passed;
+integration/unit 355 passed / 9 skipped; frontend vitest 60 passed, eslint and
+build clean; ruff check / format and `git diff --check` clean. After staging
+the generated baseline refresh, `pre-commit` passes all hooks. This confirms
+B8 evidence and closes Phase 2B.
 
 **Acceptance:**
 

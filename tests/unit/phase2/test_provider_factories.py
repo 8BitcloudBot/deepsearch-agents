@@ -8,7 +8,11 @@ from app.providers.mock import (
     MockKnowledgeProvider,
     MockWebProvider,
 )
+from app.providers.mysql import MySQLCatalogProvider
 from app.settings import Phase2Settings
+
+FAKE_KEY = "sk-b6-secret-12345"  # pragma: allowlist secret
+PATH_MARKER = "/var/b6-cache/raw-response.json"
 
 
 def test_build_providers_mock_returns_mock_adapters():
@@ -72,3 +76,36 @@ def test_build_providers_lazy_construction():
     bundle = build_providers(settings)
     assert bundle.web_mode == "tavily"
     assert not isinstance(bundle.web, MockWebProvider)
+
+
+def test_factory_errors_never_echo_credentials_or_paths():
+    env_cases = [
+        {"WEB_PROVIDER": "tavily", "TAVILY_API_KEY": ""},
+        {
+            "KNOWLEDGE_PROVIDER": "ragflow",
+            "RAGFLOW_API_KEY": "",
+            "RAGFLOW_BASE_URL": "",
+        },
+        {"CATALOG_PROVIDER": "mysql", "MYSQL_USER": "root"},
+    ]
+    for env in env_cases:
+        settings = Phase2Settings.from_env(env)
+        with pytest.raises(ValueError) as excinfo:
+            build_providers(settings)
+        text = str(excinfo.value)
+        assert FAKE_KEY not in text, f"credential leaked: {text!r}"
+        assert PATH_MARKER not in text, f"absolute path leaked: {text!r}"
+
+
+def test_bundle_repr_never_exposes_credentials():
+    settings = Phase2Settings.from_env(
+        {
+            "CATALOG_PROVIDER": "mysql",
+            "MYSQL_USER": "tutorial_reader",
+            "MYSQL_PASSWORD": FAKE_KEY,
+        }
+    )
+    bundle = build_providers(settings)
+    assert isinstance(bundle.catalog, MySQLCatalogProvider)
+    assert FAKE_KEY not in repr(bundle)
+    assert FAKE_KEY not in repr(bundle.catalog)

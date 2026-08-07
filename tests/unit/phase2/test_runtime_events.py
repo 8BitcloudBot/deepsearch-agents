@@ -12,10 +12,15 @@ from pathlib import Path
 
 import pytest
 
-from app.agent.runtime import RuntimeRequest, RuntimeResult
+from app.agent.runtime import MockTutorialRuntime, RuntimeRequest, RuntimeResult
 from app.api.context import SessionContext
 from app.api.events import InMemoryEventBus
-from app.providers.contracts import ProviderBundle
+from app.providers.contracts import (
+    KnowledgeAnswer,
+    KnowledgeAssistant,
+    ProviderBundle,
+    TableInfo,
+)
 from app.providers.mock import (
     MockCatalogProvider,
     MockKnowledgeProvider,
@@ -626,6 +631,218 @@ class TestFakeGraphArtifactDedup:
 
 
 class _FakeMsg:
-    def __init__(self, name, content):
+    def __init__(self, name, content, type=""):
         self.name = name
         self.content = content
+        self.type = type
+
+
+FAKE_KEY = "sk-b6-secret-12345"  # pragma: allowlist secret
+RAW_MARKER = "raw-b6-payload-marker"
+PATH_MARKER = "/var/b6-cache/raw-response.json"
+SENSITIVE_TEXT = f"denied key={FAKE_KEY} payload={RAW_MARKER} path={PATH_MARKER}"
+
+
+def _sensitive_error() -> RuntimeError:
+    return RuntimeError(SENSITIVE_TEXT)
+
+
+class _FailingWeb:
+    def search(self, query: str, *, max_results: int = 5):
+        raise _sensitive_error()
+
+
+class _FailingCatalog:
+    def list_tables(self):
+        return (TableInfo("drugs"),)
+
+    def describe_table(self, table_name):
+        raise _sensitive_error()
+
+    def preview_table(self, table_name, *, limit=20):
+        raise _sensitive_error()
+
+    def execute_readonly(self, query, *, limit=100):
+        raise _sensitive_error()
+
+
+class _FailingKnowledge:
+    def list_assistants(self):
+        return (KnowledgeAssistant("a", "d", ()),)
+
+    def ask(self, assistant_name, question):
+        raise _sensitive_error()
+
+
+def _failing_bundle(web=None, catalog=None, knowledge=None) -> ProviderBundle:
+    return ProviderBundle(
+        web=web or MockWebProvider(),
+        catalog=catalog or MockCatalogProvider(),
+        knowledge=knowledge or MockKnowledgeProvider(),
+        web_mode="mock",
+        catalog_mode="mock",
+        knowledge_mode="mock",
+    )
+
+
+async def _run_failing(rt, ctx, events, tid):
+    async with events.subscribe(tid) as sub:
+        with pytest.raises(RuntimeError):
+            await rt.run(RuntimeRequest("test", ctx))
+        emitted = []
+        while not sub.queue.empty():
+            emitted.append(sub.queue.get_nowait())
+    return emitted
+
+
+def _assert_events_clean(emitted) -> None:
+    for e in emitted:
+        assert FAKE_KEY not in e.message, f"credential leaked in event: {e!r}"
+        assert RAW_MARKER not in e.message, f"raw payload leaked in event: {e!r}"
+        assert PATH_MARKER not in e.message, f"absolute path leaked in event: {e!r}"
+        assert FAKE_KEY not in str(e.data), f"credential leaked in data: {e!r}"
+        assert RAW_MARKER not in str(e.data), f"raw payload leaked in data: {e!r}"
+        assert PATH_MARKER not in str(e.data), f"absolute path leaked in data: {e!r}"
+
+
+class TestProviderFailureRedaction:
+    @pytest.mark.asyncio
+    async def test_failing_web_events_clean_no_terminal_no_report(
+        self, tmp_path, events
+    ):
+        rt = MockTutorialRuntime(_failing_bundle(web=_FailingWeb()), events)
+        tid = "00000000-0000-4000-8000-0000000000a1"
+        ws = SessionWorkspace.for_thread(
+            thread_id=tid,
+            base_upload=str(tmp_path / "up"),
+            base_output=str(tmp_path / "out"),
+        )
+        ctx = SessionContext(thread_id=tid, workspace=ws)
+        emitted = await _run_failing(rt, ctx, events, tid)
+
+        _assert_events_clean(emitted)
+        terminal = {"task_started", "task_completed", "task_cancelled", "task_failed"}
+        assert not terminal & {e.type for e in emitted}, [e.type for e in emitted]
+        assert [e.type for e in emitted].count("tool_started") == 1
+        assert [e.type for e in emitted].count("tool_completed") == 0
+        assert not list(ws.output_dir.glob("tutorial-report.*"))
+
+    @pytest.mark.asyncio
+    async def test_failing_catalog_events_clean_and_no_fake_completed(
+        self, tmp_path, events
+    ):
+        rt = MockTutorialRuntime(_failing_bundle(catalog=_FailingCatalog()), events)
+        tid = "00000000-0000-4000-8000-0000000000a2"
+        ws = SessionWorkspace.for_thread(
+            thread_id=tid,
+            base_upload=str(tmp_path / "up"),
+            base_output=str(tmp_path / "out"),
+        )
+        ctx = SessionContext(thread_id=tid, workspace=ws)
+        emitted = await _run_failing(rt, ctx, events, tid)
+
+        _assert_events_clean(emitted)
+        started = {e.data.get("tool_name") for e in emitted if e.type == "tool_started"}
+        completed = {
+            e.data.get("tool_name") for e in emitted if e.type == "tool_completed"
+        }
+        assert "preview_table" in started
+        assert "preview_table" not in completed
+        assert not list(ws.output_dir.glob("tutorial-report.*"))
+
+    @pytest.mark.asyncio
+    async def test_failing_knowledge_ask_events_clean(self, tmp_path, events):
+        rt = MockTutorialRuntime(_failing_bundle(knowledge=_FailingKnowledge()), events)
+        tid = "00000000-0000-4000-8000-0000000000a3"
+        ws = SessionWorkspace.for_thread(
+            thread_id=tid,
+            base_upload=str(tmp_path / "up"),
+            base_output=str(tmp_path / "out"),
+        )
+        ctx = SessionContext(thread_id=tid, workspace=ws)
+        emitted = await _run_failing(rt, ctx, events, tid)
+
+        _assert_events_clean(emitted)
+        started = {e.data.get("tool_name") for e in emitted if e.type == "tool_started"}
+        completed = {
+            e.data.get("tool_name") for e in emitted if e.type == "tool_completed"
+        }
+        assert "ask_knowledge_assistant" in started
+        assert "ask_knowledge_assistant" not in completed
+        assert not list(ws.output_dir.glob("tutorial-report.*"))
+
+
+class TestDeepAgentsReportRedaction:
+    @pytest.mark.asyncio
+    async def test_failed_tool_content_not_echoed_into_compensation_report(
+        self, tmp_path
+    ):
+        from unittest.mock import AsyncMock
+
+        from app.agent.runtime import DeepAgentsTutorialRuntime
+
+        fake_graph = AsyncMock()
+
+        async def _fake_astream(*args, **kwargs):
+            yield {"tools": {"messages": [_FakeMsg("some_tool", SENSITIVE_TEXT)]}}
+            yield {
+                "agent": {
+                    "messages": [
+                        _FakeMsg(
+                            "tutorial-research-agent",
+                            "Final clean summary",
+                            type="ai",
+                        )
+                    ]
+                }
+            }
+
+        fake_graph.astream = _fake_astream
+        rt = DeepAgentsTutorialRuntime(fake_graph, _bundle(), InMemoryEventBus())
+        tid = "00000000-0000-4000-8000-0000000000a4"
+        ws = SessionWorkspace.for_thread(
+            thread_id=tid,
+            base_upload=str(tmp_path / "up"),
+            base_output=str(tmp_path / "out"),
+        )
+        ctx = SessionContext(thread_id=tid, workspace=ws)
+        result = await rt.run(RuntimeRequest("test", ctx))
+
+        assert FAKE_KEY not in result.answer
+        assert RAW_MARKER not in result.answer
+        assert "Final clean summary" in result.answer
+
+        md = ws.resolve_output("tutorial-report.md")
+        content = md.read_text()
+        assert FAKE_KEY not in content
+        assert RAW_MARKER not in content
+        assert PATH_MARKER not in content
+        assert "Final clean summary" in content
+
+
+class TestKnowledgeToolEventStability:
+    @pytest.mark.asyncio
+    async def test_ask_tool_events_never_carry_assistant_name(self, events):
+        from app.tools.knowledge import create_knowledge_tools
+
+        class _QuietKnowledge:
+            def list_assistants(self):
+                return ()
+
+            def ask(self, assistant_name, question):
+                return KnowledgeAnswer(assistant_name=assistant_name, answer="ok")
+
+        ask_tool = create_knowledge_tools(_QuietKnowledge(), events)[1]
+        config = {"configurable": {"thread_id": THREAD_ID}}
+        async with events.subscribe(THREAD_ID) as sub:
+            await ask_tool.ainvoke(
+                {"an": f"assistant-{FAKE_KEY}", "q": "q"}, config=config
+            )
+            emitted = []
+            while not sub.queue.empty():
+                emitted.append(sub.queue.get_nowait())
+
+        assert emitted, "expected paired tool events"
+        for e in emitted:
+            assert FAKE_KEY not in e.message
+            assert e.message == "ask_knowledge_assistant"

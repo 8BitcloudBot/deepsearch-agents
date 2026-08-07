@@ -8,7 +8,7 @@ import os
 
 import pytest
 
-from app.tools.files import MAX_FILE_SIZE_BYTES, SessionWorkspace
+from app.tools.files import MAX_FILE_SIZE_BYTES, SessionWorkspace, UnsafeWorkspacePath
 
 UUID_V4 = "00000000-0000-4000-8000-000000000001"
 
@@ -272,3 +272,110 @@ def test_validate_upload_accepts_allowed(tmp_path):
         f = tmp_path / f"test{ext}"
         f.write_bytes(b"x" * 100)
         validate_upload_file(f)
+
+
+# ── B4: resolve_output mirrors resolve_upload containment ────────────────────
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "../secret.txt",
+        "../../../etc/passwd",
+        "/etc/passwd",
+        "C:\\Windows\\system32\\config\\SAM",
+        "nested/file.txt",
+        "a\\b.txt",
+        "..\\..\\secret.txt",
+        "",
+        "   ",
+        ".",
+        "..",
+    ],
+)
+def test_resolve_output_rejects_unsafe_names(ws, name):
+    with pytest.raises(UnsafeWorkspacePath):
+        ws.resolve_output(name)
+
+
+def test_resolve_output_rejects_symlink_escape(tmp_path):
+    ws2 = SessionWorkspace.for_thread(
+        thread_id=UUID_V4,
+        base_upload=str(tmp_path / "updated5"),
+        base_output=str(tmp_path / "output5"),
+    )
+    outside = tmp_path / "outside_secret.txt"
+    outside.write_text("secret")
+    link = ws2.output_dir / "link.txt"
+    os.symlink(str(outside), str(link))
+    with pytest.raises(UnsafeWorkspacePath):
+        ws2.resolve_output("link.txt")
+
+
+# ── B4: save_uploaded_file rejection boundary ───────────────────────────────
+
+
+def test_save_uploaded_file_rejects_unsupported_extension(ws):
+    from app.tools.files import save_uploaded_file
+
+    with pytest.raises(ValueError, match="extension"):
+        save_uploaded_file(ws, "evil.exe", b"MZ\x90\x00")
+
+
+def test_save_uploaded_file_rejects_disallowed_extension(ws):
+    from app.tools.files import save_uploaded_file
+
+    with pytest.raises(ValueError, match="extension"):
+        save_uploaded_file(ws, "legacy.doc", b"x")
+
+
+def test_save_uploaded_file_rejects_traversal_name(ws):
+    from app.tools.files import save_uploaded_file
+
+    with pytest.raises(UnsafeWorkspacePath):
+        save_uploaded_file(ws, "../evil.txt", b"x")
+
+
+def test_save_uploaded_file_rejects_oversized(ws):
+    from app.tools.files import save_uploaded_file
+
+    with pytest.raises(ValueError, match="large"):
+        save_uploaded_file(ws, "big.md", b"x" * (MAX_FILE_SIZE_BYTES + 1))
+
+
+def test_save_uploaded_file_writes_valid_file(ws):
+    from app.tools.files import save_uploaded_file
+
+    path = save_uploaded_file(ws, "ok.md", b"hello")
+    assert path.read_text() == "hello"
+
+
+# ── B5: dangling symlink containment ─────────────────────────────────────────
+
+
+def test_rejects_dangling_symlink_upload(tmp_path):
+    """A dangling symlink pointing outside must still be rejected."""
+    ws2 = SessionWorkspace.for_thread(
+        thread_id=UUID_V4,
+        base_upload=str(tmp_path / "updated6"),
+        base_output=str(tmp_path / "output6"),
+    )
+    outside = tmp_path / "not-there.txt"
+    link = ws2.upload_dir / "link.txt"
+    os.symlink(str(outside), str(link))
+    with pytest.raises(UnsafeWorkspacePath):
+        ws2.resolve_upload("link.txt")
+
+
+def test_rejects_dangling_symlink_output(tmp_path):
+    """A dangling symlink pointing outside must still be rejected."""
+    ws2 = SessionWorkspace.for_thread(
+        thread_id=UUID_V4,
+        base_upload=str(tmp_path / "updated7"),
+        base_output=str(tmp_path / "output7"),
+    )
+    outside = tmp_path / "not-there.pdf"
+    link = ws2.output_dir / "link.pdf"
+    os.symlink(str(outside), str(link))
+    with pytest.raises(UnsafeWorkspacePath):
+        ws2.resolve_output("link.pdf")

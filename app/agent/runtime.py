@@ -243,9 +243,14 @@ class DeepAgentsTutorialRuntime:
                         continue
                     if isinstance(update, dict) and "messages" in update:
                         for msg in update["messages"]:
-                            content = getattr(msg, "content", "")
-                            if isinstance(content, str) and content:
-                                collected_answer += content + "\n"
+                            # Only the model's own output may become the
+                            # answer. Tool/human messages carry raw provider
+                            # responses or error reprs and must never be
+                            # echoed into reports.
+                            if getattr(msg, "type", "") == "ai":
+                                content = getattr(msg, "content", "")
+                                if isinstance(content, str) and content:
+                                    collected_answer += content + "\n"
                             # Detect artifact_created from tool messages
                             if hasattr(msg, "name") and msg.name in (
                                 "generate_markdown_report_tool",

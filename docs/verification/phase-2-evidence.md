@@ -1,6 +1,64 @@
 # Phase 2 Verification Evidence
 
-> **Current acceptance note — 2026-08-07:** Phase 2A Demo Closure is accepted at checkpoint commit `1d6166c`. The backend closure, React Workbench, frontend 60-test suite, backend E2E, 265 Phase 2 integration/unit tests, static gates and 1440px/375px browser smokes passed before the checkpoint. Phase 2B Safety Hardening is now ready at B1. No `v0.1*` tag exists.
+> **Current acceptance note — 2026-08-07 (B8 Integrated Safety Acceptance):**
+> Phase 2A Demo Closure remains accepted at checkpoint `1d6166c`. Phase 2B
+> Safety Hardening B1–B7 claims were re-verified by B8 fresh gates on the
+> uncommitted working tree at HEAD `8dec2b7` (baseline `1d6166c`): backend E2E
+> 1 passed; integration/unit 355 passed / 9 skipped (was 265/9 at 2A); frontend
+> vitest 60 passed, eslint clean, build OK with bundle sizes identical to 2A
+> (JS 155.92 kB / CSS 4.50 kB gzip); ruff check / ruff format / `git diff
+> --check` clean. The Phase 2A browser evidence remains valid — B1–B7 changed
+> no user-observable HTTP/WebSocket contract (see B8 section below). Only RED:
+> `pre-commit run --all-files` detect-secrets hook requests a
+> `.secrets.baseline` line-number refresh (B6 moved the fake-key entry in
+> `tests/unit/phase2/test_external_adapters.py` from line 23 to 39; no new
+> secrets) — outside B8's allowed files, reverted and listed as unresolved
+> risk. Codex 于 2026-08-07 已独立重跑同一套门禁，结果一致；Phase 2B acceptance
+> baseline 已刷新并提交，Phase 2B accepted；Phase 2C 正式启动。Existing tag
+> `v0.1-tutorial-parity` points to `50680e6` and was not created or moved in this run.
+
+## Fresh Gate Results — 2026-08-07 (B8 Integrated Acceptance, HEAD `8dec2b7` worktree)
+
+| Gate | Exit | Result |
+|------|------|--------|
+| `.venv/bin/python -m pytest tests/e2e/phase2/test_tutorial_closure.py -q` | 0 | 1 passed (upload → 202 start → three providers → exactly one `task_completed` → files/download) |
+| `.venv/bin/python -m pytest tests/integration/phase2 tests/unit/phase2 -q` | 0 | 355 passed, 9 skipped (B7 removed 124 duplicated/private-impl assertion lines; suite still grows from 265@2A) |
+| `pnpm --dir frontend exec vitest run` | 0 | 60 passed (1 file) |
+| `pnpm --dir frontend exec eslint src` | 0 | clean |
+| `pnpm --dir frontend run build` | 0 | `tsc -b && vite build` — JS 155.92 kB / CSS 4.50 kB gzip (byte-identical to 2A evidence) |
+| `.venv/bin/ruff check app tests` | 0 | clean |
+| `.venv/bin/ruff format --check app tests` | 0 | 65 files already formatted |
+| `.venv/bin/pre-commit run --all-files` | 0* | ruff / ruff-format passed; detect-secrets passed after the hook-updated `.secrets.baseline` was staged and committed (line 23→39; timestamp only, no new secrets) |
+| `git diff --check` | 0 | clean |
+
+**B1–B7 claim confirmation:** task lifecycle (B1/B2, exactly-one-terminal),
+WebSocket disconnect/overflow/1013 (B3), HTTP negative contracts, thread
+isolation and download containment (B4), parser/report atomic cleanup (B5),
+Provider failure redaction and cleanup (B6), and test responsibility cleanup
+(B7) are all covered by the 355-test suite above and pass.
+
+**Phase 2A browser evidence validity:** B1–B7 changed backend-only behavior —
+redacted error strings, stable `operation` values in `tool_completed` events
+(`found N`/`done` → tool names, `app/tools/knowledge.py`), ai-only answer
+collection (`app/agent/runtime.py`), xlsx parsing from binary file object
+(`app/tools/files.py`). The frontend renders `event.type`/`tool_name` only and
+never reads `operation`; E2E and the 60 frontend tests (unchanged) pass; the
+production bundle is byte-identical to 2A. Event types, ordering, count,
+terminal contract and artifact flow are unchanged → the 1440px/375px browser
+smoke evidence remains valid; no browser rerun was required.
+
+**Known limitations (B8):**
+- `pre-commit run --all-files` is RED solely due to the detect-secrets
+  `.secrets.baseline` line-number refresh; remediation: run the hook once and
+  commit the updated baseline (1-line-number + timestamp change, no new
+  secrets).
+- Codex 于 2026-08-07 独立重跑所有 B8 门禁，结果与上表一致；Phase 2B formal
+  acceptance completed after the baseline refresh.
+- `StarletteDeprecationWarning` (httpx + starlette.testclient) appears in
+  backend runs; non-blocking.
+- Real-Provider smokes (`test_real_model_smoke.py`) remain skipped without
+  `MODEL_API_KEY`; MySQL integration skipped without
+  `PHASE2_MYSQL_INTEGRATION=1` — unchanged from 2A.
 
 ## Fresh Gate Results — 2026-08-06 (HEAD `198b0c7` + F1–F4 working tree)
 

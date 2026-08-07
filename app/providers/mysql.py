@@ -100,20 +100,34 @@ class MySQLCatalogProvider:
     def _connect(self):
         import mysql.connector
 
-        return mysql.connector.connect(
-            host=self._host,
-            port=self._port,
-            user=self._user,
-            password=self._password,
-            database=self._database,
-            connect_timeout=5,
-        )
+        try:
+            return mysql.connector.connect(
+                host=self._host,
+                port=self._port,
+                user=self._user,
+                password=self._password,
+                database=self._database,
+                connect_timeout=5,
+            )
+        except Exception as exc:
+            # Never propagate raw SDK text (may carry credentials/paths).
+            raise RuntimeError("MySQL connection failed") from exc
+
+    def _query(self, conn, operation: str, sql: str):
+        """Execute one statement, close the cursor and redact SDK errors."""
+        cursor = conn.cursor()
+        try:
+            cursor.execute(sql)
+            return cursor
+        except Exception as exc:
+            raise RuntimeError(f"MySQL {operation} failed") from exc
+        finally:
+            cursor.close()
 
     def list_tables(self) -> tuple[TableInfo, ...]:
         conn = self._connect()
         try:
-            cursor = conn.cursor()
-            cursor.execute("SHOW TABLES")
+            cursor = self._query(conn, "list_tables", "SHOW TABLES")
             return tuple(TableInfo(name=row[0]) for row in cursor.fetchall())
         finally:
             conn.close()
@@ -122,8 +136,7 @@ class MySQLCatalogProvider:
         _validate_table_name(table_name)
         conn = self._connect()
         try:
-            cursor = conn.cursor()
-            cursor.execute(f"DESCRIBE `{table_name}`")
+            cursor = self._query(conn, "describe_table", f"DESCRIBE `{table_name}`")
             rows = cursor.fetchall()
             return QueryResult(
                 columns=("Field", "Type", "Null", "Key", "Default", "Extra"),
@@ -138,8 +151,11 @@ class MySQLCatalogProvider:
         limit = _clamp_limit(limit)
         conn = self._connect()
         try:
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT * FROM `{table_name}` LIMIT {_clamp_limit(limit)}")
+            cursor = self._query(
+                conn,
+                "preview_table",
+                f"SELECT * FROM `{table_name}` LIMIT {_clamp_limit(limit)}",
+            )
             columns = (
                 tuple(d[0] for d in cursor.description) if cursor.description else ()
             )
@@ -157,12 +173,11 @@ class MySQLCatalogProvider:
         validate_readonly_query(query, database=self._database)
         conn = self._connect()
         try:
-            cursor = conn.cursor()
             wrapped = (
                 f"SELECT /*+ MAX_EXECUTION_TIME(5000) */ * "
                 f"FROM ({query}) AS phase2_query LIMIT {_clamp_limit(limit)}"
             )
-            cursor.execute(wrapped)
+            cursor = self._query(conn, "execute_readonly", wrapped)
             columns = (
                 tuple(d[0] for d in cursor.description) if cursor.description else ()
             )

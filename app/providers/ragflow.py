@@ -18,7 +18,11 @@ class RAGFlowKnowledgeProvider:
 
     def list_assistants(self) -> tuple[KnowledgeAssistant, ...]:
         client = self._get_client()
-        chats = client.list_chats()
+        try:
+            chats = client.list_chats()
+        except Exception as exc:
+            # Never propagate raw SDK text (may carry keys/paths/payloads).
+            raise RuntimeError("RAGFlow list_assistants failed") from exc
         return tuple(
             KnowledgeAssistant(
                 name=c.name,
@@ -30,7 +34,10 @@ class RAGFlowKnowledgeProvider:
 
     def ask(self, assistant_name: str, question: str) -> KnowledgeAnswer:
         client = self._get_client()
-        chats = client.list_chats()
+        try:
+            chats = client.list_chats()
+        except Exception as exc:
+            raise RuntimeError("RAGFlow ask failed") from exc
         target = None
         for c in chats:
             if c.name == assistant_name:
@@ -47,5 +54,8 @@ class RAGFlowKnowledgeProvider:
             for msg in messages:
                 final_content = getattr(msg, "content", str(msg))
             return KnowledgeAnswer(assistant_name=assistant_name, answer=final_content)
+        except Exception as exc:
+            # Never propagate raw SDK text (may carry keys/paths/payloads).
+            raise RuntimeError("RAGFlow ask failed") from exc
         finally:
             target.delete_sessions([session.id])

@@ -83,6 +83,8 @@ class TaskRegistry:
             elif isinstance(exc, Exception):
                 self._emit_terminal(thread_id, "task_failed")
             else:
+                # Process-control exceptions (KeyboardInterrupt, SystemExit,
+                # ...) propagate; finally still cleans the registry.
                 raise
         finally:
             self._tasks.pop(thread_id, None)

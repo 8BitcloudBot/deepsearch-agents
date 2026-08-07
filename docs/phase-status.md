@@ -4,10 +4,11 @@
 
 **Current Phase:** Phase 2 — Tutorial Parity
 
-**Current Package:** Phase 2B — Safety Hardening
+**Current Package:** Phase 2C — Release Evidence
 
-**Repository HEAD at review:** `1d6166c`
-**Target Tag:** `v0.1-tutorial-parity`（尚未创建）
+**Baseline (accepted 2A checkpoint):** `1d6166c`
+**Actual HEAD at B8 review:** `8dec2b7`（B1–B7 工作树未提交，按计划不在 Reasonix 内 commit）
+**Target Tag:** `v0.1-tutorial-parity`（已存在，指向 `50680e6`；本轮未创建或移动）
 
 ## Accepted Baseline
 
@@ -23,20 +24,26 @@ Phase 2A Demo Closure 已在 checkpoint `1d6166c` 验收：后端闭环、React 
 三类 Provider、唯一 terminal、Markdown/PDF、前后端门禁以及 1440px/375px browser
 smoke 全部通过。
 
-当前执行 Phase 2B Safety Hardening，按 B1→B8 独立 Reasonix 节点推进。B1 聚焦
-coroutine 进入前的取消竞态：立即取消必须只产生一个 `task_cancelled`，不得产生
-success/failure，并必须清理 TaskRegistry。B1 accepted 后自动进入 active
-cancellation、WebSocket、HTTP/thread、文件/报告、Provider 脱敏、测试整理和总验收。
+当前执行 Phase 2B Safety Hardening，按 B1→B8 独立 Reasonix 节点推进。B1–B7 已
+在本节点由 B8 全量门禁复核：task lifecycle、WebSocket disconnect/overflow、
+HTTP 负向契约、thread isolation、download containment、文件解析/报告原子清理、
+Provider 失败脱敏与测试责任清理均通过。B8 全新运行：后端 E2E 1 passed、
+integration/unit 355 passed / 9 skipped、前端 vitest 60 passed / eslint / build、
+ruff check / format 与 `git diff --check` 全部干净。唯一 RED 为
+`pre-commit run --all-files` 中 detect-secrets 钩子要求刷新 `.secrets.baseline`
+行号（B6 使 `test_external_adapters.py` 中 fake-key 条目行号 23→39，无新
+secret）；`.secrets.baseline` 已按钩子要求刷新。Codex 已于 2026-08-07
+独立重跑全部门禁，结果与 B8 一致；Phase 2B 正式 accepted。
 
 ## Package Status
 
 | Package | Status | Exit condition |
 |---|---|---|
 | Phase 2A — Demo Closure | accepted | 后端闭环、React Workbench 与桌面/移动 browser smoke 通过 |
-| Phase 2B — Safety Hardening | ready（B1 下一节点） | 核心安全及高风险生命周期边界通过 |
-| Phase 2C — Release Evidence | blocked by 2A/2B | 文档、CI、最终门禁与用户验收 |
+| Phase 2B — Safety Hardening | accepted | B1–B8 门禁与 baseline 通过 |
+| Phase 2C — Release Evidence | active（下一节点） | 文档、CI、最终门禁与用户验收 |
 
-Phase 3 未开始。下一节点为 Phase 2B Safety Hardening；当前仍不创建 `v0.1*` tag。
+Phase 3 未开始。Phase 2C 已正式启动。本轮不创建或移动任何 tag。
 
 ## Active Documents
 

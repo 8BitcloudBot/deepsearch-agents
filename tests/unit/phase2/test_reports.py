@@ -8,7 +8,7 @@ ReportGenerationError without raw paths/exception text.
 import pytest
 
 from app.api.context import SessionContext, session_context
-from app.tools.files import SessionWorkspace
+from app.tools.files import ReportGenerationError, SessionWorkspace
 
 UUID_V4 = "00000000-0000-4000-8000-000000000001"
 
@@ -201,6 +201,146 @@ def test_output_dir_created_if_missing(tmp_path):
 
 
 # ── Symlink exploit defense ───────────────────────────────────────────────────
+
+
+# ── B5: failure injection, symlink safety and atomic replacement ──────────────
+
+
+class TestReportFailureCleanup:
+    def test_markdown_failed_replace_preserves_existing_report(
+        self, tmp_path, monkeypatch
+    ):
+        """A failed os.replace must keep the previous valid report."""
+        from app.tools.reports import generate_markdown_report
+
+        ws = _workspace(tmp_path)
+        with _in_session(ws):
+            generate_markdown_report("# v1\n\noriginal")
+        target = ws.resolve_output("tutorial-report.md")
+
+        def _fail_replace(src, dst):
+            raise OSError("injected replace failure")
+
+        monkeypatch.setattr("app.tools.files.os.replace", _fail_replace)
+        with pytest.raises(OSError, match="injected"):
+            with _in_session(ws):
+                generate_markdown_report("# v2\n\nreplacement")
+
+        assert target.read_text() == "# v1\n\noriginal"
+        assert list(ws.output_dir.glob(".tmp-*")) == []
+
+    def test_pdf_failed_replace_preserves_existing_report(self, tmp_path, monkeypatch):
+        """A failed os.replace must keep the previous valid PDF byte-for-byte."""
+        from app.tools.reports import generate_pdf_report
+
+        ws = _workspace(tmp_path)
+        with _in_session(ws):
+            generate_pdf_report("# v1")
+        target = ws.resolve_output("tutorial-report.pdf")
+        original_bytes = target.read_bytes()
+
+        def _fail_replace(src, dst):
+            raise OSError("injected replace failure")
+
+        monkeypatch.setattr("app.tools.reports.os.replace", _fail_replace)
+        with pytest.raises(ReportGenerationError):
+            with _in_session(ws):
+                generate_pdf_report("# v2")
+
+        assert target.read_bytes() == original_bytes
+        assert list(ws.output_dir.glob(".tmp-*")) == []
+
+    def test_markdown_directory_target_failure_leaves_no_partial(self, tmp_path):
+        """A directory squatting at the final name must not leave a partial file."""
+        from app.tools.reports import generate_markdown_report
+
+        ws = _workspace(tmp_path)
+        target = ws.resolve_output("tutorial-report.md")
+        target.mkdir()
+
+        with pytest.raises(Exception):
+            with _in_session(ws):
+                generate_markdown_report("content")
+
+        assert target.is_dir()
+        assert list(ws.output_dir.glob(".tmp-*")) == []
+
+    def test_markdown_final_target_symlink_cannot_modify_outside(self, tmp_path):
+        """os.replace replaces the symlink itself — outside sentinel stays SAFE."""
+        import os
+
+        outside = tmp_path / "outside.md"
+        outside.write_text("SAFE")
+
+        ws = _workspace(tmp_path)
+        os.symlink(str(outside), str(ws.output_dir / "tutorial-report.md"))
+
+        from app.tools.reports import generate_markdown_report
+
+        with _in_session(ws):
+            generate_markdown_report("# New")
+
+        assert outside.read_text() == "SAFE", "outside.md was written via symlink!"
+        final = ws.resolve_output("tutorial-report.md")
+        assert not final.is_symlink()
+        assert final.read_text() == "# New"
+
+    def test_pdf_final_target_symlink_cannot_modify_outside(self, tmp_path):
+        """os.replace replaces the symlink itself — outside sentinel stays SAFE."""
+        import os
+
+        outside = tmp_path / "outside.pdf"
+        outside.write_text("SAFE")
+
+        ws = _workspace(tmp_path)
+        os.symlink(str(outside), str(ws.output_dir / "tutorial-report.pdf"))
+
+        from app.tools.reports import generate_pdf_report
+
+        with _in_session(ws):
+            generate_pdf_report("# New")
+
+        assert outside.read_text() == "SAFE", "outside.pdf was written via symlink!"
+        final = ws.resolve_output("tutorial-report.pdf")
+        assert not final.is_symlink()
+        assert final.read_bytes()[:4] == b"%PDF"
+
+
+class TestReportAtomicReplacement:
+    def test_markdown_replacement_is_atomic(self, tmp_path):
+        """Replacement uses a fresh inode — never in-place truncation."""
+        from app.tools.reports import generate_markdown_report
+
+        ws = _workspace(tmp_path)
+        with _in_session(ws):
+            generate_markdown_report("# v1")
+        target = ws.resolve_output("tutorial-report.md")
+        inode_before = target.stat().st_ino
+
+        with _in_session(ws):
+            generate_markdown_report("# v2")
+
+        assert target.read_text() == "# v2"
+        assert target.stat().st_ino != inode_before
+        assert list(ws.output_dir.glob(".tmp-*")) == []
+
+    def test_pdf_replacement_is_atomic(self, tmp_path):
+        """Replacement uses a fresh inode — never in-place truncation."""
+        from app.tools.reports import generate_pdf_report
+
+        ws = _workspace(tmp_path)
+        with _in_session(ws):
+            generate_pdf_report("# v1")
+        target = ws.resolve_output("tutorial-report.pdf")
+        inode_before = target.stat().st_ino
+
+        with _in_session(ws):
+            generate_pdf_report("# v2")
+
+        data = target.read_bytes()
+        assert data[:4] == b"%PDF"
+        assert target.stat().st_ino != inode_before
+        assert list(ws.output_dir.glob(".tmp-*")) == []
 
 
 def test_fixed_pdf_tmp_symlink_cannot_overwrite_outside(tmp_path):

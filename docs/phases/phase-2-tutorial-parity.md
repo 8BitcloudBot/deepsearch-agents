@@ -59,6 +59,14 @@ Markdown/PDF 报告。该阶段证明端到端 Agent 工程能力，而不是生
 影响安全、数据隔离或错误终态的失败阻塞发布；只影响内部精确顺序且用户闭环正常的
 低风险边界可以记录为 backlog，但必须在 Phase 2C 前明确处置结论。
 
+**2B 验收状态（2026-08-07 B8 节点）：** B1–B7 全部 claims 已由 B8 全量门禁复核
+通过（E2E 1 passed；integration/unit 355 passed / 9 skipped；前端 60 tests /
+eslint / build 与 2A bundle 一致；ruff 与 `git diff --check` 干净），2A 浏览器
+证据仍有效。唯一未决项：`pre-commit` 中 detect-secrets 要求刷新
+`.secrets.baseline` 行号（B6 测试文件行号漂移，无新 secret，修复为一次性运行
+pre-commit 并提交更新）。Codex 已独立重跑门禁且结果一致，baseline 已刷新并提交；
+Phase 2B accepted，下一节点为 Phase 2C Release Evidence。
+
 ## 2C — Release Evidence
 
 - 更新 README 与教程 runbook；

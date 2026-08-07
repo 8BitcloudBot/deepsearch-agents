@@ -168,6 +168,30 @@ class TestRealOverflowIsolation:
             assert ev.message == "future"
 
 
+class TestSubscriptionCleanup:
+    @pytest.mark.asyncio
+    async def test_exception_in_subscribe_body_removes_subscription(self):
+        bus = InMemoryEventBus()
+        with pytest.raises(ValueError):
+            async with bus.subscribe("t") as sub:
+                assert bus._subscriptions["t"] == [sub]
+                raise ValueError("boom")
+        assert bus._subscriptions.get("t") == []
+
+    @pytest.mark.asyncio
+    async def test_overflow_isolated_across_threads(self):
+        bus = InMemoryEventBus(max_queue_size=2)
+        async with bus.subscribe("a") as sub_a:
+            async with bus.subscribe("b") as sub_b:
+                for i in range(5):
+                    bus.emit("a", "tool_started", str(i))
+                assert sub_a.overflowed.is_set()
+                assert not sub_b.overflowed.is_set()
+                bus.emit("b", "tool_started", "live")
+                ev = await asyncio.wait_for(sub_b.queue.get(), timeout=1)
+                assert ev.message == "live"
+
+
 class TestTypeAnnotations:
     def test_data_field_is_dict_str_jsonvalue_not_any(self):
         """TutorialEvent.data typed as dict[str, JsonValue] via PEP 695 type."""

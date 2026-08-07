@@ -416,6 +416,140 @@ class TestUploadedFileDispatch:
                 read_uploaded_file("nonexistent.txt")
 
 
+# ── B5: parser failure injection leaves no partial final file ────────────────
+
+
+class TestParserFailureCleanup:
+    def test_failed_pdf_upload_preserves_previous_file(self, tmp_path):
+        """Damaged PDF content fails validation AFTER temp write; old file stays."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        seed = _make_valid_pdf(tmp_path / "seed.pdf", pages=1)
+        save_uploaded_file(ws, "doc.pdf", seed.read_bytes())
+
+        with pytest.raises(ValueError, match="PDF"):
+            save_uploaded_file(ws, "doc.pdf", b"%PDF-1.4\nnot a real pdf body")
+
+        assert ws.resolve_upload("doc.pdf").read_bytes().startswith(b"%PDF")
+        assert list(ws.upload_dir.glob(".tmp-*")) == []
+
+    def test_failed_docx_upload_preserves_previous_file(self, tmp_path):
+        """Macro-enabled DOCX fails validation AFTER temp write; old file stays."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        seed = _make_real_docx(tmp_path / "seed.docx")
+        save_uploaded_file(ws, "doc.docx", seed.read_bytes())
+
+        macro = tmp_path / "macro.docx"
+        with zipfile.ZipFile(macro, "w") as zf:
+            zf.writestr("[Content_Types].xml", _CT_XML)
+            zf.writestr("word/document.xml", _DOCUMENT_XML)
+            zf.writestr("word/vbaProject.bin", b"macro payload")
+
+        with pytest.raises(ValueError, match="vbaProject"):
+            save_uploaded_file(ws, "doc.docx", macro.read_bytes())
+
+        assert ws.resolve_upload("doc.docx").read_bytes() == seed.read_bytes()
+        assert list(ws.upload_dir.glob(".tmp-*")) == []
+
+    def test_failed_xlsx_upload_preserves_previous_file(self, tmp_path):
+        """Non-ZIP XLSX fails validation AFTER temp write; old file stays."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        seed = _make_real_xlsx(tmp_path / "seed.xlsx")
+        save_uploaded_file(ws, "doc.xlsx", seed.read_bytes())
+
+        with pytest.raises(ValueError, match="XLSX"):
+            save_uploaded_file(ws, "doc.xlsx", b"not a zip")
+
+        assert ws.resolve_upload("doc.xlsx").read_bytes() == seed.read_bytes()
+        assert list(ws.upload_dir.glob(".tmp-*")) == []
+
+    def test_failed_text_upload_preserves_previous_file(self, tmp_path):
+        """Non-UTF-8 text fails validation AFTER temp write; old file stays."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        save_uploaded_file(ws, "notes.txt", b"good data")
+
+        with pytest.raises(ValueError, match="UTF-8"):
+            save_uploaded_file(ws, "notes.txt", b"\xff\xfe\x00\x00")
+
+        assert ws.resolve_upload("notes.txt").read_text() == "good data"
+        assert list(ws.upload_dir.glob(".tmp-*")) == []
+
+    def test_parser_exception_injection_cleans_temp_and_keeps_old(
+        self, tmp_path, monkeypatch
+    ):
+        """Any parser exception after temp write must clean the temp file."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        save_uploaded_file(ws, "data.txt", b"original")
+
+        def _boom(path, ext):
+            raise RuntimeError("injected parser failure")
+
+        monkeypatch.setattr("app.tools.files._validate_file_content", _boom)
+        with pytest.raises(RuntimeError, match="injected"):
+            save_uploaded_file(ws, "data.txt", b"replacement")
+
+        assert ws.resolve_upload("data.txt").read_text() == "original"
+        assert list(ws.upload_dir.glob(".tmp-*")) == []
+
+    def test_replace_failure_injection_cleans_temp_and_keeps_old(
+        self, tmp_path, monkeypatch
+    ):
+        """A failed final os.replace must not clobber the existing file."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        save_uploaded_file(ws, "data.txt", b"original")
+
+        def _fail_replace(src, dst):
+            raise OSError("injected replace failure")
+
+        monkeypatch.setattr("app.tools.files.os.replace", _fail_replace)
+        with pytest.raises(OSError, match="injected"):
+            save_uploaded_file(ws, "data.txt", b"replacement")
+
+        assert ws.resolve_upload("data.txt").read_text() == "original"
+        assert list(ws.upload_dir.glob(".tmp-*")) == []
+
+    def test_directory_target_failure_leaves_no_partial_file(self, tmp_path):
+        """A directory squatting at the final name must not leave a partial file."""
+        from app.tools.files import save_uploaded_file
+
+        ws = _workspace(tmp_path)
+        ws.resolve_upload("data.txt").mkdir()
+
+        with pytest.raises(Exception):
+            save_uploaded_file(ws, "data.txt", b"content")
+
+        assert ws.resolve_upload("data.txt").is_dir()
+        assert list(ws.upload_dir.glob(".tmp-*")) == []
+
+    def test_final_target_symlink_cannot_modify_outside_sentinel(self, tmp_path):
+        """A symlink at the FINAL name is rejected; the sentinel stays SAFE."""
+        import os
+
+        outside = tmp_path / "outside.txt"
+        outside.write_text("SAFE")
+
+        ws = _workspace(tmp_path)
+        os.symlink(str(outside), str(ws.upload_dir / "data.txt"))
+
+        from app.tools.files import UnsafeWorkspacePath, save_uploaded_file
+
+        with pytest.raises(UnsafeWorkspacePath):
+            save_uploaded_file(ws, "data.txt", b"payload")
+
+        assert outside.read_text() == "SAFE", "outside.txt was written via symlink!"
+
+
 def test_content_type_mismatch_does_not_override_validation(tmp_path):
     """MIME content-type must be advisory only — actual content drives validation."""
     from app.tools.files import read_uploaded_file

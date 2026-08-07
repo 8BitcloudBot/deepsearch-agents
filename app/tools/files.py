@@ -491,41 +491,49 @@ def read_xlsx_file(path: Path) -> str:
     except ImportError as exc:
         raise RuntimeError("openpyxl not installed. Run: uv sync --extra dev") from exc
 
-    try:
-        wb = load_workbook(str(path), read_only=True, data_only=True, keep_links=False)
-    except Exception:
-        raise ValueError("Unable to parse XLSX workbook")
-
     import itertools
 
     output_lines: list[str] = []
     try:
-        for sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-            # Bound: only iterate header + 20 data rows using islice
-            all_rows = ws.iter_rows(values_only=True)
-            header_row = next(all_rows, None)
-            headers = (
-                [str(c) if c is not None else "" for c in header_row]
-                if header_row
-                else []
-            )
-            data_rows = list(itertools.islice(all_rows, 20))
+        # openpyxl rejects paths whose extension is not a supported format
+        # (e.g. the ".tmp" of a validation temp file), so hand it a binary
+        # file object: content parsing stays extension-independent, matching
+        # the documented "parse content, not names" contract.
+        with path.open("rb") as fh:
+            wb = load_workbook(fh, read_only=True, data_only=True, keep_links=False)
+            try:
+                for sheet_name in wb.sheetnames:
+                    ws = wb[sheet_name]
+                    # Bound: only iterate header + 20 data rows using islice
+                    all_rows = ws.iter_rows(values_only=True)
+                    header_row = next(all_rows, None)
+                    headers = (
+                        [str(c) if c is not None else "" for c in header_row]
+                        if header_row
+                        else []
+                    )
+                    data_rows = list(itertools.islice(all_rows, 20))
 
-            col_count = ws.max_column or len(headers)
-            row_count = len(data_rows) + (1 if header_row else 0)
+                    col_count = ws.max_column or len(headers)
+                    row_count = len(data_rows) + (1 if header_row else 0)
 
-            output_lines.append(f"## Sheet: {sheet_name}")
-            output_lines.append(f"Rows (bounded): {row_count}, Columns: {col_count}")
-            if headers:
-                output_lines.append(f"Headers: {' | '.join(headers)}")
-            output_lines.append("")
-            for row in data_rows:
-                row_str = " | ".join(str(c) if c is not None else "" for c in row)
-                output_lines.append(row_str)
-            output_lines.append("")
-    finally:
-        wb.close()
+                    output_lines.append(f"## Sheet: {sheet_name}")
+                    output_lines.append(
+                        f"Rows (bounded): {row_count}, Columns: {col_count}"
+                    )
+                    if headers:
+                        output_lines.append(f"Headers: {' | '.join(headers)}")
+                    output_lines.append("")
+                    for row in data_rows:
+                        row_str = " | ".join(
+                            str(c) if c is not None else "" for c in row
+                        )
+                        output_lines.append(row_str)
+                    output_lines.append("")
+            finally:
+                wb.close()
+    except Exception:
+        raise ValueError("Unable to parse XLSX workbook")
     text = "\n".join(output_lines)
     if len(text) > MAX_TEXT_CHARS:
         text = text[:MAX_TEXT_CHARS] + TRUNCATION_SUFFIX

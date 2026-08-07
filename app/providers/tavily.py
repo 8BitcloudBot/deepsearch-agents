@@ -17,9 +17,13 @@ class TavilyWebProvider:
 
     def search(self, query: str, *, max_results: int = 5) -> SearchResult:
         client = self._get_client()
-        response = client.search(
-            query, max_results=max_results, include_raw_content=True
-        )
+        try:
+            response = client.search(
+                query, max_results=max_results, include_raw_content=True
+            )
+        except Exception as exc:
+            # Never propagate raw SDK text (may carry keys/paths/payloads).
+            raise RuntimeError("Tavily search failed") from exc
         results = response.get("results", [])
         hits = tuple(
             SearchHit(

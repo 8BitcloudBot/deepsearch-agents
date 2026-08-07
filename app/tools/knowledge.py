@@ -21,12 +21,17 @@ def create_knowledge_tools(p: KnowledgeProvider, ev: InMemoryEventBus):
     async def list_knowledge_assistants(config: RunnableConfig) -> str:
         """List assistants."""
         tid = _tid(config)
-        ev.emit(tid, "tool_started", "list", {"tool_name": "list_knowledge_assistants"})
+        ev.emit(
+            tid,
+            "tool_started",
+            "list_knowledge_assistants",
+            {"tool_name": "list_knowledge_assistants"},
+        )
         r = await asyncio.to_thread(p.list_assistants)
         ev.emit(
             tid,
             "tool_completed",
-            f"found {len(r)}",
+            "list_knowledge_assistants",
             {"tool_name": "list_knowledge_assistants"},
         )
         return "\n".join(f"- {a.name}: {a.description}" for a in r)
@@ -35,9 +40,19 @@ def create_knowledge_tools(p: KnowledgeProvider, ev: InMemoryEventBus):
     async def ask_knowledge_assistant(an: str, q: str, config: RunnableConfig) -> str:
         """Ask assistant."""
         tid = _tid(config)
-        ev.emit(tid, "tool_started", an, {"tool_name": "ask_knowledge_assistant"})
+        ev.emit(
+            tid,
+            "tool_started",
+            "ask_knowledge_assistant",
+            {"tool_name": "ask_knowledge_assistant"},
+        )
         r = await asyncio.to_thread(p.ask, an, q)
-        ev.emit(tid, "tool_completed", "done", {"tool_name": "ask_knowledge_assistant"})
+        ev.emit(
+            tid,
+            "tool_completed",
+            "ask_knowledge_assistant",
+            {"tool_name": "ask_knowledge_assistant"},
+        )
         return f"[{r.assistant_name}] {r.answer}"
 
     return [list_knowledge_assistants, ask_knowledge_assistant]
