@@ -1,5 +1,13 @@
 # Phase 2 Verification Evidence
 
+> **Final delegated acceptance — 2026-08-07:** the user delegated Phase 2C
+> independent acceptance to Codex. A fresh full rerun passed: E2E `1 passed`;
+> integration/unit `355 passed, 9 skipped`; frontend `60 passed`; eslint/build,
+> ruff/format, pre-commit (including Detect secrets), Compose config, offline
+> doctor, and `git diff --check` all exited 0. Phase 2C is accepted. MySQL remains
+> `6 skipped` without Docker and optional external Provider/model smokes remain
+> `3 skipped` without credentials. The existing release tag was not moved.
+
 > **Current acceptance note — 2026-08-07 (B8 Integrated Safety Acceptance):**
 > Phase 2A Demo Closure remains accepted at checkpoint `1d6166c`. Phase 2B
 > Safety Hardening B1–B7 claims were re-verified by B8 fresh gates on the
@@ -16,6 +24,58 @@
 > risk. Codex 于 2026-08-07 已独立重跑同一套门禁，结果一致；Phase 2B acceptance
 > baseline 已刷新并提交，Phase 2B accepted；Phase 2C 正式启动。Existing tag
 > `v0.1-tutorial-parity` points to `50680e6` and was not created or moved in this run.
+
+> **Phase 2C C4 fresh mock quick start — 2026-08-07:** locked dependency sync
+> completed. A local mock API run passed health, Markdown upload, task start
+> (`202`), WebSocket observation (28 events; Web/Catalog/Knowledge tools; one
+> `task_completed`), `/api/files`, and Markdown/PDF downloads (`200`; PDF starts
+> `%PDF`). MySQL integration produced `6 skipped` because Docker is unavailable;
+> optional external Provider/model smokes produced `3 skipped` because credentials
+> are absent.
+
+> **Phase 2C runbook — 2026-08-07 (HEAD `fb17a39`):** the local mock
+> reproduction and release verification runbook lives at
+> [`docs/runbooks/phase-2-tutorial-parity.md`](../runbooks/phase-2-tutorial-parity.md)
+> (README linked). All expected gate values in this file remain the source of
+> truth; the runbook only re-states them. No gates were re-run on the Phase 2C
+> working tree and no tag was created or moved in this node.
+
+> **Phase 2C fresh gate run — 2026-08-07 (C2 node, HEAD `fb17a39` worktree):**
+> all 11 release gates were re-run fresh on the Phase 2C working tree (C1 doc
+> changes only — README, phase-status, phase doc, evidence, runbook; no product
+> source/tests/dependencies touched) and every gate is GREEN. Results are
+> byte-identical to the B8 table below: backend E2E 1 passed;
+> integration/unit 355 passed / 9 skipped; frontend vitest 60 passed, eslint
+> clean, build JS 155.92 kB / CSS 4.50 kB gzip; ruff check / ruff format (65
+> files) / `docker compose config` / `doctor.py --offline` / `git diff --check`
+> clean. The single B8 unresolved risk (detect-secrets `.secrets.baseline`
+> line-number refresh) is resolved — `pre-commit run --all-files` passes 3/3
+> with the baseline committed at `fb17a39`. No tag was created or moved.
+
+## Fresh Gate Results — 2026-08-07 (Phase 2C C2, HEAD `fb17a39` worktree)
+
+| Gate | Exit | Result |
+|------|------|--------|
+| `.venv/bin/python -m pytest tests/e2e/phase2/test_tutorial_closure.py -q` | 0 | 1 passed (upload → 202 start → three providers → exactly one `task_completed` → files/download); 1 `StarletteDeprecationWarning` (non-blocking) |
+| `.venv/bin/python -m pytest tests/integration/phase2 tests/unit/phase2 -q` | 0 | 355 passed, 9 skipped |
+| `pnpm --dir frontend exec vitest run` | 0 | 60 passed (1 file) |
+| `pnpm --dir frontend exec eslint src` | 0 | clean |
+| `pnpm --dir frontend run build` | 0 | `tsc -b && vite build` — JS 155.92 kB / CSS 4.50 kB gzip (byte-identical to 2A/2B evidence) |
+| `.venv/bin/ruff check app tests` | 0 | clean |
+| `.venv/bin/ruff format --check app tests` | 0 | 65 files already formatted |
+| `.venv/bin/pre-commit run --all-files` | 0 | 3/3 hooks passed (ruff / ruff-format / Detect secrets) — B8 baseline-refresh RED resolved at `fb17a39` |
+| `docker compose config` | 0 | valid (`mysql` service; host `3307` → container `3306`) |
+| `.venv/bin/python scripts/doctor.py --offline` | 0 | Python 3.12.7 `[OK]`; "All offline checks passed." |
+| `git diff --check` | 0 | clean |
+
+**C2 notes:** no RED gates on the Phase 2C working tree. The gates modified no
+files (`git status` before/after identical: only the four C1 docs modified).
+Unchanged from B8: MySQL integration still skipped without
+`PHASE2_MYSQL_INTEGRATION=1`; real-provider smokes (`test_real_model_smoke.py`,
+`test_external_provider_smoke.py`) still skipped without credentials;
+`StarletteDeprecationWarning` persists in backend runs (non-blocking). Tag
+`v0.1-tutorial-parity` was not created or moved; creation waits for user
+acceptance of Phase 2C.
 
 ## Fresh Gate Results — 2026-08-07 (B8 Integrated Acceptance, HEAD `8dec2b7` worktree)
 

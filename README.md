@@ -6,11 +6,14 @@
 
 Phase 0 (`v0.0-foundation`) and Phase 1
 (`v0.0-deepagents-examples`) are accepted. Phase 2 — Tutorial Parity is in
-progress, currently prioritizing the demo-first backend and React workbench
-closure. Phase 3 has not started and `v0.1-tutorial-parity` does not exist yet.
+complete: Phase 2A Demo Closure, Phase 2B Safety Hardening, and Phase 2C
+Release Evidence are accepted. Phase 3 is ready but has not started. The
+existing `v0.1-tutorial-parity` tag is not moved without explicit authorization.
 
-See [Current Phase Status](./docs/phase-status.md) for the live state and
-[Roadmap](./docs/roadmap.md) for Phase 0-9 boundaries.
+See [Current Phase Status](./docs/phase-status.md) for the live state,
+[Roadmap](./docs/roadmap.md) for Phase 0-9 boundaries, and the
+[Phase 2 Tutorial Parity Runbook](./docs/runbooks/phase-2-tutorial-parity.md)
+for the local mock reproduction and release verification commands.
 
 ### Phase 1 Examples
 
@@ -73,6 +76,7 @@ React Research Workspace → FastAPI Service → Research Runtime → Agents →
 - [Phase Status](./docs/phase-status.md)
 - [Phase Documents](./docs/phases/)
 - [ADR Index](./docs/adr/)
+- [Phase 2 Runbook (mock reproduction + gates)](./docs/runbooks/phase-2-tutorial-parity.md)
 - [Verification Evidence](./docs/verification/)
 - [Changelog](./CHANGELOG.md)
 

@@ -1,6 +1,6 @@
 # Phase 2 — Tutorial Parity
 
-**Status:** In progress
+**Status:** Accepted
 **Target Release:** `v0.1-tutorial-parity`
 
 The accepted Phase 2A implementation boundary is recorded in
@@ -74,6 +74,24 @@ Phase 2B accepted，下一节点为 Phase 2C Release Evidence。
 - 后端、前端、CI、Compose 和 secrets gate 全部通过；
 - 记录已知限制和未运行的外部 smoke；
 - 用户独立验收后才创建 `v0.1-tutorial-parity`。
+
+**2C 状态（2026-08-07，HEAD `fb17a39`）：** README 已更新，本地 mock 复现
+runbook 已产出：[`docs/runbooks/phase-2-tutorial-parity.md`](../runbooks/phase-2-tutorial-parity.md)，
+覆盖前置条件、mock quick start、上传/任务/WebSocket/产物下载工作流、可选
+MySQL 与真实 Provider smoke 前置条件、精确验证命令与安全限制。C2 节点已在
+当前工作树独立重跑全部 11 项门禁并全部 GREEN，结果与
+[Phase 2 验收证据](../verification/phase-2-evidence.md) B8 记录逐项一致；
+未创建或移动 tag，`v0.1-tutorial-parity` 待用户独立验收后才创建/移动。
+
+**C4 fresh environment evidence（2026-08-07）：** locked dependency sync、mock
+health/upload/task/WebSocket/artifact/download quick start 已实测通过；MySQL
+integration `6 skipped`（Docker 不可用），真实 Web/Knowledge/model smoke `3
+skipped`（凭据缺失）。这些 skip 均已明确记录，未被计为成功。
+
+**Final delegated acceptance（2026-08-07）：** 用户将独立验收委托给 Codex。
+最新全量门禁再次通过：E2E 1 passed、integration/unit 355 passed / 9 skipped、
+frontend 60 passed、eslint/build、ruff/format、pre-commit、Compose、offline doctor
+与 `git diff --check` 全部 GREEN。Phase 2C accepted；tag 尚未获得重指向授权。
 
 ## Non-goals
 
