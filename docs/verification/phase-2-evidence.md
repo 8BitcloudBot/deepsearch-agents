@@ -1,6 +1,6 @@
 # Phase 2 Verification Evidence
 
-> **Current acceptance note — 2026-08-06 (HEAD `198b0c7` + uncommitted F1–F4 frontend and local CORS fix):** Phase 2A Demo Closure is **accepted**. The backend closure remains accepted; the React Workbench is implemented; frontend Vitest 60 passed, ESLint/build passed; backend E2E 1 passed and integration/unit 265 passed/9 skipped; ruff, formatting, pre-commit and diff checks passed. Fresh 1440px and 375px local browser smokes completed upload, live events, three Provider families, one terminal event, Markdown preview, Markdown/PDF download paths and responsive-width checks. No `v0.1*` tag exists; Phase 2B remains the next package.
+> **Current acceptance note — 2026-08-07:** Phase 2A Demo Closure is accepted at checkpoint commit `1d6166c`. The backend closure, React Workbench, frontend 60-test suite, backend E2E, 265 Phase 2 integration/unit tests, static gates and 1440px/375px browser smokes passed before the checkpoint. Phase 2B Safety Hardening is now ready at B1. No `v0.1*` tag exists.
 
 ## Fresh Gate Results — 2026-08-06 (HEAD `198b0c7` + F1–F4 working tree)
 
