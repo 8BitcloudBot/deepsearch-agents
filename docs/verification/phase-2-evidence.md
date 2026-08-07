@@ -1,12 +1,42 @@
 # Phase 2 Verification Evidence
 
-> **Current acceptance note — 2026-08-01:** Phase 2 is in progress at
-> Phase 2A Demo Closure. HEAD `397ae23` contains Task 5 remediation, but the
-> latest independent focused E2E check still failed because no Knowledge
-> Provider tool event was observed. Phase 2 is not accepted, Task 6/React has
-> not started, and no `v0.1*` tag exists. Older rejection labels, commit bases,
-> test totals and “remaining blockers” below are chronological evidence, not
-> the current status. See [`../phase-status.md`](../phase-status.md).
+> **Current acceptance note — 2026-08-06 (HEAD `198b0c7` + uncommitted F1–F4 frontend and local CORS fix):** Phase 2A Demo Closure is **accepted**. The backend closure remains accepted; the React Workbench is implemented; frontend Vitest 60 passed, ESLint/build passed; backend E2E 1 passed and integration/unit 265 passed/9 skipped; ruff, formatting, pre-commit and diff checks passed. Fresh 1440px and 375px local browser smokes completed upload, live events, three Provider families, one terminal event, Markdown preview, Markdown/PDF download paths and responsive-width checks. No `v0.1*` tag exists; Phase 2B remains the next package.
+
+## Fresh Gate Results — 2026-08-06 (HEAD `198b0c7` + F1–F4 working tree)
+
+### Frontend (F5, re-run this session)
+
+| Gate | Exit | Result |
+|------|------|--------|
+| `pnpm --dir frontend exec vitest run` | 0 | 60 passed (1 file, no unhandled errors) |
+| `pnpm --dir frontend exec eslint src` | 0 | clean |
+| `pnpm --dir frontend run build` | 0 | `tsc -b && vite build` — dist generated (JS 155.92 kB / CSS 4.50 kB gzip) |
+
+Coverage verified by the 60 tests (all 12.2 items): initial/reset state; successful upload; upload rejection; task start and duplicate/start failure; ordered Provider events with dedup and ascending sort; exactly-one-terminal client behavior; success/failure/cancellation; WebSocket disconnect and close `1013` slow-consumer message; Markdown plain-text preview and Markdown/PDF downloads built only from server-returned relative paths; stale success clearing on new/failed/cancelled runs and new sessions. Safety checks in `frontend/src`: no `dangerouslySetInnerHTML`, no browser storage of keys, `downloadUrl` rejects absolute paths/separators/traversal, `parseEvent` rejects malformed JSON/unknown versions/types with stable user-safe messages, `requestJson` never leaks raw response text.
+
+### Backend regression (re-run this session)
+
+| Gate | Exit | Result |
+|------|------|--------|
+| `pytest tests/e2e/phase2/test_tutorial_closure.py -q` | 0 | 1 passed |
+| `pytest tests/integration/phase2 tests/unit/phase2 -q` | 0 | 265 passed, 9 skipped |
+| `ruff check app tests` | 0 | clean |
+| `ruff format --check app tests` | 0 | 65 files already formatted |
+| `pre-commit run --all-files` | 0 | ruff / ruff-format / Detect secrets passed |
+| `git diff --check` | 0 | clean |
+
+Observed in the E2E closure run (TestClient, in-process): upload → 200, task start → 202, `internet_search`, `list_sql_tables`, `list_knowledge_assistants` all present, exactly one terminal event (`task_completed`), `/api/files` lists both reports, `/api/download` returns both (PDF begins `%PDF`), downloaded Markdown contains `UNIQUE-E2E-CONSTRAINT-20260801` and all three provider modes. The integration/unit gate separately proves cross-thread isolation, relative artifact paths, and that terminal/report-error data does not expose secrets or absolute paths.
+
+### Browser smoke (1440px / 375px) — PASSED
+
+The local mock backend and Vite frontend were started at `127.0.0.1:8000` and `127.0.0.1:5173`. A temporary 58-byte Markdown constraint containing `UNIQUE-BROWSER-SMOKE-20260806` was uploaded through the real browser UI.
+
+| Viewport | Result |
+|------|------|
+| 1440 × 1000 | mock health and WebSocket open; upload accepted; 28 ordered events; `internet_search`, `list_sql_tables`, `list_knowledge_assistants`; one `task_completed`; two artifact events; Markdown preview contained the unique marker; Markdown and PDF download events received; `scrollWidth == clientWidth == 1440` |
+| 375 × 812 | new UUID/session; upload and task repeated; 28 ordered events; all three Provider families; one terminal; Markdown marker present; `scrollWidth == clientWidth == 375` |
+
+Download anchors used the active UUID and server-returned `tutorial-report.md` / `tutorial-report.pdf` relative paths under `/api/download`. The browser rendered all task, agent, tool, artifact and terminal events without collapsing or dropping entries.
 
 ## Historical Evidence (Chronological)
 

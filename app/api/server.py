@@ -13,6 +13,7 @@ from fastapi import (
     UploadFile,
     WebSocket,
 )
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
@@ -54,6 +55,12 @@ def create_app(
     events: InMemoryEventBus | None = None,
 ) -> FastAPI:
     app = FastAPI(title="research-copilot-api")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type"],
+    )
     settings = settings or Phase2Settings.from_env()
     events = events or InMemoryEventBus()
 

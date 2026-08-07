@@ -49,6 +49,19 @@ class TestHealth:
     def test_phase_2(self, client):
         assert client.get("/health").json()["phase"] == "2"
 
+    def test_local_frontend_origin_is_allowed_for_health(self, client):
+        response = client.options(
+            "/health",
+            headers={
+                "Origin": "http://127.0.0.1:5173",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert response.status_code == 200
+        assert (
+            response.headers["access-control-allow-origin"] == "http://127.0.0.1:5173"
+        )
+
 
 class TestTask:
     def test_start_202(self, client):

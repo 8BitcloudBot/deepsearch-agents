@@ -3,6 +3,9 @@
 **Status:** In progress
 **Target Release:** `v0.1-tutorial-parity`
 
+The accepted Phase 2A implementation boundary is recorded in
+[`phase-2a-implementation-addendum.md`](phase-2a-implementation-addendum.md).
+
 ## Goal and Portfolio Value
 
 实现一个可离线复现、可切换真实 Provider 的教程级研究 Copilot：用户上传约束，系统
