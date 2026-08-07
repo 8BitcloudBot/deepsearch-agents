@@ -8,11 +8,11 @@ successful external-provider result is claimed in this runbook** — those
 smokes remain skipped without credentials (see
 [`phase-2-evidence.md`](../verification/phase-2-evidence.md)).
 
-**Baseline:** HEAD `fb17a39` (Phase 2C baseline). The freshest full-gate run is
-the B8 integrated acceptance on the Phase 2B working tree at `8dec2b7`
-(recorded in the evidence file). The existing tag `v0.1-tutorial-parity`
-(tag object `50680e6c`, peeling to commit `e29a80e`) must **not** be created or
-moved until user acceptance of Phase 2C.
+**Baseline:** HEAD `fb17a39` started Phase 2C; final delegated acceptance is
+recorded at `2d8698a`. The freshest full-gate run is the independent Phase 2C
+acceptance on `2d8698a` (recorded in the evidence file). The existing tag
+`v0.1-tutorial-parity` (tag object `50680e6c`, peeling to commit `e29a80e`)
+must **not** be moved without explicit tag authorization.
 
 ---
 
@@ -158,9 +158,8 @@ success has been recorded — do not claim one.
 
 ## 7. Exact Verification Commands
 
-Run from the repo root. Expected results below are the B8 recorded values,
-re-confirmed by the Phase 2C C2 fresh gate run on this working tree (HEAD
-`fb17a39` + C1 doc changes) — all 11 gates GREEN, recorded in
+Run from the repo root. Expected results below were re-confirmed by the final
+independent Phase 2C acceptance on HEAD `2d8698a` — all 11 gates GREEN, recorded in
 [`phase-2-evidence.md`](../verification/phase-2-evidence.md):
 
 | Gate | Expected |
@@ -198,8 +197,8 @@ re-confirmed by the Phase 2C C2 fresh gate run on this working tree (HEAD
 - [x] README updated with runbook link
 - [x] Runbook records mock quick start, MySQL + real-provider smoke prereqs
 - [x] Fresh mock quick start verified: health, upload, task `202`, 28 WebSocket events, artifacts and downloads
-- [x] MySQL integration explicitly skipped (`6 skipped`) because Docker is unavailable
-- [x] Optional Provider/model smokes explicitly skipped (`3 skipped`) because credentials are absent
+- [x] MySQL integration explicitly skipped (`6 skipped`) because `PHASE2_MYSQL_INTEGRATION` is unset; Docker client exists but the daemon is inaccessible in the acceptance environment
+- [x] Optional Provider/model smokes explicitly skipped (`3 skipped`) because their opt-in flags are unset; required credentials are also absent
 - [x] Known limitations and unrun external smokes recorded
 - [x] Full gates re-run green on the Phase 2C working tree (Section 7) — C2 fresh run 2026-08-07, all 11 GREEN
 - [x] CI parity recorded: `.github/workflows/ci.yml` runs these gates on push/PR to `main` (pytest `tests/`, ruff check/format, `pre-commit` incl. detect-secrets, `docker compose config`, `scripts/doctor.py --offline`, vitest, eslint, build); `git diff --check` (working-tree check) and the credential-gated smokes (MySQL, real providers) stay local-only — no CI run result is recorded in Phase 2C evidence

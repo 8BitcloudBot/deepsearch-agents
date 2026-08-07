@@ -8,6 +8,7 @@
 
 **Baseline (accepted 2A checkpoint):** `1d6166c`
 **Actual HEAD at B8 review:** `8dec2b7`（B1–B7 工作树未提交，按计划不在 Reasonix 内 commit）
+**Current accepted HEAD:** `2d8698a`
 **Target Tag:** `v0.1-tutorial-parity`（已存在，指向 `50680e6`；本轮未创建或移动）
 
 ## Accepted Baseline
@@ -29,7 +30,7 @@ Phase 2B Safety Hardening 已正式 accepted（B1→B8 独立节点推进，Code
 9 skipped、前端 60 passed / eslint / build、ruff 与 `git diff --check` 干净；
 `pre-commit` detect-secrets 的 `.secrets.baseline` 行号刷新已按钩子要求提交）。
 
-当前执行 Phase 2C Release Evidence（HEAD `fb17a39`）：已产出
+Phase 2C Release Evidence 以 `fb17a39` 为起始 baseline，并在 `2d8698a` 完成验收：已产出
 [本地 mock 复现 runbook](runbooks/phase-2-tutorial-parity.md)，覆盖前置条件、
 mock quick start、上传/任务/WebSocket/产物下载工作流、可选 MySQL 与真实
 Provider smoke 前置条件，以及精确验证命令；README 已链接该 runbook。C2 节点
@@ -39,8 +40,10 @@ Provider smoke 前置条件，以及精确验证命令；README 已链接该 run
 未创建或移动 tag；已有 tag `v0.1-tutorial-parity`（tag object `50680e6c`，
 peel 至 commit `e29a80e`）保持不变。Phase 2C 已验收，但 tag 创建或移动仍需
 单独明确授权。
-C4 fresh mock quick start 已通过；MySQL `6 skipped`（Docker 不可用），真实
-Provider/model `3 skipped`（凭据缺失）。用户已将独立验收委托给 Codex；最新验收
+C4 fresh mock quick start 已通过；MySQL `6 skipped` 的 pytest 原因为
+`PHASE2_MYSQL_INTEGRATION` 未设置，同时当前 Docker daemon 权限不可用；真实
+Provider/model `3 skipped` 的直接原因为 smoke opt-in flags 未设置，所需凭据也缺失。
+用户已将独立验收委托给 Codex；最新验收
 再次确认 E2E 1 passed、后端 355 passed / 9 skipped、前端 60 passed，以及全部
 静态、构建、Compose、doctor 和 secret gates 为 GREEN。Phase 2C accepted。
 

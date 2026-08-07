@@ -5,7 +5,7 @@
 ## Status
 
 Phase 0 (`v0.0-foundation`) and Phase 1
-(`v0.0-deepagents-examples`) are accepted. Phase 2 — Tutorial Parity is in
+(`v0.0-deepagents-examples`) are accepted. Phase 2 — Tutorial Parity is
 complete: Phase 2A Demo Closure, Phase 2B Safety Hardening, and Phase 2C
 Release Evidence are accepted. Phase 3 is ready but has not started. The
 existing `v0.1-tutorial-parity` tag is not moved without explicit authorization.

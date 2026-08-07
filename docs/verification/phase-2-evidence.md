@@ -1,12 +1,14 @@
 # Phase 2 Verification Evidence
 
-> **Final delegated acceptance — 2026-08-07:** the user delegated Phase 2C
+> **Final delegated acceptance — 2026-08-07 (HEAD `2d8698a`):** the user delegated Phase 2C
 > independent acceptance to Codex. A fresh full rerun passed: E2E `1 passed`;
 > integration/unit `355 passed, 9 skipped`; frontend `60 passed`; eslint/build,
 > ruff/format, pre-commit (including Detect secrets), Compose config, offline
-> doctor, and `git diff --check` all exited 0. Phase 2C is accepted. MySQL remains
-> `6 skipped` without Docker and optional external Provider/model smokes remain
-> `3 skipped` without credentials. The existing release tag was not moved.
+> doctor, and `git diff --check` all exited 0. Phase 2C is accepted. MySQL produced
+> `6 skipped` because `PHASE2_MYSQL_INTEGRATION` was unset; the Docker client was
+> installed but its daemon was inaccessible. Optional external Provider/model
+> smokes produced `3 skipped` because their opt-in flags were unset; the required
+> credentials were also absent. The existing release tag was not moved.
 
 > **Current acceptance note — 2026-08-07 (B8 Integrated Safety Acceptance):**
 > Phase 2A Demo Closure remains accepted at checkpoint `1d6166c`. Phase 2B
@@ -29,9 +31,10 @@
 > completed. A local mock API run passed health, Markdown upload, task start
 > (`202`), WebSocket observation (28 events; Web/Catalog/Knowledge tools; one
 > `task_completed`), `/api/files`, and Markdown/PDF downloads (`200`; PDF starts
-> `%PDF`). MySQL integration produced `6 skipped` because Docker is unavailable;
-> optional external Provider/model smokes produced `3 skipped` because credentials
-> are absent.
+> `%PDF`). MySQL integration produced `6 skipped` because
+> `PHASE2_MYSQL_INTEGRATION` was unset (Docker daemon access was also unavailable).
+> Optional external Provider/model smokes produced `3 skipped` because their
+> opt-in flags were unset; the required credentials were also absent.
 
 > **Phase 2C runbook — 2026-08-07 (HEAD `fb17a39`):** the local mock
 > reproduction and release verification runbook lives at
