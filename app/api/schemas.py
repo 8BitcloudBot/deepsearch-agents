@@ -1,7 +1,7 @@
 """Phase 2 HTTP request/response and WebSocket message schemas."""
 
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -60,6 +60,21 @@ class FileInfo(BaseModel):
 class FileListResponse(BaseModel):
     thread_id: str
     files: list[FileInfo]
+
+
+# ── Citations ────────────────────────────────────────────────────────────────
+
+
+class CitationsResponse(BaseModel):
+    """Validated citation results attached to one thread (P4-5).
+
+    ``report`` is the versioned P4-4 evaluation report dict: schema version,
+    provenance bound to the frozen manifests, the three homogeneous
+    partitions, and the report fingerprint.
+    """
+
+    thread_id: str
+    report: dict[str, Any]
 
 
 # ── WebSocket messages ───────────────────────────────────────────────────────

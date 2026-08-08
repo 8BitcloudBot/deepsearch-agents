@@ -15,6 +15,8 @@ export const EVENT_TYPES = [
   "tool_started",
   "tool_completed",
   "artifact_created",
+  "citation_started",
+  "citation_completed",
   "task_completed",
   "task_cancelled",
   "task_failed",
@@ -95,4 +97,68 @@ export interface FileInfo {
 export interface FileListResponse {
   thread_id: string;
   files: FileInfo[];
+}
+
+// ── Citations (P4-5) ─────────────────────────────────────────────────────────
+
+/** Exact `citation_completed` event data (P4-5). */
+export interface CitationCompletedData {
+  status: "completed" | "failed";
+  partition_count: number;
+  report_fingerprint: string;
+  limitations: string[];
+}
+
+/**
+ * Claim support state as returned by the server. Rendered as raw text so
+ * distinct states (e.g. supported / unsupported / unknown / skipped) never
+ * collapse into one another.
+ */
+export type ClaimSupportState =
+  | "supported"
+  | "unsupported"
+  | "unknown"
+  | "skipped";
+
+/** One evidence snippet backing a claim. Text only, never markup. */
+export interface CitationEvidence {
+  snippet: string;
+  /** Document id / server-returned relative reference, displayed as text. */
+  source: string;
+}
+
+export interface CitationClaim {
+  claim: string;
+  support: string;
+  evidence: CitationEvidence[];
+}
+
+/** Numeric/string metric values; `null` when the server reported none. */
+export interface CitationMetrics {
+  [key: string]: number | string;
+}
+
+export interface CitationPartition {
+  partition_id: string;
+  support: string;
+  metrics: CitationMetrics | null;
+  claims: CitationClaim[];
+  limitations: string[];
+}
+
+/** Validated subset of the P4-4 evaluation report from `GET /api/citations`. */
+export interface CitationReport {
+  schema_version: string;
+  report_fingerprint: string;
+  provenance: {
+    dataset_id: string;
+    corpus_id: string;
+  };
+  partitions: CitationPartition[];
+}
+
+/** `GET /api/citations?thread_id=...` response. */
+export interface CitationsResponse {
+  thread_id: string;
+  report: CitationReport;
 }

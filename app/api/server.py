@@ -21,6 +21,7 @@ from app.agent.runtime import TutorialRuntime
 from app.api.events import InMemoryEventBus
 from app.api.schemas import (
     UUID_RE,
+    CitationsResponse,
     FileInfo,
     FileListResponse,
     HeartbeatMessage,
@@ -215,6 +216,27 @@ def create_app(
             media_type=_guess_media_type(path),
             filename=resolved.name,
         )
+
+    # ── Citations ────────────────────────────────────────────────────────
+
+    @app.get("/api/citations")
+    async def get_citations(thread_id: str = Query(...)):
+        _validate_uuid(thread_id)
+        from app.research.runtime import CITATION_REPORT_FILENAME
+
+        ws = SessionWorkspace.for_thread(
+            thread_id=thread_id,
+            base_upload="updated",
+            base_output="output",
+        )
+        report_path = ws.output_dir / CITATION_REPORT_FILENAME
+        if not report_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail="no citation results for this thread",
+            )
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        return CitationsResponse(thread_id=thread_id, report=report)
 
     # ── WebSocket ─────────────────────────────────────────────────────────
 

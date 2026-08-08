@@ -44,7 +44,8 @@ body {
 .task-composer,
 .run-status,
 .event-timeline,
-.artifact-panel {
+.artifact-panel,
+.citation-panel {
   background-color: #ffffff;
   border: 1px solid #dce2ea;
   border-radius: 8px;
@@ -350,6 +351,173 @@ h3 {
   color: #ffffff;
 }
 
+/* ── Citation panel (P4-5, additive) ──────────────────────────────── */
+
+.citation-panel {
+  min-width: 0;
+}
+
+.citation-summary {
+  margin-bottom: 0.75rem;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.citation-status {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.citation-fingerprint {
+  font-family: "SF Mono", "Fira Code", Menlo, monospace;
+  font-size: 0.8rem;
+  color: #465a75;
+  word-break: break-all;
+  margin-bottom: 0;
+}
+
+.citation-limitations {
+  margin-bottom: 0.75rem;
+  min-width: 0;
+}
+
+.limitations-list,
+.partition-limitations {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  word-break: break-word;
+  font-size: 0.9rem;
+  color: #b33a3a;
+}
+
+.citation-report {
+  margin-bottom: 0.75rem;
+  min-width: 0;
+}
+
+.report-meta {
+  font-size: 0.85rem;
+  color: #465a75;
+  margin-bottom: 0.6rem;
+}
+
+.citation-partitions {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.citation-partition {
+  border-left: 3px solid #167d91;
+  background-color: #f5f7fa;
+  border-radius: 0 6px 6px 0;
+  padding: 0.5rem 0.75rem;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.citation-partition h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #132238;
+  margin-bottom: 0.25rem;
+}
+
+.partition-support {
+  font-size: 0.85rem;
+  color: #465a75;
+  margin-bottom: 0.4rem;
+}
+
+.metrics {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.85rem;
+  color: #465a75;
+  margin-bottom: 0.5rem;
+  min-width: 0;
+}
+
+.metric-key {
+  font-weight: 600;
+  color: #132238;
+}
+
+.metrics-empty {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: #465a75;
+  margin-bottom: 0.5rem;
+}
+
+.claims {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.citation-claim {
+  border: 1px solid #dce2ea;
+  background-color: #ffffff;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  min-width: 0;
+}
+
+.claim-text {
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.claim-support {
+  font-size: 0.85rem;
+  color: #167d91;
+  margin-bottom: 0.4rem;
+}
+
+.evidence {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.evidence-snippet {
+  font-size: 0.85rem;
+  background-color: #f5f7fa;
+  border: 1px solid #dce2ea;
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 0.15rem;
+}
+
+.evidence-source {
+  font-size: 0.8rem;
+  color: #465a75;
+  word-break: break-all;
+  margin-bottom: 0;
+}
+
+.citation-downloads {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 :focus-visible {
   outline: 2px solid #167d91;
   outline-offset: 2px;
@@ -365,8 +533,35 @@ h3 {
   .task-composer,
   .run-status,
   .event-timeline,
-  .artifact-panel {
+  .artifact-panel,
+  .citation-panel {
     padding: 1.5rem;
+  }
+}
+
+/* Responsive hooks for the citation panel: two-column partitions on wide
+   screens, stacked compact layout at narrow widths (no horizontal scroll). */
+@media (min-width: 720px) {
+  .citation-partitions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .citation-partition {
+    padding: 0.5rem;
+  }
+
+  .citation-downloads {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .citation-panel .download {
+    max-width: 100%;
+    overflow-wrap: break-word;
   }
 }
 

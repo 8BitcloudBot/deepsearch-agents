@@ -56,6 +56,8 @@ TutorialEventType = Literal[
     "tool_started",
     "tool_completed",
     "artifact_created",
+    "citation_started",
+    "citation_completed",
     "task_completed",
     "task_cancelled",
     "task_failed",

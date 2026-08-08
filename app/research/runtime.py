@@ -12,11 +12,19 @@ uploaded constraint, and contains no secrets, absolute paths or raw
 Provider responses. Task lifecycle events remain owned by TaskRegistry.
 """
 
+import json
 import re
+from pathlib import Path
 
 from app.agent.runtime import RuntimeRequest, RuntimeResult
 from app.api.context import session_context
 from app.api.events import InMemoryEventBus
+from app.citations.contracts import load_fixture
+from app.citations.fixtures import FIXTURE_PATH, MANIFEST_PATH
+from app.citations.metrics import Pipeline, compute_partition_metrics
+from app.citations.reporting import build_report
+from app.citations.rules import RuleSupportChecker, redact
+from app.citations.semantic import SemanticSupportChecker
 from app.research.corpus import load_corpus
 from app.tools.reports import generate_markdown_report, generate_pdf_report
 
@@ -33,6 +41,16 @@ _KIND_LABELS = {
     "knowledge": "Knowledge",
 }
 _MAX_UPLOAD_CHARS = 5000
+
+# Thread-scoped citation report artifacts (relative names, downloadable via
+# the existing /api/files and /api/download contracts).
+CITATION_REPORT_FILENAME = "citation-report.json"
+CITATION_PARTITIONS_FILENAME = "citation-partitions.jsonl"
+_CITATION_MSG = "citation-evaluation"
+
+# Repo root resolved from this module, so the frozen Phase 3/4 manifests are
+# read regardless of the process CWD (tests chdir to a scratch dir).
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Untrusted report input (query + uploaded files) only. Curated versioned
 # sources are reviewed and keep their content verbatim; no broad security
@@ -149,6 +167,12 @@ class AgentResearchRuntime:
             self._emit_artifact(tid, "tutorial-report.md", "text/markdown")
             self._emit_artifact(tid, "tutorial-report.pdf", "application/pdf")
 
+            # Attach validated citation results (deterministic offline P4-4
+            # evaluation) as thread-scoped artifacts and non-terminal events.
+            # Failures become redacted limitations; they never emit a
+            # terminal event (TaskRegistry still owns exactly one).
+            self._run_citation_evaluation(tid, ws)
+
             self._emit_agent(tid, "agent_completed", "agent-research-agent")
 
             return RuntimeResult(
@@ -169,3 +193,131 @@ class AgentResearchRuntime:
             name,
             {"path": name, "name": name, "media_type": media_type},
         )
+
+    # -- Citation evaluation (P4-5) ----------------------------------------
+
+    def _run_citation_evaluation(self, tid: str, ws) -> None:
+        """Evaluate citations offline and attach thread-scoped results.
+
+        Emits ``citation_started`` then ``citation_completed`` (both
+        non-terminal). Any failure is caught and surfaced as a redacted
+        limitation on ``citation_completed``; no terminal event is ever
+        emitted here and no partial artifacts are written.
+        """
+        self._events.emit(
+            tid, "citation_started", _CITATION_MSG, {"stage": "citations"}
+        )
+        try:
+            report, partitions = self._evaluate_citations()
+        except Exception as exc:
+            self._events.emit(
+                tid,
+                "citation_completed",
+                _CITATION_MSG,
+                {
+                    "status": "failed",
+                    "partition_count": 0,
+                    "limitations": [redact(f"citation evaluation failed: {exc}")],
+                },
+            )
+            return
+
+        ws.output_dir.mkdir(parents=True, exist_ok=True)
+        (ws.output_dir / CITATION_REPORT_FILENAME).write_text(
+            json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        rows = "\n".join(
+            json.dumps(
+                partition.to_dict(),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+            for partition in partitions
+        )
+        (ws.output_dir / CITATION_PARTITIONS_FILENAME).write_text(
+            rows + "\n", encoding="utf-8"
+        )
+        limitations = sorted(
+            {lim for partition in partitions for lim in partition.limitations}
+        )
+        self._events.emit(
+            tid,
+            "citation_completed",
+            _CITATION_MSG,
+            {
+                "status": "completed",
+                "partition_count": len(partitions),
+                "report_fingerprint": report["report_fingerprint"],
+                "limitations": [redact(lim) for lim in limitations],
+            },
+        )
+
+    @staticmethod
+    def _evaluate_citations() -> tuple[dict, list]:
+        """Deterministic offline citation evaluation (frozen seed-10 fixture).
+
+        Runs the P4-2 rule pipeline and the P4-3 mock semantic pipeline over
+        the validated fixture, plus an empty ``semantic/real`` partition
+        (never consulted offline; its zero-denominator metrics carry explicit
+        limitations). Builds the versioned P4-4 report bound to the frozen
+        Phase 3 dataset/corpus manifests. Raises on any failure — callers
+        convert failures into limitations.
+        """
+        fixture = load_fixture(_REPO_ROOT / MANIFEST_PATH, _REPO_ROOT / FIXTURE_PATH)
+        claims = fixture["claims"]
+        evidence_by_id = {item["evidence_id"]: item for item in fixture["evidence"]}
+        claim_by_id = {claim["claim_id"]: claim for claim in claims}
+        pairs = [
+            (claim_by_id[citation["claim_id"]], evidence_by_id[citation["evidence_id"]])
+            for citation in fixture["citations"]
+        ]
+        citations = fixture["citations"]
+
+        rule_judgments = [
+            RuleSupportChecker().check(claim, evidence) for claim, evidence in pairs
+        ]
+        mock_judgments = [
+            SemanticSupportChecker().check(claim, evidence) for claim, evidence in pairs
+        ]
+        partitions = [
+            compute_partition_metrics(
+                pipeline=Pipeline.RULE,
+                mode="offline",
+                claims=claims,
+                citations=citations,
+                judgments=rule_judgments,
+            ),
+            compute_partition_metrics(
+                pipeline=Pipeline.SEMANTIC,
+                mode="mock",
+                claims=claims,
+                citations=citations,
+                judgments=mock_judgments,
+            ),
+            compute_partition_metrics(
+                pipeline=Pipeline.SEMANTIC,
+                mode="real",
+                claims=(),
+                citations=(),
+                judgments=(),
+            ),
+        ]
+        dataset_manifest = json.loads(
+            (_REPO_ROOT / "data/phase3/datasets/manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        sources_manifest = json.loads(
+            (_REPO_ROOT / "data/phase3/sources/manifest.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        report = build_report(
+            partitions=partitions,
+            fixture_manifest=fixture["manifest"],
+            dataset_manifest=dataset_manifest,
+            sources_manifest=sources_manifest,
+        )
+        return report, partitions

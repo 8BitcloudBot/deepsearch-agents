@@ -6,10 +6,17 @@ import {
   renderHook,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import App from "./App";
 import { useWorkbench } from "./workbench/useWorkbench";
-import { downloadUrl, parseEvent, requestJson } from "./workbench/api";
+import {
+  downloadUrl,
+  getCitations,
+  parseCitationsReport,
+  parseEvent,
+  requestJson,
+} from "./workbench/api";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -1757,6 +1764,91 @@ describe("contract", () => {
     vi.unstubAllGlobals();
   });
 
+  it("parseEvent accepts citation_started and citation_completed as v1 events", () => {
+    const started = validEvent({ type: "citation_started", data: {} });
+    expect(parseEvent(JSON.stringify(started))).toEqual(started);
+    const completed = validEvent({
+      type: "citation_completed",
+      data: {
+        status: "completed",
+        partition_count: 3,
+        report_fingerprint: "a".repeat(64),
+        limitations: [],
+      },
+    });
+    expect(parseEvent(JSON.stringify(completed))).toEqual(completed);
+  });
+
+  it("parseEvent still rejects unknown types and versions after adding citation events", () => {
+    expect(() =>
+      parseEvent(JSON.stringify(validEvent({ type: "citation_skipped" })))
+    ).toThrow("Received an unsupported event payload.");
+    expect(() =>
+      parseEvent(JSON.stringify(validEvent({ type: "citation_completed", version: 99 })))
+    ).toThrow("Received an unsupported event version.");
+  });
+
+  it("parseCitationsReport accepts null or missing metrics and rejects malformed metrics", () => {
+    const base = {
+      schema_version: "1.0.0",
+      report_fingerprint: "a".repeat(64),
+      provenance: { dataset_id: "seed-10-v1", corpus_id: "agent-research-corpus-v1" },
+    };
+    const partition = {
+      partition_id: "rule/offline",
+      support: "mixed",
+      claims: [],
+      limitations: [],
+    };
+    expect(
+      parseCitationsReport({
+        ...base,
+        partitions: { "rule/offline": { ...partition, metrics: null } },
+      })
+    ).not.toBeNull();
+    expect(
+      parseCitationsReport({
+        ...base,
+        partitions: { "rule/offline": { ...partition } },
+      })
+    ).not.toBeNull();
+    expect(
+      parseCitationsReport({
+        ...base,
+        partitions: { "rule/offline": { ...partition, metrics: "garbage" } },
+      })
+    ).toBeNull();
+  });
+
+  it("getCitations requests the exact citations URL and validates the report", async () => {
+    const threadId = crypto.randomUUID();
+    const report = {
+      schema_version: "1.0.0",
+      report_fingerprint: "a".repeat(64),
+      provenance: { dataset_id: "seed-10-v1", corpus_id: "agent-research-corpus-v1" },
+      partitions: {
+        "rule/offline": {
+          partition_id: "rule/offline",
+          support: "mixed",
+          metrics: null,
+          claims: [],
+          limitations: [],
+        },
+      },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ thread_id: threadId, report }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(getCitations("http://127.0.0.1:8000/", threadId)).resolves.toMatchObject({
+      thread_id: threadId,
+    });
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      `http://127.0.0.1:8000/api/citations?thread_id=${threadId}`
+    );
+    vi.unstubAllGlobals();
+  });
+
   it("requestJson rejects network failures with a stable message", async () => {
     const raw = "secret-host /Users/private/token";
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error(raw)));
@@ -1769,5 +1861,489 @@ describe("contract", () => {
     expect(message).toBe("Network request failed.");
     expect(message).not.toContain(raw);
     vi.unstubAllGlobals();
+  });
+});
+
+describe("citation events, report and panel", () => {
+  const CITATION_REPORT_FILE = {
+    name: "citation-report.json",
+    path: "citation-report.json",
+    size: 512,
+    media_type: "application/json",
+  };
+  const CITATION_PARTITIONS_FILE = {
+    name: "citation-partitions.jsonl",
+    path: "citation-partitions.jsonl",
+    size: 128,
+    media_type: "application/octet-stream",
+  };
+
+  function citationReport(overrides: Record<string, unknown> = {}) {
+    return {
+      schema_version: "1.0.0",
+      report_fingerprint: "c".repeat(64),
+      provenance: {
+        dataset_id: "seed-10-v1",
+        corpus_id: "agent-research-corpus-v1",
+      },
+      partitions: {
+        "rule/offline": {
+          partition_id: "rule/offline",
+          support: "mixed",
+          metrics: { precision: 0.9, recall: 0.75 },
+          claims: [],
+          limitations: [],
+        },
+      },
+      ...overrides,
+    };
+  }
+
+  function citationCompletedData(overrides: Record<string, unknown> = {}) {
+    return {
+      status: "completed",
+      partition_count: 3,
+      report_fingerprint: "b".repeat(64),
+      limitations: [],
+      ...overrides,
+    };
+  }
+
+  function stubCitationRoutes(threadId: string, report: unknown) {
+    return stubFetch({
+      [`/api/citations?thread_id=${threadId}`]: () =>
+        jsonResponse({ thread_id: threadId, report }),
+      [`/api/files?thread_id=${threadId}`]: () =>
+        jsonResponse({
+          thread_id: threadId,
+          files: [CITATION_REPORT_FILE, CITATION_PARTITIONS_FILE],
+        }),
+    });
+  }
+
+  function deliverCitationRun(
+    threadId: string,
+    data: Record<string, unknown> = citationCompletedData()
+  ) {
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 2,
+          type: "citation_started",
+          message: "Evaluating citations",
+        })
+      )
+    );
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 3,
+          type: "citation_completed",
+          message: "Citations evaluated",
+          data,
+        })
+      )
+    );
+  }
+
+  it("accepts citation_started and citation_completed in the v1 stream in order without altering run status", async () => {
+    const threadId = await startAppRun();
+    stubCitationRoutes(threadId, citationReport());
+    deliverCitationRun(threadId);
+
+    // Citation events are non-terminal: the run stays running.
+    expect(screen.getByText(/Status: Running/i)).toBeInTheDocument();
+    expect(screen.getByText("citation_started")).toBeInTheDocument();
+    expect(screen.getByText("citation_completed")).toBeInTheDocument();
+
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 4,
+          type: "task_completed",
+          message: "Report done",
+        })
+      )
+    );
+    expect(screen.getByText(/Status: Success/i)).toBeInTheDocument();
+
+    // The complete chronological timeline is preserved in ascending order.
+    const sequences = screen
+      .getAllByText(/^#\d+$/)
+      .map((node) => node.textContent);
+    expect(sequences).toEqual(["#1", "#2", "#3", "#4"]);
+    await act(async () => {});
+  });
+
+  it("calls GET /api/citations with the current UUID after a completed citation evaluation", async () => {
+    const threadId = await startAppRun();
+    const fetchMock = stubCitationRoutes(threadId, citationReport());
+    deliverCitationRun(threadId);
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes("/api/citations")
+        )
+      ).toBe(true)
+    );
+    const citationsCall = fetchMock.mock.calls.find(([input]) =>
+      String(input).includes("/api/citations")
+    );
+    expect(String(citationsCall?.[0])).toBe(
+      `http://127.0.0.1:8000/api/citations?thread_id=${threadId}`
+    );
+    await act(async () => {});
+  });
+
+  it("renders claims, distinct support states and evidence snippets with sources as text", async () => {
+    const threadId = await startAppRun();
+    stubCitationRoutes(
+      threadId,
+      citationReport({
+        partitions: {
+          "rule/offline": {
+            partition_id: "rule/offline",
+            support: "mixed",
+            metrics: { precision: 0.9 },
+            claims: [
+              {
+                claim: "Agents orchestrate tools",
+                support: "supported",
+                evidence: [
+                  { snippet: "doc line one", source: "seed-doc-01.txt" },
+                ],
+              },
+              {
+                claim: "A claim with no backing evidence",
+                support: "unsupported",
+                evidence: [],
+              },
+              {
+                claim: "An unverifiable claim",
+                support: "unknown",
+                evidence: [{ snippet: "unclear text", source: "seed-doc-02.txt" }],
+              },
+              {
+                claim: "A claim skipped by evaluation",
+                support: "skipped",
+                evidence: [],
+              },
+            ],
+            limitations: [],
+          },
+        },
+      })
+    );
+    deliverCitationRun(threadId);
+
+    const panel = await screen.findByRole("region", { name: /citations/i });
+    // The four support states stay distinct — none is merged into another.
+    expect(within(panel).getByText(/Support: supported/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Support: unsupported/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Support: unknown/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Support: skipped/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Agents orchestrate tools/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/A claim with no backing evidence/i)).toBeInTheDocument();
+    // Evidence snippets and their sources render as plain text.
+    expect(within(panel).getByText(/doc line one/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Source: seed-doc-01\.txt/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Source: seed-doc-02\.txt/i)).toBeInTheDocument();
+    // The snippet text created no script or element markup.
+    expect(document.querySelector(".citation-panel script")).toBeNull();
+    await act(async () => {});
+  });
+
+  it("renders null metrics as a distinct no-metrics state without crashing", async () => {
+    const threadId = await startAppRun();
+    stubCitationRoutes(
+      threadId,
+      citationReport({
+        partitions: {
+          "rule/offline": {
+            partition_id: "rule/offline",
+            support: "mixed",
+            metrics: null,
+            claims: [
+              {
+                claim: "Claim with null metrics",
+                support: "supported",
+                evidence: [],
+              },
+            ],
+            limitations: [],
+          },
+        },
+      })
+    );
+    deliverCitationRun(threadId);
+
+    const panel = await screen.findByRole("region", { name: /citations/i });
+    expect(within(panel).getByText(/No metrics\./i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Claim with null metrics/i)).toBeInTheDocument();
+    await act(async () => {});
+  });
+
+  it("shows limitations from citation_completed and links citation artifacts via server-returned relative paths", async () => {
+    const threadId = await startAppRun();
+    stubCitationRoutes(threadId, citationReport());
+    deliverCitationRun(threadId, {
+      status: "completed",
+      partition_count: 3,
+      report_fingerprint: "b".repeat(64),
+      limitations: ["LLM judgment may be wrong", "Corpus limited to seed-10"],
+    });
+
+    const panel = await screen.findByRole("region", { name: /citations/i });
+    expect(within(panel).getByText(/LLM judgment may be wrong/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Corpus limited to seed-10/i)).toBeInTheDocument();
+    expect(within(panel).getByText(/Evaluation: completed/i)).toBeInTheDocument();
+
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 4,
+          type: "task_completed",
+          message: "Report done",
+        })
+      )
+    );
+    const reportLink = await screen.findByRole("link", {
+      name: /download citation report/i,
+    });
+    expect(reportLink).toHaveAttribute(
+      "href",
+      `http://127.0.0.1:8000/api/download?thread_id=${threadId}&path=citation-report.json`
+    );
+    expect(reportLink).toHaveAttribute("download");
+    const partitionsLink = screen.getByRole("link", {
+      name: /download citation partitions/i,
+    });
+    expect(partitionsLink).toHaveAttribute(
+      "href",
+      `http://127.0.0.1:8000/api/download?thread_id=${threadId}&path=citation-partitions.jsonl`
+    );
+    await act(async () => {});
+  });
+
+  it("a failed citation evaluation shows failed status and limitations and never fetches the report", async () => {
+    const threadId = await startAppRun();
+    const fetchMock = stubCitationRoutes(threadId, citationReport());
+    deliverCitationRun(threadId, {
+      status: "failed",
+      partition_count: 0,
+      report_fingerprint: "b".repeat(64),
+      limitations: ["Citation engine unavailable"],
+    });
+
+    const panel = await screen.findByRole("region", { name: /citations/i });
+    expect(within(panel).getByText(/Evaluation: failed/i)).toBeInTheDocument();
+    expect(
+      within(panel).getByText(/Citation engine unavailable/i)
+    ).toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes("/api/citations")
+      )
+    ).toBe(false);
+    await act(async () => {});
+  });
+
+  it("rejects a citation report with malformed metrics and shows a stable unavailable message", async () => {
+    const threadId = await startAppRun();
+    stubFetch({
+      [`/api/citations?thread_id=${threadId}`]: () =>
+        jsonResponse({
+          thread_id: threadId,
+          report: citationReport({
+            partitions: {
+              "rule/offline": {
+                partition_id: "rule/offline",
+                support: "mixed",
+                metrics: "not-an-object",
+                claims: [],
+                limitations: [],
+              },
+            },
+          }),
+        }),
+    });
+    deliverCitationRun(threadId);
+
+    expect(
+      await screen.findByText(/Citation results are unavailable\./i)
+    ).toBeInTheDocument();
+    // The report body is never rendered.
+    expect(screen.queryByText(/rule\/offline/i)).toBeNull();
+    await act(async () => {});
+  });
+
+  it("ignores citation events for a foreign thread and never fetches citations for it", async () => {
+    const threadId = await startAppRun();
+    const fetchMock = stubCitationRoutes(threadId, citationReport());
+    const foreignId = crypto.randomUUID();
+
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: foreignId,
+          sequence: 2,
+          type: "citation_completed",
+          message: "foreign citations",
+          data: citationCompletedData(),
+        })
+      )
+    );
+
+    expect(screen.getByText(/No citation results yet\./i)).toBeInTheDocument();
+    expect(screen.queryByText(/foreign citations/i)).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes("/api/citations")
+      )
+    ).toBe(false);
+    await act(async () => {});
+  });
+
+  it("never builds citation links from unsafe server-returned paths", async () => {
+    const threadId = await startAppRun();
+    const fetchMock = stubFetch({
+      [`/api/citations?thread_id=${threadId}`]: () =>
+        jsonResponse({ thread_id: threadId, report: citationReport() }),
+      [`/api/files?thread_id=${threadId}`]: () =>
+        jsonResponse({
+          thread_id: threadId,
+          files: [
+            { ...CITATION_REPORT_FILE, path: "output/citation-report.json" },
+            CITATION_PARTITIONS_FILE,
+          ],
+        }),
+      "&path=": () => jsonResponse({ detail: "unexpected" }, 500),
+    });
+    deliverCitationRun(threadId);
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 4,
+          type: "task_completed",
+          message: "Report done",
+        })
+      )
+    );
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input]) => String(input).includes("/api/files"))
+      ).toBe(true)
+    );
+    // The unsafe report path never becomes a link or a download request.
+    expect(
+      screen.queryByRole("link", { name: /download citation report/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /download citation partitions/i })
+    ).toHaveAttribute(
+      "href",
+      `http://127.0.0.1:8000/api/download?thread_id=${threadId}&path=citation-partitions.jsonl`
+    );
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes("output/citation-report.json")
+      )
+    ).toBe(false);
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes("/api/download")
+      )
+    ).toBe(false);
+    await act(async () => {});
+  });
+
+  it("newSession clears citation summary, report and error state", async () => {
+    const { result } = renderHook(() =>
+      useWorkbench("http://127.0.0.1:8000")
+    );
+    await waitFor(() =>
+      expect(result.current.health?.tutorial_runtime).toBe("mock")
+    );
+    const threadId = result.current.threadId;
+    stubFetch({
+      [`/api/citations?thread_id=${threadId}`]: () =>
+        jsonResponse({ thread_id: threadId, report: citationReport() }),
+    });
+    openSocket();
+    const deliver = (text: string) =>
+      act(() => {
+        FakeWebSocket.instances[0].onmessage?.({ data: text });
+      });
+
+    deliver(
+      JSON.stringify(
+        makeEvent({ thread_id: threadId, sequence: 1, type: "citation_completed", data: citationCompletedData() })
+      )
+    );
+    await waitFor(() => expect(result.current.citations).not.toBeNull());
+    expect(result.current.citationSummary?.status).toBe("completed");
+
+    act(() => {
+      result.current.newSession();
+    });
+    expect(result.current.citations).toBeNull();
+    expect(result.current.citationSummary).toBeNull();
+    expect(result.current.citationsError).toBeNull();
+    expect(result.current.citationsLoading).toBe(false);
+  });
+
+  it("renders the responsive class hooks the narrow/wide layout rules target", async () => {
+    const threadId = await startAppRun();
+    stubCitationRoutes(
+      threadId,
+      citationReport({
+        partitions: {
+          "rule/offline": {
+            partition_id: "rule/offline",
+            support: "mixed",
+            metrics: { precision: 0.9 },
+            claims: [
+              {
+                claim: "Agents orchestrate tools",
+                support: "supported",
+                evidence: [],
+              },
+            ],
+            limitations: [],
+          },
+        },
+      })
+    );
+    deliverCitationRun(threadId);
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 4,
+          type: "task_completed",
+          message: "Report done",
+        })
+      )
+    );
+
+    // The panel DOM exposes the class hooks the responsive stylesheet
+    // selects on (min-width 720px grid, max-width 640px compact layout):
+    // panel section, partition list, partition card, downloads and links.
+    const panel = await screen.findByRole("region", { name: /citations/i });
+    expect(panel).toHaveClass("citation-panel");
+    expect(panel.querySelector(".citation-partitions")).not.toBeNull();
+    expect(panel.querySelector(".citation-partition")).not.toBeNull();
+    expect(panel.querySelector(".citation-downloads")).not.toBeNull();
+    expect(
+      panel.querySelector(".citation-downloads .download")
+    ).not.toBeNull();
+    await act(async () => {});
   });
 });

@@ -2,12 +2,12 @@
 
 **Updated:** 2026-08-08
 
-**Current Phase:** Phase 3 — Research Evaluation（accepted）
+**Current Phase:** Phase 4 — Trustworthy Citations（accepted）
 
-**Current Package:** P3-7 — Integrated Acceptance And Phase 4 Handoff（accepted）
-**Next Phase:** Phase 4 — Trustworthy Citations（not started / planned；入口边界已冻结）
+**Current Package:** P4-7 — Integrated Acceptance And Handoff（accepted）
+**Next Package:** Phase 5 — Orchestration（not started；需后续明确授权）
 
-**Current accepted / release HEAD:** `364180d54a4c7b3141147f58b64b8ddd47d1b851`（Phase 2 release HEAD；Phase 3 acceptance 运行于其 dirty worktree，`git_dirty=true`）
+**Current accepted / release HEAD:** Phase 4 clean checkpoint（local only；Phase 2 release tag `v0.1.1-tutorial-parity` 仍指向 `364180d`）
 **Current release tag:** `v0.1.1-tutorial-parity`（peeled to `364180d`; pushed；未被本次节点移动）
 **Historical tag:** `v0.1-tutorial-parity`（peeled to `e29a80e`; unchanged）
 
@@ -97,10 +97,50 @@ ruff check/format 与 `git diff --check`）；seed-10/dev-40 S0/S1 离线报告�
 全部生成报告的凭据/绝对路径/原始 Provider 响应扫描 0 命中。
 [Phase 3 验收证据](verification/phase-3-evidence.md) 已记录完整命令、退出码与计数。
 
-Phase 3 验收运行于当前 **dirty worktree**（HEAD `364180d`、`git_dirty=true`），
-并非干净 checkpoint。干净 checkpoint 提交、tag/push/release 与 Phase 4 激活均需
-后续显式授权；Phase 4 保持 not started（planned），其入口边界已冻结为 Phase 3
-corpus/dataset/runner/report 契约，详见 [Phase 4 文档](phases/phase-4-trustworthy-citations.md)。
+Phase 3 验收证据最初运行于 `364180d` 的 dirty worktree，并如实记录
+`git_dirty=true`；随后已在复核门禁通过后创建 clean checkpoint
+`8afa4cd84cdf3da4259b3570011c7d1d923fbd8e`。Phase 4 的入口边界冻结为 Phase 3
+corpus/dataset/runner/report 契约，当前已进入 planned / ready，等待计划审核与
+fresh Reasonix 节点授权，详见 [Phase 4 文档](phases/phase-4-trustworthy-citations.md)
+及 [Phase 4 计划](superpowers/plans/2026-08-08-phase-4-trustworthy-citations.md)。
+
+P4-1 已独立验收：严格、JSON-serializable 的 `Claim`、`EvidenceItem` 与
+`CitationRecord` 契约以及不可变的 30-record `seed-10` fixture 均绑定到三个
+冻结的 Phase 3 source ID/path/hash。每个 10 条 evidence quote 都在其真实 source
+内容中逐字验证，且 source manifest binding、fingerprint、重复 ID、未知 source、
+跨 source locator、无效版本和冲突状态均 fail-closed。Codex fresh 验收：P4-1
+`128 passed`；Phase 3 回归 `301 passed / 2 skipped`；Ruff check/format、
+`pre-commit run --all-files` 和 `git diff --check` 全部 GREEN。P4-2 仅可在 fresh
+Reasonix 节点中实现离线规则支持检查。
+
+P4-2 已独立验收：`RuleSupportChecker` 是纯离线、确定性的 claim/evidence 规则
+检查器，使用稳定 rule ID、精确 quote、规范化 token overlap、source policy、hash/
+locator 验证与保守否定冲突检测；其错误原因进行路径/secret/URL 凭据脱敏并给出
+canonical SHA-256 fingerprint。Codex fresh 验收：Phase 4 unit `138 passed`，Phase 3
+回归 `301 passed / 2 skipped`，Ruff check/format、`pre-commit run --all-files` 与
+`git diff --check` 均 GREEN。P4-3 仅可新增确定性离线语义 adapter 与明确 opt-in 的
+真实模型 smoke；未启用时不得触网或读取凭据。
+
+P4-3 已独立验收：`SemanticSupportChecker` 提供 `mock:deterministic` 离线语义
+判断、模型/Prompt/config fingerprint、redacted limitations 与 mock/real aggregate
+隔离；`PHASE4_REAL_SEMANTIC_SMOKE` 未设置时真实 smoke 明确 skipped，未访问凭据
+或网络。Codex fresh 验收：Phase 4 `153 passed / 1 skipped`，Phase 3 回归
+`301 passed / 2 skipped`，Ruff check/format、`pre-commit run --all-files` 与
+`git diff --check` 全部 GREEN。P4-4 可开始引用质量指标与离线报告。
+
+P4-4 至 P4-6 已在当前工作树独立验收：引用四指标与报告、thread-scoped API
+和非终态 citation events、React 引用面板及 1440px/真实 375x812 CSS viewport
+browser smoke 均 GREEN。P4-7 随后完成 Codex-only 集成验收：Phase 4 定向
+`184 passed / 1 skipped`，Phase 2/3 定向 `302 passed / 2 skipped`，全后端
+`925 passed / 14 skipped`，前端 `75 passed`、ESLint、build、Ruff、format、
+pre-commit 和 `git diff --check` 全部 GREEN。seed-10 离线 citation report 两次
+运行的 `partitions.jsonl` SHA-256 均为
+`90716fdce9e607b707bec381fa988c4af770aa60618094b627b47985c0c78dae`，report
+fingerprint 均为 `715e8ce32f371079d3f39c41dd293511638555cdc47b0cff3b2d1118a5a995aa`。
+P4-7 证据已写入 [Phase 4 验收证据](verification/phase-4-evidence.md)。当前
+验收后的 clean checkpoint 已创建，因此 Phase 4 现为 accepted；没有创建 tag、
+push 或 release，且 Phase 5 仍未启动。`.reasonix/` 未读取、未处理。真实
+Provider/model smoke 仍显式 skipped。
 
 ## Phase 3 Package Status
 
@@ -113,7 +153,13 @@ corpus/dataset/runner/report 契约，详见 [Phase 4 文档](phases/phase-4-tru
 | P3-5 — dev-40 Promotion | accepted | S0/S1 各完成 40 个固定 case |
 | P3-6 — Fingerprints And Truthful Reports | accepted | 来源可审计，真实 smoke 显式 opt-in |
 | P3-7 — Integrated Acceptance | accepted | Phase 3 门禁/复现/证据已验证；Phase 4 输入边界已冻结 |
-| Phase 4 — Trustworthy Citations | not started | 入口边界已冻结；需干净 checkpoint 与显式授权后启动 |
+| P4-1 — Citation Data Model And Versioned Fixtures | accepted | 真实 Phase 3 source binding、30 records 和严格 fixture 验证通过 |
+| P4-2 — Deterministic Rule Support | accepted | 纯离线 fail-closed 判断、稳定指纹与脱敏原因通过 |
+| P4-3 — Semantic Support Adapter | accepted | mock 语义判断、fingerprint、真实 smoke opt-in skip 通过 |
+| P4-4 — Citation Metrics And Evaluation Reports | accepted | 四项指标、离线报告、稳定 fingerprint 已验收 |
+| P4-5 — API And WebSocket Citation Delivery | accepted | API、artifact/download、非终态 events、唯一 terminal 已验收 |
+| P4-6 — React Citation Panel | accepted | 75 frontend tests、desktop/mobile browser smoke 与安全渲染已验收 |
+| P4-7 — Integrated Acceptance And Handoff | accepted | 全量门禁、复现、卫生扫描和显式 skip 已验收；clean checkpoint 已创建 |
 
 ## Active Documents
 
@@ -125,5 +171,7 @@ corpus/dataset/runner/report 契约，详见 [Phase 4 文档](phases/phase-4-tru
 - [Phase 2 验收证据](verification/phase-2-evidence.md)
 - [Phase 3 研究评测计划](superpowers/plans/2026-08-07-phase-3-research-evaluation.md)
 - [Phase 3 验收证据](verification/phase-3-evidence.md)
+- [Phase 4 信任引用计划](superpowers/plans/2026-08-08-phase-4-trustworthy-citations.md)
+- [Phase 4 验收证据](verification/phase-4-evidence.md)
 
 旧 plans、specs 和 handoffs 仅作历史记录，不是当前执行指令。

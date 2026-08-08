@@ -1,7 +1,16 @@
 import { useWorkbench } from "./workbench/useWorkbench";
 import type { ConnectionState } from "./workbench/useWorkbench";
-import { downloadUrl } from "./workbench/api";
+import {
+  CITATION_PARTITIONS_FILENAME,
+  CITATION_REPORT_FILENAME,
+  downloadUrl,
+} from "./workbench/api";
 import type {
+  CitationClaim,
+  CitationCompletedData,
+  CitationEvidence,
+  CitationPartition,
+  CitationReport,
   FileInfo,
   HealthInfo,
   RunStatus,
@@ -258,6 +267,189 @@ function ArtifactPanel(props: {
   );
 }
 
+function ClaimView(props: { claim: CitationClaim }) {
+  return (
+    <li className="citation-claim">
+      <p className="claim-text">{props.claim.claim}</p>
+      {props.claim.support !== "" ? (
+        /* Support states render as raw text so supported / unsupported /
+           unknown / skipped stay distinct. */
+        <p className="claim-support">Support: {props.claim.support}</p>
+      ) : null}
+      {props.claim.evidence.length > 0 ? (
+        <ul className="evidence">
+          {props.claim.evidence.map((evidence: CitationEvidence, index) => (
+            <li key={index} className="evidence-item">
+              <p className="evidence-snippet">{evidence.snippet}</p>
+              <p className="evidence-source">Source: {evidence.source}</p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+function PartitionView(props: { partition: CitationPartition }) {
+  const partition = props.partition;
+  return (
+    <li className="citation-partition">
+      <h4>{partition.partition_id}</h4>
+      {partition.support !== "" ? (
+        <p className="partition-support">Support: {partition.support}</p>
+      ) : null}
+      {partition.metrics === null ? (
+        <p className="metrics-empty">No metrics.</p>
+      ) : (
+        <ul className="metrics">
+          {Object.entries(partition.metrics).map(([key, value]) => (
+            <li key={key} className="metric">
+              <span className="metric-key">{key}</span>: {String(value)}
+            </li>
+          ))}
+        </ul>
+      )}
+      {partition.claims.length === 0 ? (
+        <p className="empty">No claims.</p>
+      ) : (
+        <ul className="claims">
+          {partition.claims.map((claim, index) => (
+            <ClaimView
+              key={`${partition.partition_id}:${index}`}
+              claim={claim}
+            />
+          ))}
+        </ul>
+      )}
+      {partition.limitations.length > 0 ? (
+        <ul className="partition-limitations">
+          {partition.limitations.map((limitation, index) => (
+            <li key={index}>{limitation}</li>
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
+function CitationReportView(props: { citations: CitationReport }) {
+  const citations = props.citations;
+  return (
+    <div className="citation-report">
+      <p className="report-meta">
+        Schema {citations.schema_version} · Dataset{" "}
+        {citations.provenance.dataset_id} · Corpus {citations.provenance.corpus_id}
+      </p>
+      {citations.partitions.length === 0 ? (
+        <p className="empty">No partitions in the report.</p>
+      ) : (
+        <ul className="citation-partitions">
+          {citations.partitions.map((partition) => (
+            <PartitionView key={partition.partition_id} partition={partition} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Additive P4-5 citation panel: server-validated claims, evidence snippets,
+ * support states, metrics, limitations and citation artifact download links.
+ * Everything renders as text nodes — never markup.
+ */
+function CitationPanel(props: {
+  apiBaseUrl: string;
+  threadId: string;
+  files: FileInfo[];
+  summary: CitationCompletedData | null;
+  citations: CitationReport | null;
+  citationsLoading: boolean;
+  citationsError: string | null;
+}) {
+  const citationReportFile = props.files.find(
+    (file) =>
+      file.name === CITATION_REPORT_FILENAME ||
+      file.path === CITATION_REPORT_FILENAME
+  );
+  const citationPartitionsFile = props.files.find(
+    (file) =>
+      file.name === CITATION_PARTITIONS_FILENAME ||
+      file.path === CITATION_PARTITIONS_FILENAME
+  );
+  const hasData = props.summary !== null || props.citations !== null;
+  return (
+    <section className="citation-panel" aria-labelledby="citations-heading">
+      <h2 id="citations-heading">Citations</h2>
+      {!hasData && !props.citationsLoading && props.citationsError === null ? (
+        <p className="empty">No citation results yet.</p>
+      ) : null}
+      {props.citationsLoading ? (
+        <p className="preview-loading">Loading citation results…</p>
+      ) : null}
+      {props.summary !== null ? (
+        <div className="citation-summary">
+          <p className="citation-status">Evaluation: {props.summary.status}</p>
+          <p className="citation-partitions-count">
+            Partitions evaluated: {props.summary.partition_count}
+          </p>
+          <p className="citation-fingerprint">
+            Report fingerprint: {props.summary.report_fingerprint}
+          </p>
+        </div>
+      ) : null}
+      {props.summary !== null && props.summary.limitations.length > 0 ? (
+        <div className="citation-limitations">
+          <h3>Limitations</h3>
+          <ul className="limitations-list">
+            {props.summary.limitations.map((limitation, index) => (
+              <li key={index}>{limitation}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {props.citations !== null ? (
+        <CitationReportView citations={props.citations} />
+      ) : null}
+      {props.citationsError !== null ? (
+        <p className="preview-unavailable">{props.citationsError}</p>
+      ) : null}
+      <ul className="citation-downloads">
+        {citationReportFile !== undefined ? (
+          <li>
+            <a
+              className="download download-citation-report"
+              href={downloadUrl(
+                props.apiBaseUrl,
+                props.threadId,
+                citationReportFile.path
+              )}
+              download={citationReportFile.name}
+            >
+              Download citation report
+            </a>
+          </li>
+        ) : null}
+        {citationPartitionsFile !== undefined ? (
+          <li>
+            <a
+              className="download download-citation-partitions"
+              href={downloadUrl(
+                props.apiBaseUrl,
+                props.threadId,
+                citationPartitionsFile.path
+              )}
+              download={citationPartitionsFile.name}
+            >
+              Download citation partitions
+            </a>
+          </li>
+        ) : null}
+      </ul>
+    </section>
+  );
+}
+
 function App() {
   const workbench = useWorkbench(API_BASE_URL);
   const taskActive =
@@ -305,6 +497,15 @@ function App() {
         files={workbench.files}
         markdown={workbench.markdown}
         markdownError={workbench.markdownError}
+      />
+      <CitationPanel
+        apiBaseUrl={API_BASE_URL}
+        threadId={workbench.threadId}
+        files={workbench.files}
+        summary={workbench.citationSummary}
+        citations={workbench.citations}
+        citationsLoading={workbench.citationsLoading}
+        citationsError={workbench.citationsError}
       />
     </main>
   );

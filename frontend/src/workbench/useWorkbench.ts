@@ -14,13 +14,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cancelTask,
   downloadUrl,
+  getCitations,
   health,
   listFiles,
+  parseCitationCompletedData,
   parseEvent,
   startTask,
   uploadConstraint,
 } from "./api";
 import type {
+  CitationCompletedData,
+  CitationReport,
   FileInfo,
   HealthInfo,
   RunStatus,
@@ -59,6 +63,11 @@ export interface WorkbenchState {
   /** Stable preview-unavailable message; success status is preserved. */
   markdownError: string | null;
   refreshArtifacts: () => void;
+  // P4-5 citation state — validated report, summary and stable error.
+  citationSummary: CitationCompletedData | null;
+  citations: CitationReport | null;
+  citationsLoading: boolean;
+  citationsError: string | null;
 }
 
 const SLOW_CONSUMER_MESSAGE =
@@ -67,6 +76,7 @@ const CONNECTION_LOST_MESSAGE = "Connection lost before the task finished.";
 const CONNECTION_FAILED_MESSAGE = "Event stream connection failed.";
 const UPLOAD_FAILED_MESSAGE = "Upload failed.";
 const PREVIEW_UNAVAILABLE_MESSAGE = "Preview unavailable.";
+const CITATION_UNAVAILABLE_MESSAGE = "Citation results are unavailable.";
 
 /** Create exactly one UUID per session. */
 function createThreadId(): string {
@@ -118,6 +128,11 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [markdownError, setMarkdownError] = useState<string | null>(null);
+  const [citationSummary, setCitationSummary] =
+    useState<CitationCompletedData | null>(null);
+  const [citations, setCitations] = useState<CitationReport | null>(null);
+  const [citationsLoading, setCitationsLoading] = useState<boolean>(false);
+  const [citationsError, setCitationsError] = useState<string | null>(null);
   // The accepted terminal event guard: later events stay visible but cannot
   // change the terminal status once this is set.
   const terminalRef = useRef<TutorialEvent | null>(null);
@@ -226,6 +241,36 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
       });
   }, [apiBaseUrl, threadId]);
 
+  /**
+   * Load the validated citation report for the current thread. Triggered by
+   * a `citation_completed` event with status `completed`; failures surface
+   * only a stable message and never a partial report.
+   */
+  const fetchCitations = useCallback(() => {
+    const currentThreadId = threadId;
+    const session = sessionRef.current;
+    const run = runRef.current;
+    setCitationsLoading(true);
+    setCitationsError(null);
+    getCitations(apiBaseUrl, currentThreadId)
+      .then((response) => {
+        if (sessionRef.current !== session || runRef.current !== run) return;
+        if (response.thread_id !== currentThreadId) {
+          setCitations(null);
+          setCitationsLoading(false);
+          return;
+        }
+        setCitations(response.report);
+        setCitationsLoading(false);
+      })
+      .catch((cause: unknown) => {
+        if (sessionRef.current !== session || runRef.current !== run) return;
+        setCitations(null);
+        setCitationsLoading(false);
+        setCitationsError(stableMessage(cause, CITATION_UNAVAILABLE_MESSAGE));
+      });
+  }, [apiBaseUrl, threadId]);
+
   // One WebSocket per session thread, opened before any task action. The
   // cleanup closes the old socket on reset or unmount.
   useEffect(() => {
@@ -289,6 +334,13 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
           case "task_started":
             setStatus("running");
             break;
+          case "citation_completed": {
+            const summary = parseCitationCompletedData(parsed.data);
+            if (summary === null) break;
+            setCitationSummary(summary);
+            if (summary.status === "completed") fetchCitations();
+            break;
+          }
           case "task_completed":
             terminalRef.current = parsed;
             setTerminalEvent(parsed);
@@ -302,6 +354,10 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
             setFiles([]);
             setMarkdown(null);
             setMarkdownError(null);
+            setCitationSummary(null);
+            setCitations(null);
+            setCitationsLoading(false);
+            setCitationsError(null);
             break;
           case "task_cancelled":
             terminalRef.current = parsed;
@@ -310,6 +366,10 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
             setFiles([]);
             setMarkdown(null);
             setMarkdownError(null);
+            setCitationSummary(null);
+            setCitations(null);
+            setCitationsLoading(false);
+            setCitationsError(null);
             break;
           default:
             break;
@@ -336,7 +396,7 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
         }
       }
     };
-  }, [apiBaseUrl, refreshArtifacts, threadId]);
+  }, [apiBaseUrl, fetchCitations, refreshArtifacts, threadId]);
 
   const setQuery = useCallback((value: string) => {
     setQueryState(value);
@@ -393,6 +453,10 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
     setFiles([]);
     setMarkdown(null);
     setMarkdownError(null);
+    setCitationSummary(null);
+    setCitations(null);
+    setCitationsLoading(false);
+    setCitationsError(null);
     setError(null);
     setStatus("ready");
     // Guard the in-flight POST so a second click cannot duplicate the start;
@@ -437,6 +501,10 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
     setFiles([]);
     setMarkdown(null);
     setMarkdownError(null);
+    setCitationSummary(null);
+    setCitations(null);
+    setCitationsLoading(false);
+    setCitationsError(null);
   }, []);
 
   return {
@@ -462,5 +530,9 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
     markdown,
     markdownError,
     refreshArtifacts,
+    citationSummary,
+    citations,
+    citationsLoading,
+    citationsError,
   };
 }

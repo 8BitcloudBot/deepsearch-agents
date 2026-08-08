@@ -1,4 +1,4 @@
-"""Phase 2 immutable settings."""
+"""Immutable environment settings (Phase 2 runtime + Phase 4 opt-ins)."""
 
 import os
 from collections.abc import Mapping
@@ -89,4 +89,48 @@ class Phase2Settings:
             mysql_user=_get("MYSQL_USER", "tutorial_reader"),
             mysql_password=_get("MYSQL_PASSWORD", "tutorial_reader"),
             mysql_database=_get("MYSQL_DATABASE", "research_copilot"),
+        )
+
+
+PHASE4_REAL_SEMANTIC_SMOKE_ENV = "PHASE4_REAL_SEMANTIC_SMOKE"
+
+
+@dataclass(frozen=True)
+class Phase4Settings:
+    """Phase 4 opt-in real semantic smoke configuration.
+
+    The real semantic adapter runs ONLY when ``PHASE4_REAL_SEMANTIC_SMOKE=1``.
+    Without the flag the checker returns ``skipped`` and the integration smoke
+    suite pytest-skips before touching credentials or the network.
+    """
+
+    real_semantic_smoke: bool = False
+    real_semantic_model: str = "openai:gpt-4.1-mini"
+    real_semantic_base_url: str | None = None
+    real_semantic_api_key: str | None = None
+    real_semantic_timeout_seconds: float = 30.0
+
+    @classmethod
+    def from_env(cls, environ: Mapping[str, str] | None = None) -> "Phase4Settings":
+        env = environ if environ is not None else os.environ
+
+        return cls(
+            real_semantic_smoke=env.get(PHASE4_REAL_SEMANTIC_SMOKE_ENV, "") == "1",
+            real_semantic_model=env.get(
+                "PHASE4_REAL_SEMANTIC_MODEL",
+                env.get("MODEL_NAME", "openai:gpt-4.1-mini"),
+            ),
+            real_semantic_base_url=(
+                env.get("PHASE4_REAL_SEMANTIC_BASE_URL")
+                or env.get("MODEL_BASE_URL")
+                or None
+            ),
+            real_semantic_api_key=(
+                env.get("PHASE4_REAL_SEMANTIC_API_KEY")
+                or env.get("MODEL_API_KEY")
+                or None
+            ),
+            real_semantic_timeout_seconds=float(
+                env.get("PHASE4_REAL_SEMANTIC_TIMEOUT_SECONDS", "30.0")
+            ),
         )

@@ -9,6 +9,11 @@
 import {
   EVENT_TYPES,
   TUTORIAL_EVENT_VERSION,
+  type CitationCompletedData,
+  type CitationMetrics,
+  type CitationPartition,
+  type CitationReport,
+  type CitationsResponse,
   type EventType,
   type FileListResponse,
   type HealthInfo,
@@ -24,6 +29,11 @@ const UUID_PATTERN =
 const MALFORMED_EVENT_MESSAGE = "Received a malformed event payload.";
 const UNSUPPORTED_EVENT_MESSAGE = "Received an unsupported event payload.";
 const UNSUPPORTED_VERSION_MESSAGE = "Received an unsupported event version.";
+const CITATION_UNAVAILABLE_MESSAGE = "Citation results are unavailable.";
+
+/** Server-returned relative citation artifact names (P4-5). */
+export const CITATION_REPORT_FILENAME = "citation-report.json";
+export const CITATION_PARTITIONS_FILENAME = "citation-partitions.jsonl";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -78,6 +88,152 @@ export function parseEvent(raw: string): TutorialEvent {
     data,
     timestamp,
   };
+}
+
+/**
+ * Validate the `citation_completed` event data against the exact P4-5
+ * payload. Returns null (never throws) when the shape is malformed so the
+ * caller can ignore the summary without crashing the timeline.
+ */
+export function parseCitationCompletedData(
+  data: unknown
+): CitationCompletedData | null {
+  if (!isRecord(data)) return null;
+  const { status, partition_count, report_fingerprint, limitations } = data;
+  if (status !== "completed" && status !== "failed") return null;
+  if (
+    typeof partition_count !== "number" ||
+    !Number.isInteger(partition_count) ||
+    partition_count < 0
+  ) {
+    return null;
+  }
+  if (typeof report_fingerprint !== "string" || report_fingerprint.length !== 64) {
+    return null;
+  }
+  if (
+    !Array.isArray(limitations) ||
+    !limitations.every((entry) => typeof entry === "string")
+  ) {
+    return null;
+  }
+  return { status, partition_count, report_fingerprint, limitations };
+}
+
+/**
+ * Metrics must be an object of primitive numbers/strings or null/absent.
+ * Malformed metrics throw so the whole report is rejected (never rendered).
+ */
+function parseMetrics(value: unknown): CitationMetrics | null {
+  if (value === undefined || value === null) return null;
+  if (!isRecord(value)) throw new Error(CITATION_UNAVAILABLE_MESSAGE);
+  const metrics: CitationMetrics = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry !== "number" && typeof entry !== "string") {
+      throw new Error(CITATION_UNAVAILABLE_MESSAGE);
+    }
+    metrics[key] = entry;
+  }
+  return metrics;
+}
+
+/**
+ * Validate one server partition dict. Returns null when malformed so the
+ * caller rejects the whole report instead of rendering partial data.
+ */
+function parsePartition(key: string, value: unknown): CitationPartition | null {
+  if (!isRecord(value)) return null;
+  const partition_id =
+    typeof value.partition_id === "string" ? value.partition_id : key;
+  const support = typeof value.support === "string" ? value.support : "";
+  let metrics: CitationMetrics | null;
+  try {
+    metrics = parseMetrics(value.metrics);
+  } catch {
+    return null;
+  }
+  const claims = [];
+  if (value.claims !== undefined) {
+    if (!Array.isArray(value.claims)) return null;
+    for (const entry of value.claims) {
+      if (!isRecord(entry) || typeof entry.claim !== "string") return null;
+      const claimSupport = typeof entry.support === "string" ? entry.support : "";
+      const evidence = [];
+      if (entry.evidence !== undefined) {
+        if (!Array.isArray(entry.evidence)) return null;
+        for (const item of entry.evidence) {
+          if (
+            !isRecord(item) ||
+            typeof item.snippet !== "string" ||
+            typeof item.source !== "string"
+          ) {
+            return null;
+          }
+          evidence.push({ snippet: item.snippet, source: item.source });
+        }
+      }
+      claims.push({ claim: entry.claim, support: claimSupport, evidence });
+    }
+  }
+  const limitations = Array.isArray(value.limitations)
+    ? value.limitations.filter((entry) => typeof entry === "string")
+    : [];
+  return { partition_id, support, metrics, claims, limitations };
+}
+
+/**
+ * Validate the `report` dict of `GET /api/citations` into the typed subset
+ * the citation panel renders. Returns null when malformed (including
+ * malformed metrics) so nothing partial ever reaches the UI.
+ */
+export function parseCitationsReport(report: unknown): CitationReport | null {
+  if (!isRecord(report)) return null;
+  const { schema_version, report_fingerprint, provenance, partitions } = report;
+  if (typeof schema_version !== "string" || schema_version === "") return null;
+  if (typeof report_fingerprint !== "string" || report_fingerprint === "") {
+    return null;
+  }
+  if (
+    !isRecord(provenance) ||
+    typeof provenance.dataset_id !== "string" ||
+    typeof provenance.corpus_id !== "string"
+  ) {
+    return null;
+  }
+  if (!isRecord(partitions)) return null;
+  const parsedPartitions: CitationPartition[] = [];
+  for (const [key, value] of Object.entries(partitions)) {
+    const partition = parsePartition(key, value);
+    if (partition === null) return null;
+    parsedPartitions.push(partition);
+  }
+  return {
+    schema_version,
+    report_fingerprint,
+    provenance: { dataset_id: provenance.dataset_id, corpus_id: provenance.corpus_id },
+    partitions: parsedPartitions,
+  };
+}
+
+/** `GET /api/citations?thread_id=...` — validated, current-thread only. */
+export async function getCitations(
+  baseUrl: string,
+  threadId: string
+): Promise<CitationsResponse> {
+  const body = (await requestJson(
+    baseUrl,
+    `/api/citations?thread_id=${encodeURIComponent(threadId)}`
+  )) as { thread_id?: unknown; report?: unknown };
+  if (
+    !isRecord(body) ||
+    typeof body.thread_id !== "string" ||
+    body.thread_id !== threadId
+  ) {
+    throw new Error(CITATION_UNAVAILABLE_MESSAGE);
+  }
+  const report = parseCitationsReport(body.report);
+  if (report === null) throw new Error(CITATION_UNAVAILABLE_MESSAGE);
+  return { thread_id: body.thread_id, report };
 }
 
 function normalizeBase(baseUrl: string): string {
