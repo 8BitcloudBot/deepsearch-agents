@@ -49,4 +49,14 @@
 | [8 — Approval & Governance](phases/phase-8-approval-governance.md) | 人工审批和预算治理 | 未开始 |
 | [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | 演示、复盘和简历证据 | 未开始 |
 
+## Next Development Boundary
+
+Phase 5 requires a new explicit authorization and a bounded implementation
+plan. It must compare orchestration strategies through the existing
+DeepAgents-style multi-source research workflow, rather than replace the Web,
+catalog, knowledge, uploaded-file, API/WebSocket, or Markdown/PDF delivery
+loop with an unrelated evaluation framework. Phase 4 is already a valid
+portfolio milestone, but real Provider and live-source demonstrations remain
+explicit opt-in evidence and cannot be represented by offline fixture metrics.
+
 当前唯一执行入口见 [phase-status.md](phase-status.md)。

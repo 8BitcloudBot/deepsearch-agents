@@ -7,13 +7,21 @@
 Phase 0 (`v0.0-foundation`) and Phase 1
 (`v0.0-deepagents-examples`) are accepted. Phase 2 — Tutorial Parity is
 complete: Phase 2A Demo Closure, Phase 2B Safety Hardening, and Phase 2C
-Release Evidence are accepted. Phase 3 is ready but has not started. The
-existing `v0.1-tutorial-parity` tag is not moved without explicit authorization.
+Release Evidence are accepted. Phase 3 — Research Evaluation and Phase 4 —
+Trustworthy Citations are accepted at local checkpoints; Phase 5 —
+Orchestration is not started. The published Phase 2 tag remains
+`v0.1.1-tutorial-parity`; later checkpoints are not tagged or pushed without
+explicit authorization.
 
 See [Current Phase Status](./docs/phase-status.md) for the live state,
 [Roadmap](./docs/roadmap.md) for Phase 0-9 boundaries, and the
 [Phase 2 Tutorial Parity Runbook](./docs/runbooks/phase-2-tutorial-parity.md)
 for the local mock reproduction and release verification commands.
+
+The accepted research profile preserves the original DeepAgents workflow:
+orchestrated Web, catalog, knowledge, uploaded-file and Markdown/PDF research
+delivery. Citation and evaluation evidence strengthens that workflow; it does
+not turn offline fixtures into claims about real Provider or live-source quality.
 
 ### Phase 1 Examples
 
