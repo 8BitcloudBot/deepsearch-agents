@@ -1,16 +1,17 @@
 # Phase 4 Trustworthy Citations Evidence
 
-**Result:** Phase 4 accepted at local clean checkpoint
+**Result:** Phase 4 accepted at implementation checkpoint `e817c79`; closeout pending
 
 This is a Codex-only acceptance record. It does not claim real Provider or model
 quality, create a release, or activate Phase 5.
 
 ## Git Boundary
 
-- HEAD: `8afa4cd84cdf3da4259b3570011c7d1d923fbd8e`
+- HEAD during implementation acceptance: `e817c79`
 - Branch: `main`
-- Evidence capture began on a dirty worktree. After all gates and pre-commit
-  passed, the verified Phase 4 files were committed as a local clean checkpoint.
+- Evidence capture began on the Phase 3 checkpoint and the verified Phase 4
+  implementation was committed as `e817c79`; the remaining closeout files are
+  fixed in the subsequent closeout commit.
   The untracked `.reasonix/` directory was not read or processed.
 - Phase 3 corpus, datasets, runner, reports, S0 and S1 remain read-only inputs.
 
@@ -83,5 +84,6 @@ claim a live Provider result.
 
 ## Handoff
 
-P4-1 through P4-7 are accepted at the local clean checkpoint. No tag, push,
-release, or Phase 5 action was performed by this node.
+P4-1 through P4-7 are accepted at `e817c79`. No tag, push, release, or Phase 5
+action was performed by this node. The closeout commit fixes the remaining
+versioned fixture, plan, and roadmap state for the next development boundary.
