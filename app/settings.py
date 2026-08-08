@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 VALID_RUNTIMES = frozenset({"mock", "deepagents"})
-VALID_APP_PROFILES = frozenset({"tutorial", "agent-research"})
+VALID_APP_PROFILES = frozenset({"tutorial", "agent-research", "showcase"})
 VALID_WEB_PROVIDERS = frozenset({"mock", "tavily"})
 VALID_CATALOG_PROVIDERS = frozenset({"mock", "mysql"})
 VALID_KNOWLEDGE_PROVIDERS = frozenset({"mock", "ragflow"})
@@ -80,14 +80,34 @@ class Phase2Settings:
             knowledge_provider=knowledge,
             model_name=_get("MODEL_NAME", "openai:gpt-4.1-mini"),
             model_base_url=_get("MODEL_BASE_URL") or None,
-            model_api_key=_get("MODEL_API_KEY") or None,
-            tavily_api_key=_get("TAVILY_API_KEY") or None,
+            # Credential env keys are read lazily: offline (agent-research)
+            # and showcase profiles never read any credential key, and the
+            # tutorial profile reads each key only when the feature that
+            # consumes it is explicitly enabled (real runtime/provider).
+            model_api_key=(
+                _get("MODEL_API_KEY") or None
+                if profile == "tutorial" and runtime == "deepagents"
+                else None
+            ),
+            tavily_api_key=(
+                _get("TAVILY_API_KEY") or None
+                if profile == "tutorial" and web == "tavily"
+                else None
+            ),
             ragflow_base_url=_get("RAGFLOW_BASE_URL") or None,
-            ragflow_api_key=_get("RAGFLOW_API_KEY") or None,
+            ragflow_api_key=(
+                _get("RAGFLOW_API_KEY") or None
+                if profile == "tutorial" and knowledge == "ragflow"
+                else None
+            ),
             mysql_host=_get("MYSQL_HOST", "127.0.0.1"),
             mysql_port=int(_get("MYSQL_PORT", "3307")),
             mysql_user=_get("MYSQL_USER", "tutorial_reader"),
-            mysql_password=_get("MYSQL_PASSWORD", "tutorial_reader"),
+            mysql_password=(
+                _get("MYSQL_PASSWORD", "tutorial_reader")
+                if profile == "tutorial" and catalog == "mysql"
+                else "tutorial_reader"
+            ),
             mysql_database=_get("MYSQL_DATABASE", "research_copilot"),
         )
 

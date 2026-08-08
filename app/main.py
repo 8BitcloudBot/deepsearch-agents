@@ -29,6 +29,16 @@ def create_app() -> FastAPI:
 
         runtime = AgentResearchRuntime(events)
         bundle = None
+    elif settings.app_profile == "showcase":
+        # P4.5-1: showcase is contract-only and inert. There is no live
+        # source adapter or runtime yet (P4.5-2/P4.5-3); the profile runs
+        # the same deterministic offline research runtime and must never
+        # construct providers or read credentials. The dedicated opt-in
+        # and capability surface live in app.showcase.contracts.
+        from app.research.runtime import AgentResearchRuntime
+
+        runtime = AgentResearchRuntime(events)
+        bundle = None
     else:
         bundle = build_providers(settings)
         if settings.tutorial_runtime == "deepagents":

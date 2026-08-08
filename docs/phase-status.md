@@ -2,12 +2,12 @@
 
 **Updated:** 2026-08-08
 
-**Current Phase:** Phase 4.5 — Research Showcase and Live-Source Parity（planned / ready）
+**Current Phase:** Phase 4.5 — Research Showcase and Live-Source Parity（in progress）
 
-**Current Package:** Phase 4 closeout（accepted and frozen）
-**Next Package:** P4.5-1 — Showcase Profile And Live-Source Contracts（not started；需 fresh Reasonix 节点）
+**Current Package:** P4.5-1 — Showcase Profile And Live-Source Contracts（accepted）
+**Next Package:** P4.5-2 — Multi-Source Citation Locators（not started；需 fresh Reasonix 节点）
 
-**Current development baseline:** 本次文档收口 checkpoint（parent `2e7ab06`；Phase 4 implementation `e817c79`）
+**Current development baseline:** P4.5-1 implementation（parent `1c34a2e`；本次提交）
 **Current release tag:** `v0.1.1-tutorial-parity`（peeled to `364180d`; pushed；未被本次节点移动）
 **Historical tag:** `v0.1-tutorial-parity`（peeled to `e29a80e`; unchanged）
 
@@ -151,9 +151,17 @@ Phase 4.5 将原项目的业务闭环重新置于展示主路径：DeepAgents �
 真实数据源只允许在显式 showcase opt-in 下运行；离线 fixture 指标和真实运行证据必须
 分区保存、分开表述。
 
-当前只允许从 [Phase 4.5 阶段文档](phases/phase-4-5-research-showcase.md) 和
+P4.5-1 已独立验收：新增显式 `showcase` profile、四类 live-source capability
+与 fail-closed limitation contract、live/offline evidence 分区以及有界 normalized
+source result contract；`agent-research`、`showcase` 和默认 tutorial/mock 初始化均
+不访问 credential 环境键，显式 tutorial real runtime/provider 仅惰性读取对应凭据。
+Codex fresh 验收：定向 `90 passed`、完整 unit `758 passed`、Ruff check/format 和
+`git diff --check` 全部 GREEN。未调用真实网络、Provider 或数据源，`.reasonix/`
+未读取、未处理。
+
+P4.5-2 仅可从 [Phase 4.5 阶段文档](phases/phase-4-5-research-showcase.md) 和
 [Phase 4.5 执行计划](superpowers/plans/2026-08-08-phase-4-5-research-showcase.md)
-启动 P4.5-1。Phase 5 依赖 Phase 4.5 验收，不得提前激活。
+通过新的 fresh bounded Reasonix 节点启动。Phase 5 依赖 Phase 4.5 验收，不得提前激活。
 
 ## Phase 3 Package Status
 

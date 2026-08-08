@@ -1,10 +1,19 @@
 """RED → GREEN: APP_PROFILE=agent-research settings and app wiring.
 
 Proves tutorial remains the default profile and that the offline
-agent-research profile is accepted end-to-end through app.main.
+agent-research profile is accepted end-to-end through app.main, and
+that the P4.5-1 showcase profile is inert (never constructs providers)
+regardless of its dedicated opt-in state.
 """
 
+import sys
+from pathlib import Path
+
 import pytest
+
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 def test_default_app_profile_is_tutorial():
@@ -125,3 +134,98 @@ async def test_health_reports_agent_research_profile(monkeypatch):
     assert data["tutorial_profile"] == "tutorial"
     assert data["tutorial_runtime"] == "mock"
     assert data["app_profile"] == "agent-research"
+
+
+# ── P4.5-1 showcase profile wiring ─────────────────────────────────────────
+
+
+def test_showcase_profile_accepted():
+    from app.settings import Phase2Settings
+
+    s = Phase2Settings.from_env({"APP_PROFILE": "showcase"})
+    assert s.app_profile == "showcase"
+
+
+def test_showcase_profile_keeps_mock_defaults():
+    from app.settings import Phase2Settings
+
+    s = Phase2Settings.from_env({"APP_PROFILE": "showcase"})
+    assert s.tutorial_runtime == "mock"
+    assert s.web_provider == "mock"
+    assert s.catalog_provider == "mock"
+    assert s.knowledge_provider == "mock"
+
+
+def test_showcase_profile_never_builds_providers_with_opt_in(monkeypatch):
+    """Showcase is inert in P4.5-1: even with its opt-in exactly enabled
+    and every source declared, it must never construct providers."""
+    monkeypatch.setenv("APP_PROFILE", "showcase")
+    monkeypatch.setenv("SHOWCASE_ENABLED", "1")
+    monkeypatch.setenv("SHOWCASE_SOURCES", "web,mysql,ragflow,uploaded-file")
+
+    calls: list = []
+
+    def spy(settings):
+        calls.append(settings)
+        raise AssertionError("build_providers must not run for showcase")
+
+    monkeypatch.setattr("app.main.build_providers", spy)
+    from app.main import create_app
+
+    app = create_app()
+    assert calls == []
+    assert app.title == "research-copilot-api"
+
+
+def test_showcase_profile_inert_without_opt_in(monkeypatch):
+    """Showcase without its dedicated opt-in stays inert and still starts
+    deterministically."""
+    monkeypatch.setenv("APP_PROFILE", "showcase")
+    monkeypatch.delenv("SHOWCASE_ENABLED", raising=False)
+    monkeypatch.delenv("SHOWCASE_SOURCES", raising=False)
+
+    calls: list = []
+
+    def spy(settings):
+        calls.append(settings)
+        raise AssertionError("build_providers must not run for showcase")
+
+    monkeypatch.setattr("app.main.build_providers", spy)
+    from app.main import create_app
+
+    app = create_app()
+    assert calls == []
+    assert app.title == "research-copilot-api"
+
+
+def test_showcase_profile_starts_with_residual_provider_env(monkeypatch):
+    """Showcase never reads Phase 2 real-provider credentials; residual
+    env vars without credentials must not break startup."""
+    monkeypatch.setenv("APP_PROFILE", "showcase")
+    monkeypatch.setenv("WEB_PROVIDER", "tavily")
+    monkeypatch.setenv("CATALOG_PROVIDER", "mysql")
+    monkeypatch.setenv("KNOWLEDGE_PROVIDER", "ragflow")
+    for key in ("TAVILY_API_KEY", "RAGFLOW_API_KEY", "RAGFLOW_BASE_URL"):
+        monkeypatch.delenv(key, raising=False)
+
+    from app.main import create_app
+
+    app = create_app()
+    assert app.title == "research-copilot-api"
+
+
+@pytest.mark.asyncio
+async def test_health_reports_showcase_profile(monkeypatch):
+    monkeypatch.setenv("APP_PROFILE", "showcase")
+    monkeypatch.setenv("SHOWCASE_ENABLED", "1")
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import create_app
+
+    transport = ASGITransport(app=create_app())
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        data = (await client.get("/health")).json()
+
+    assert data["status"] == "ok"
+    assert data["phase"] == "2"
+    assert data["app_profile"] == "showcase"

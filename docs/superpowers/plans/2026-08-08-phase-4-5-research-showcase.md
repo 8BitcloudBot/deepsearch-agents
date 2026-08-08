@@ -1,6 +1,6 @@
 # Phase 4.5 Research Showcase Implementation Plan
 
-**Status:** Planned / ready. No package is active.
+**Status:** P4.5-1 accepted; P4.5-2 ready but not started.
 
 **Goal:** Deliver one portfolio-quality DeepAgents research workflow that uses
 real source adapters when explicitly enabled, preserves deterministic offline
@@ -39,6 +39,11 @@ P4.5-1 Showcase profile + contracts
 ```
 
 ## P4.5-1 — Showcase Profile And Live-Source Contracts
+
+**Status:** Accepted on 2026-08-08. Codex verification: targeted unit tests
+`90 passed`; full unit suite `758 passed`; Ruff check/format and
+`git diff --check` passed. No real network, Provider, source or credential
+access occurred; tutorial/default offline behavior remains compatible.
 
 Define profile selection, capability checks, execution/evidence partitioning
 and normalized live-source result contracts. Add tests proving the default
