@@ -1,7 +1,9 @@
 # Phase 9 — Portfolio Release
 
 **Status:** Not started
-**Entry Gate:** Phase 8 accepted
+**Entry Gate:** Phase 6 accepted for portfolio-core claims. Phase 7/8 are
+required only when the release claims production persistence, recovery,
+approval, or governance.
 
 ## Goal
 

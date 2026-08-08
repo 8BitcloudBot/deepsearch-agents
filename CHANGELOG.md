@@ -9,6 +9,11 @@ versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 No unreleased implementation changes.
 
+### Documentation
+
+- Freeze the accepted Phase 4 boundary and define Phase 4.5 as the canonical
+  live-source research showcase stage before Phase 5 orchestration work.
+
 ## [v0.0-deepagents-examples] - 2026-07-28
 
 ### Added

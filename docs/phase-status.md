@@ -2,12 +2,12 @@
 
 **Updated:** 2026-08-08
 
-**Current Phase:** Phase 4 — Trustworthy Citations（accepted）
+**Current Phase:** Phase 4.5 — Research Showcase and Live-Source Parity（planned / ready）
 
-**Current Package:** P4-7 — Integrated Acceptance And Handoff（accepted）
-**Next Package:** Phase 5 — Orchestration（not started；需后续明确授权）
+**Current Package:** Phase 4 closeout（accepted and frozen）
+**Next Package:** P4.5-1 — Showcase Profile And Live-Source Contracts（not started；需 fresh Reasonix 节点）
 
-**Current accepted / release HEAD:** `acf7c46` Phase 4 closeout checkpoint（Phase 2 release tag `v0.1.1-tutorial-parity` 仍指向 `364180d`）
+**Current development baseline:** 本次文档收口 checkpoint（parent `2e7ab06`；Phase 4 implementation `e817c79`）
 **Current release tag:** `v0.1.1-tutorial-parity`（peeled to `364180d`; pushed；未被本次节点移动）
 **Historical tag:** `v0.1-tutorial-parity`（peeled to `e29a80e`; unchanged）
 
@@ -100,9 +100,8 @@ ruff check/format 与 `git diff --check`）；seed-10/dev-40 S0/S1 离线报告�
 Phase 3 验收证据最初运行于 `364180d` 的 dirty worktree，并如实记录
 `git_dirty=true`；随后已在复核门禁通过后创建 clean checkpoint
 `8afa4cd84cdf3da4259b3570011c7d1d923fbd8e`。Phase 4 的入口边界冻结为 Phase 3
-corpus/dataset/runner/report 契约，当前已进入 planned / ready，等待计划审核与
-fresh Reasonix 节点授权，详见 [Phase 4 文档](phases/phase-4-trustworthy-citations.md)
-及 [Phase 4 计划](superpowers/plans/2026-08-08-phase-4-trustworthy-citations.md)。
+corpus/dataset/runner/report 契约；Phase 4 现已完成并冻结，历史计划不再是当前
+执行入口。
 
 P4-1 已独立验收：严格、JSON-serializable 的 `Claim`、`EvidenceItem` 与
 `CitationRecord` 契约以及不可变的 30-record `seed-10` fixture 均绑定到三个
@@ -138,10 +137,23 @@ pre-commit 和 `git diff --check` 全部 GREEN。seed-10 离线 citation report 
 `90716fdce9e607b707bec381fa988c4af770aa60618094b627b47985c0c78dae`，report
 fingerprint 均为 `715e8ce32f371079d3f39c41dd293511638555cdc47b0cff3b2d1118a5a995aa`。
 P4-7 证据已写入 [Phase 4 验收证据](verification/phase-4-evidence.md)。当前
-Phase 4 implementation checkpoint `e817c79` 已通过独立门禁；本次 `acf7c46`
-closeout 将剩余 versioned citation fixtures、实施计划和 roadmap 状态一并固定为新的后续
-开发起点。没有创建 tag、push 或 release，且 Phase 5 仍未启动。`.reasonix/` 未读取、未处理。真实
+Phase 4 implementation checkpoint `e817c79` 已通过独立门禁；`acf7c46`
+closeout 将剩余 versioned citation fixtures、实施计划和 roadmap 状态固定，后续文档提交
+进一步确立 Phase 4.5 为唯一开发入口。没有创建 tag、push 或 release，且 Phase 4.5 / Phase 5
+均未实施。`.reasonix/` 未读取、未处理。真实
 Provider/model smoke 仍显式 skipped。
+
+## Next Development Boundary
+
+Phase 4.5 将原项目的业务闭环重新置于展示主路径：DeepAgents 主 Agent / 专家 worker
+编排 Tavily Web、MySQL、RAGFlow 与上传文件，引用必须回链到真实 source locator，
+并通过现有 API、WebSocket、React 工作台和 Markdown/PDF 产物交付。真实 Provider 与
+真实数据源只允许在显式 showcase opt-in 下运行；离线 fixture 指标和真实运行证据必须
+分区保存、分开表述。
+
+当前只允许从 [Phase 4.5 阶段文档](phases/phase-4-5-research-showcase.md) 和
+[Phase 4.5 执行计划](superpowers/plans/2026-08-08-phase-4-5-research-showcase.md)
+启动 P4.5-1。Phase 5 依赖 Phase 4.5 验收，不得提前激活。
 
 ## Phase 3 Package Status
 
@@ -174,5 +186,8 @@ Provider/model smoke 仍显式 skipped。
 - [Phase 3 验收证据](verification/phase-3-evidence.md)
 - [Phase 4 信任引用计划](superpowers/plans/2026-08-08-phase-4-trustworthy-citations.md)
 - [Phase 4 验收证据](verification/phase-4-evidence.md)
+- [Phase 4.5 展示与真实数据源阶段](phases/phase-4-5-research-showcase.md)
+- [Phase 4.5 设计说明](superpowers/specs/2026-08-08-phase-4-5-research-showcase-design.md)
+- [Phase 4.5 执行计划](superpowers/plans/2026-08-08-phase-4-5-research-showcase.md)
 
 旧 plans、specs 和 handoffs 仅作历史记录，不是当前执行指令。

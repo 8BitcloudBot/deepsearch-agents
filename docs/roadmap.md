@@ -30,7 +30,7 @@
 | `v0.0-foundation` | Phase 0 | 可安装、测试和构建的工程基础 |
 | `v0.0-deepagents-examples` | Phase 1 | DeepAgents 核心能力示例 |
 | `v0.1.1-tutorial-parity` | Phase 2 | 教程后端与 React 工作台闭环（accepted at `364180d`） |
-| `v0.2-portfolio-core` | Phase 3-6 | 研究领域、评测、引用、编排和观测 |
+| `v0.2-portfolio-core` | Phase 3-6 | 研究评测、可信引用、真实多源展示、编排和观测 |
 | `v0.3-reliable-runtime` | Phase 7-8 | 持久化、恢复、审批和成本治理 |
 | `v1.0-portfolio` | Phase 9 | 可公开展示的作品集版本 |
 
@@ -43,6 +43,7 @@
 | [2 — Tutorial Parity](phases/phase-2-tutorial-parity.md) | Web、数据、知识、文件、API、WS、React 闭环 | 已验收（`v0.1.1-tutorial-parity`） |
 | [3 — Research Evaluation](phases/phase-3-research-evaluation.md) | AI Agent 研究领域与评测基线 | 已验收（P3-1–P3-7；clean checkpoint `8afa4cd`，[证据](verification/phase-3-evidence.md)） |
 | [4 — Trustworthy Citations](phases/phase-4-trustworthy-citations.md) | 声明、证据和引用可信度 | 已验收（P4-1–P4-7；checkpoint `acf7c46`，[证据](verification/phase-4-evidence.md)） |
+| [4.5 — Research Showcase](phases/phase-4-5-research-showcase.md) | 真实多源研究、引用回链与报告展示 | 已规划，未实施 |
 | [5 — Orchestration](phases/phase-5-orchestration.md) | 编排策略对照与消融 | 未开始 |
 | [6 — Observability](phases/phase-6-observability.md) | 版本化事件、trace、指标 | 未开始 |
 | [7 — Persistence & Recovery](phases/phase-7-persistence-recovery.md) | 持久化、重试和恢复 | 未开始 |
@@ -51,12 +52,17 @@
 
 ## Next Development Boundary
 
-Phase 5 requires a new explicit authorization and a bounded implementation
-plan. It must compare orchestration strategies through the existing
-DeepAgents-style multi-source research workflow, rather than replace the Web,
-catalog, knowledge, uploaded-file, API/WebSocket, or Markdown/PDF delivery
-loop with an unrelated evaluation framework. Phase 4 is already a valid
-portfolio milestone, but real Provider and live-source demonstrations remain
-explicit opt-in evidence and cannot be represented by offline fixture metrics.
+Phase 4.5 is the only next development stage. It restores the original
+DeepAgents business emphasis by connecting Tavily Web, MySQL, RAGFlow and
+uploaded files to source locators, citation-rich reports, API/WebSocket
+delivery and the React workbench. Real Provider and live-source execution is
+explicit opt-in and its evidence is kept separate from offline fixture metrics.
+
+Phase 5 requires accepted Phase 4.5 evidence and a new bounded authorization.
+It compares orchestration strategies through that same multi-source research
+workflow; it must not replace the product with an unrelated evaluation
+framework. Phase 6 completes the portfolio-core observability boundary. A
+portfolio milestone may then be prepared; Phase 7/8 are required only for
+production-level persistence, recovery, approval or governance claims.
 
 当前唯一执行入口见 [phase-status.md](phase-status.md)。

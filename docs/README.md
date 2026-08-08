@@ -13,6 +13,10 @@ Agent 应按以下顺序读取：
 保留为历史设计、旧执行计划和交接记录。除非
 [当前阶段状态](phase-status.md) 明确链接其中某份文件，否则它们不是现行实施指令。
 
+当前唯一可执行计划是
+[Phase 4.5 Research Showcase](superpowers/plans/2026-08-08-phase-4-5-research-showcase.md)；
+Phase 4 及更早计划均已冻结为历史证据，Phase 5 尚未激活。
+
 ## 文档维护规则
 
 - `phase-status.md` 只记录当前事实，不累计完整历史。

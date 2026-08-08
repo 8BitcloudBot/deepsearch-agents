@@ -1,6 +1,6 @@
 # Phase 4 — Trustworthy Citations
 
-**Status:** Accepted at local clean checkpoint (Phase 5 not started)
+**Status:** Accepted and frozen (Phase 4.5 planned; Phase 5 not started)
 **Entry Gate:** the frozen Phase 3 corpus/dataset/runner/report contract
 (below), plus the clean Phase 3 checkpoint
 `8afa4cd84cdf3da4259b3570011c7d1d923fbd8e`. Activation requires explicit
@@ -50,7 +50,8 @@ implementation; it must not modify them or product code.
 P4-7 fresh acceptance 已在 Phase 4 implementation checkpoint `e817c79`
 独立完成，详见 [Phase 4 验收证据](../verification/phase-4-evidence.md)。实现
 文件保持冻结；`acf7c46` closeout 已将 fixtures、计划和 roadmap 状态固定为后续开发
-起点。未创建 release tag，Phase 5 仍未启动。
+起点。未创建 release tag。后续唯一入口为
+[Phase 4.5](phase-4-5-research-showcase.md)，Phase 5 仍未启动。
 
 ## Planned Package Order
 

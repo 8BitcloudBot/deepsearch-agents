@@ -9,7 +9,10 @@ Phase 0 (`v0.0-foundation`) and Phase 1
 complete: Phase 2A Demo Closure, Phase 2B Safety Hardening, and Phase 2C
 Release Evidence are accepted. Phase 3 — Research Evaluation and Phase 4 —
 Trustworthy Citations are accepted at local checkpoints; Phase 5 —
-Orchestration is not started. The published Phase 2 tag remains
+Orchestration is not started. The next stage is Phase 4.5 — Research Showcase
+and Live-Source Parity, which reconnects the accepted citation layer to the
+original DeepAgents multi-source workflow and portfolio-facing delivery. The
+published Phase 2 tag remains
 `v0.1.1-tutorial-parity`; later checkpoints are not tagged or pushed without
 explicit authorization.
 
@@ -22,6 +25,8 @@ The accepted research profile preserves the original DeepAgents workflow:
 orchestrated Web, catalog, knowledge, uploaded-file and Markdown/PDF research
 delivery. Citation and evaluation evidence strengthens that workflow; it does
 not turn offline fixtures into claims about real Provider or live-source quality.
+The executable next-stage boundary is documented in
+[Phase 4.5](./docs/phases/phase-4-5-research-showcase.md).
 
 ### Phase 1 Examples
 
