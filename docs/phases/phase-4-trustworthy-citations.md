@@ -49,7 +49,7 @@ implementation; it must not modify them or product code.
 
 P4-7 fresh acceptance 已在 Phase 4 implementation checkpoint `e817c79`
 独立完成，详见 [Phase 4 验收证据](../verification/phase-4-evidence.md)。实现
-文件保持冻结；本次 closeout 将 fixtures、计划和 roadmap 状态固定为后续开发
+文件保持冻结；`acf7c46` closeout 已将 fixtures、计划和 roadmap 状态固定为后续开发
 起点。未创建 release tag，Phase 5 仍未启动。
 
 ## Planned Package Order

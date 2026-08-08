@@ -1,8 +1,7 @@
 # Phase 4 Trustworthy Citations Implementation Plan
 
-**Status:** P4-1 through P4-7 accepted at implementation checkpoint `e817c79`;
-the subsequent closeout commit freezes the remaining fixtures and planning
-metadata. Phase 5 is not started.
+**Status:** P4-1 through P4-7 accepted and frozen at closeout checkpoint
+`acf7c46` (implementation checkpoint `e817c79`). Phase 5 is not started.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > `superpowers:subagent-driven-development` (recommended) or
@@ -308,8 +307,7 @@ P4-1 Citation Data Model + Fixtures
    citation events, metrics, Markdown/PDF citation artifacts, API retrieval,
    and browser rendering with exactly one terminal event.
 9. **Definition of done.** Phase 4 evidence is independently reproducible,
-   canonical status says accepted at `e817c79`, the closeout files are committed
-   as the next development boundary, and Phase 5 remains not started.
+   canonical status says accepted at `acf7c46`, and Phase 5 remains not started.
 10. **Bounded Reasonix node.** This is a Codex-only acceptance/documentation
     node; do not launch Reasonix, modify implementation, commit, tag, push,
     release, or read/process `.reasonix/`.

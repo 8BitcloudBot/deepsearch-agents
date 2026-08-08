@@ -1,17 +1,17 @@
 # Phase 4 Trustworthy Citations Evidence
 
-**Result:** Phase 4 accepted at implementation checkpoint `e817c79`; closeout pending
+**Result:** Phase 4 accepted at closeout checkpoint `acf7c46`
 
 This is a Codex-only acceptance record. It does not claim real Provider or model
 quality, create a release, or activate Phase 5.
 
 ## Git Boundary
 
-- HEAD during implementation acceptance: `e817c79`
+- Implementation acceptance HEAD: `e817c79`
 - Branch: `main`
-- Evidence capture began on the Phase 3 checkpoint and the verified Phase 4
-  implementation was committed as `e817c79`; the remaining closeout files are
-  fixed in the subsequent closeout commit.
+- Evidence capture began on the Phase 3 checkpoint; the verified Phase 4
+  implementation was committed as `e817c79`, and the remaining fixtures,
+  plan, roadmap and baseline state were fixed in closeout `acf7c46`.
   The untracked `.reasonix/` directory was not read or processed.
 - Phase 3 corpus, datasets, runner, reports, S0 and S1 remain read-only inputs.
 
@@ -84,6 +84,5 @@ claim a live Provider result.
 
 ## Handoff
 
-P4-1 through P4-7 are accepted at `e817c79`. No tag, push, release, or Phase 5
-action was performed by this node. The closeout commit fixes the remaining
-versioned fixture, plan, and roadmap state for the next development boundary.
+P4-1 through P4-7 are accepted and frozen at closeout `acf7c46`. No tag, push,
+release, or Phase 5 action was performed by this node.

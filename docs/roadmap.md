@@ -42,7 +42,7 @@
 | [1 — Capability Examples](phases/phase-1-capability-examples.md) | DeepAgents 最小能力示例 | 已验收 |
 | [2 — Tutorial Parity](phases/phase-2-tutorial-parity.md) | Web、数据、知识、文件、API、WS、React 闭环 | 已验收（`v0.1.1-tutorial-parity`） |
 | [3 — Research Evaluation](phases/phase-3-research-evaluation.md) | AI Agent 研究领域与评测基线 | 已验收（P3-1–P3-7；clean checkpoint `8afa4cd`，[证据](verification/phase-3-evidence.md)） |
-| [4 — Trustworthy Citations](phases/phase-4-trustworthy-citations.md) | 声明、证据和引用可信度 | 已验收（P4-1–P4-7；checkpoint `e817c79`，[证据](verification/phase-4-evidence.md)） |
+| [4 — Trustworthy Citations](phases/phase-4-trustworthy-citations.md) | 声明、证据和引用可信度 | 已验收（P4-1–P4-7；checkpoint `acf7c46`，[证据](verification/phase-4-evidence.md)） |
 | [5 — Orchestration](phases/phase-5-orchestration.md) | 编排策略对照与消融 | 未开始 |
 | [6 — Observability](phases/phase-6-observability.md) | 版本化事件、trace、指标 | 未开始 |
 | [7 — Persistence & Recovery](phases/phase-7-persistence-recovery.md) | 持久化、重试和恢复 | 未开始 |

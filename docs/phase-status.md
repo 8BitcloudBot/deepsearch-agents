@@ -7,7 +7,7 @@
 **Current Package:** P4-7 — Integrated Acceptance And Handoff（accepted）
 **Next Package:** Phase 5 — Orchestration（not started；需后续明确授权）
 
-**Current accepted / release HEAD:** `e817c79` Phase 4 implementation checkpoint；本次文档与 fixture closeout commit 为其后继节点（Phase 2 release tag `v0.1.1-tutorial-parity` 仍指向 `364180d`）
+**Current accepted / release HEAD:** `acf7c46` Phase 4 closeout checkpoint（Phase 2 release tag `v0.1.1-tutorial-parity` 仍指向 `364180d`）
 **Current release tag:** `v0.1.1-tutorial-parity`（peeled to `364180d`; pushed；未被本次节点移动）
 **Historical tag:** `v0.1-tutorial-parity`（peeled to `e29a80e`; unchanged）
 
@@ -138,8 +138,8 @@ pre-commit 和 `git diff --check` 全部 GREEN。seed-10 离线 citation report 
 `90716fdce9e607b707bec381fa988c4af770aa60618094b627b47985c0c78dae`，report
 fingerprint 均为 `715e8ce32f371079d3f39c41dd293511638555cdc47b0cff3b2d1118a5a995aa`。
 P4-7 证据已写入 [Phase 4 验收证据](verification/phase-4-evidence.md)。当前
-Phase 4 implementation checkpoint `e817c79` 已通过独立门禁；本次 closeout 将
-剩余 versioned citation fixtures、实施计划和 roadmap 状态一并固定为新的后续
+Phase 4 implementation checkpoint `e817c79` 已通过独立门禁；本次 `acf7c46`
+closeout 将剩余 versioned citation fixtures、实施计划和 roadmap 状态一并固定为新的后续
 开发起点。没有创建 tag、push 或 release，且 Phase 5 仍未启动。`.reasonix/` 未读取、未处理。真实
 Provider/model smoke 仍显式 skipped。
 
