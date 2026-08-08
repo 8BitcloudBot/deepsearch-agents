@@ -4,11 +4,24 @@ import pytest
 
 
 class TestProviderEnumValidation:
-    def test_app_profile_only_tutorial(self):
+    def test_app_profile_accepts_tutorial_and_agent_research(self):
         from app.settings import Phase2Settings
 
-        with pytest.raises(ValueError):
-            Phase2Settings.from_env({"APP_PROFILE": "agent-research"})
+        assert (
+            Phase2Settings.from_env({"APP_PROFILE": "tutorial"}).app_profile
+            == "tutorial"
+        )
+        assert (
+            Phase2Settings.from_env({"APP_PROFILE": "agent-research"}).app_profile
+            == "agent-research"
+        )
+
+    def test_app_profile_rejects_other_profiles(self):
+        from app.settings import Phase2Settings
+
+        for bad in ("unknown", "", "research", "tutorials", "Agent-Research"):
+            with pytest.raises(ValueError):
+                Phase2Settings.from_env({"APP_PROFILE": bad})
 
 
 class TestExecuteReadonlyLimits:

@@ -65,24 +65,29 @@ def create_app(
     events = events or InMemoryEventBus()
 
     if runtime is None:
-        from app.agent.runtime import MockTutorialRuntime
+        if settings.app_profile == "agent-research":
+            from app.research.runtime import AgentResearchRuntime
 
-        if bundle is None:
-            from app.providers.mock import (
-                MockCatalogProvider,
-                MockKnowledgeProvider,
-                MockWebProvider,
-            )
+            runtime = AgentResearchRuntime(events)
+        else:
+            from app.agent.runtime import MockTutorialRuntime
 
-            bundle = ProviderBundle(
-                web=MockWebProvider(),
-                catalog=MockCatalogProvider(),
-                knowledge=MockKnowledgeProvider(),
-                web_mode="mock",
-                catalog_mode="mock",
-                knowledge_mode="mock",
-            )
-        runtime = MockTutorialRuntime(bundle, events)
+            if bundle is None:
+                from app.providers.mock import (
+                    MockCatalogProvider,
+                    MockKnowledgeProvider,
+                    MockWebProvider,
+                )
+
+                bundle = ProviderBundle(
+                    web=MockWebProvider(),
+                    catalog=MockCatalogProvider(),
+                    knowledge=MockKnowledgeProvider(),
+                    web_mode="mock",
+                    catalog_mode="mock",
+                    knowledge_mode="mock",
+                )
+            runtime = MockTutorialRuntime(bundle, events)
 
     registry = TaskRegistry(
         runtime=runtime,
@@ -104,6 +109,7 @@ def create_app(
             "phase": "2",
             "tutorial_profile": "tutorial",
             "tutorial_runtime": settings.tutorial_runtime,
+            "app_profile": settings.app_profile,
             "web_provider": wm,
             "catalog_provider": cm,
             "knowledge_provider": km,

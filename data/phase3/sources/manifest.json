@@ -1,0 +1,34 @@
+{
+  "corpus_id": "agent-research-corpus-v1",
+  "schema_version": 1,
+  "captured_at": "2026-08-07",
+  "sources": [
+    {
+      "source_id": "web-agent-frameworks-v1",
+      "kind": "web_snapshot",
+      "title": "AI Agent Framework Landscape Overview",
+      "origin": "https://docs.deepagents.ai/ (captured snapshot)",
+      "captured_at": "2026-08-07",
+      "path": "web/agent-frameworks.json",
+      "content_sha256": "794bed8459aca36698d8fe6bb2b749c0ff003d0e36ff629cbae51536f314ddeb"
+    },
+    {
+      "source_id": "catalog-frameworks-v1",
+      "kind": "catalog",
+      "title": "Research Copilot Framework Catalog",
+      "origin": "internal curated catalog (phase-3)",
+      "captured_at": "2026-08-07",
+      "path": "catalog/frameworks.json",
+      "content_sha256": "aa8005363b8a0dd8e9e118797fca644ac7745edf7456864c7261557dfac7bbcb"
+    },
+    {
+      "source_id": "knowledge-evaluation-notes-v1",
+      "kind": "knowledge",
+      "title": "Evaluation Notes: Agent Research Baselines",
+      "origin": "curated internal evaluation notes",
+      "captured_at": "2026-08-07",
+      "path": "knowledge/evaluation-notes.md",
+      "content_sha256": "fea0ad2368c20d6c1e9e8f1e02759d13b0598d001448d70c991e60626690d6c6"
+    }
+  ]
+}

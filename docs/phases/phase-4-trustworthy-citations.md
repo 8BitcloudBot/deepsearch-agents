@@ -1,7 +1,34 @@
 # Phase 4 — Trustworthy Citations
 
-**Status:** Not started
-**Entry Gate:** Phase 3 fixed dataset and evaluation runner
+**Status:** Not started (planned; no Phase 4 implementation exists)
+**Entry Gate:** the frozen Phase 3 corpus/dataset/runner/report contract
+(below), plus a clean checkpoint of the accepted Phase 3 worktree. Activation
+requires later explicit user authorization — Phase 4 must not start from the
+current dirty worktree (`git_commit=364180d`, `git_dirty=true`).
+
+## Frozen Phase 3 Inputs (handoff boundary)
+
+Phase 4 consumes exactly these contracts and adds claim/evidence/citation
+implementation; it must not modify them or product code.
+
+- **Corpus:** `agent-research-corpus-v1`
+  (`corpus_sha256=3d0e034c0155e4d3190155137a0d312e4c156f80fb2be89215b4b2daaef788d7`).
+- **Datasets:** `seed-10-v1` (10 cases `seed-001…seed-010`, `file_sha256=a902aba4…e8cf1055`)
+  and `dev-40-v1` (40 cases `dev-001…dev-040`, `file_sha256=2a1aab55…34223f`),
+  both bound by the strict `data/phase3/datasets/manifest.json` registry.
+- **Runner / report contract:** `EvaluationCase`, `StrategyOutput`,
+  `CaseResult`, `RunManifest`, `EvaluationReport`; runner `1.0.0`,
+  `execution_mode=offline`, `model_id=mock:deterministic`; 17-field manifest
+  with canonical run/input fingerprints and the dirty-worktree marker; report
+  files `manifest.json` / `cases.jsonl` / `summary.md` / `comparison.md`.
+- **Baselines:** S0 `s0-single-agent` and S1 `s1-orchestrator-workers`
+  (prompt/config hashes and aggregates recorded in
+  [`verification/phase-3-evidence.md`](../verification/phase-3-evidence.md)).
+- **Offline / real separation:** mock results and real Provider results are
+  separate execution modes and are never combined into one quality claim.
+- **Dirty-worktree caveat:** Phase 3 acceptance evidence was produced on a
+  dirty worktree at `364180d` (`git_dirty=true`). Phase 4 starts only after a
+  clean checkpoint commit is explicitly authorized and made.
 
 ## Goal
 

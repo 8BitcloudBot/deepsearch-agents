@@ -19,25 +19,35 @@ def create_app() -> FastAPI:
 
     settings = Phase2Settings.from_env()
     events = InMemoryEventBus()
-    bundle = build_providers(settings)
 
-    if settings.tutorial_runtime == "deepagents":
-        # Real runtime requires a model
-        from langchain_openai import ChatOpenAI
+    if settings.app_profile == "agent-research":
+        # Offline deterministic research runtime — versioned corpus only,
+        # no model, no Provider network. build_providers is never called,
+        # so residual Phase 2 real-provider env vars without credentials
+        # must not fail app startup.
+        from app.research.runtime import AgentResearchRuntime
 
-        if not settings.model_api_key:
-            raise RuntimeError("MODEL_API_KEY required for deepagents runtime")
-        model = ChatOpenAI(
-            model=settings.model_name,
-            api_key=settings.model_api_key,
-            base_url=settings.model_base_url,
-        )
-        graph = create_tutorial_agent(model, bundle, events, lambda tid: None)
-        from app.agent.runtime import DeepAgentsTutorialRuntime
-
-        runtime = DeepAgentsTutorialRuntime(graph, bundle, events)
+        runtime = AgentResearchRuntime(events)
+        bundle = None
     else:
-        runtime = MockTutorialRuntime(bundle, events)
+        bundle = build_providers(settings)
+        if settings.tutorial_runtime == "deepagents":
+            # Real runtime requires a model
+            from langchain_openai import ChatOpenAI
+
+            if not settings.model_api_key:
+                raise RuntimeError("MODEL_API_KEY required for deepagents runtime")
+            model = ChatOpenAI(
+                model=settings.model_name,
+                api_key=settings.model_api_key,
+                base_url=settings.model_base_url,
+            )
+            graph = create_tutorial_agent(model, bundle, events, lambda tid: None)
+            from app.agent.runtime import DeepAgentsTutorialRuntime
+
+            runtime = DeepAgentsTutorialRuntime(graph, bundle, events)
+        else:
+            runtime = MockTutorialRuntime(bundle, events)
 
     return create_server(
         settings=settings, bundle=bundle, runtime=runtime, events=events

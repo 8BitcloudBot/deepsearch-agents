@@ -1,0 +1,20 @@
+{
+  "datasets": [
+    {
+      "dataset_id": "seed-10-v1",
+      "schema_version": 1,
+      "corpus_id": "agent-research-corpus-v1",
+      "case_count": 10,
+      "file": "seed-10.jsonl",
+      "file_sha256": "a902aba483f89285b02792369963ce5edb35f3460abfdcc1b7f712b0e8cf1055"
+    },
+    {
+      "dataset_id": "dev-40-v1",
+      "schema_version": 1,
+      "corpus_id": "agent-research-corpus-v1",
+      "case_count": 40,
+      "file": "dev-40.jsonl",
+      "file_sha256": "2a1aab55016a1fdb7f9fa56c2fc309d351f113f9d8f68951f1ca2eeebf34223f"
+    }
+  ]
+}

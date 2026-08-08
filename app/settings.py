@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 VALID_RUNTIMES = frozenset({"mock", "deepagents"})
-VALID_APP_PROFILES = frozenset({"tutorial"})
+VALID_APP_PROFILES = frozenset({"tutorial", "agent-research"})
 VALID_WEB_PROVIDERS = frozenset({"mock", "tavily"})
 VALID_CATALOG_PROVIDERS = frozenset({"mock", "mysql"})
 VALID_KNOWLEDGE_PROVIDERS = frozenset({"mock", "ragflow"})

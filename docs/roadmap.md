@@ -29,7 +29,7 @@
 |---|---|---|
 | `v0.0-foundation` | Phase 0 | 可安装、测试和构建的工程基础 |
 | `v0.0-deepagents-examples` | Phase 1 | DeepAgents 核心能力示例 |
-| `v0.1-tutorial-parity` | Phase 2 | 教程后端与 React 工作台闭环 |
+| `v0.1.1-tutorial-parity` | Phase 2 | 教程后端与 React 工作台闭环（accepted at `364180d`） |
 | `v0.2-portfolio-core` | Phase 3-6 | 研究领域、评测、引用、编排和观测 |
 | `v0.3-reliable-runtime` | Phase 7-8 | 持久化、恢复、审批和成本治理 |
 | `v1.0-portfolio` | Phase 9 | 可公开展示的作品集版本 |
@@ -40,9 +40,9 @@
 |---|---|---|
 | [0 — Foundation](phases/phase-0-foundation.md) | 工程基础与执行纪律 | 已验收 |
 | [1 — Capability Examples](phases/phase-1-capability-examples.md) | DeepAgents 最小能力示例 | 已验收 |
-| [2 — Tutorial Parity](phases/phase-2-tutorial-parity.md) | Web、数据、知识、文件、API、WS、React 闭环 | 进行中 |
-| [3 — Research Evaluation](phases/phase-3-research-evaluation.md) | AI Agent 研究领域与评测基线 | 未开始 |
-| [4 — Trustworthy Citations](phases/phase-4-trustworthy-citations.md) | 声明、证据和引用可信度 | 未开始 |
+| [2 — Tutorial Parity](phases/phase-2-tutorial-parity.md) | Web、数据、知识、文件、API、WS、React 闭环 | 已验收（`v0.1.1-tutorial-parity`） |
+| [3 — Research Evaluation](phases/phase-3-research-evaluation.md) | AI Agent 研究领域与评测基线 | 已验收（P3-1–P3-7；dirty worktree HEAD `364180d`，[证据](verification/phase-3-evidence.md)） |
+| [4 — Trustworthy Citations](phases/phase-4-trustworthy-citations.md) | 声明、证据和引用可信度 | 未开始（入口边界已冻结：Phase 3 corpus/dataset/runner/report 契约；需显式授权后启动） |
 | [5 — Orchestration](phases/phase-5-orchestration.md) | 编排策略对照与消融 | 未开始 |
 | [6 — Observability](phases/phase-6-observability.md) | 版本化事件、trace、指标 | 未开始 |
 | [7 — Persistence & Recovery](phases/phase-7-persistence-recovery.md) | 持久化、重试和恢复 | 未开始 |
