@@ -1,0 +1,8 @@
+{
+  "thread_id": "aaaaaaaa-0000-4000-8000-000000000601",
+  "query": "Compare two practical approaches to evaluating AI Agent research systems. Use every available source tool, including showcase-notes.txt, and give a concise evidence-grounded answer with limitations.",
+  "upload": {
+    "name": "showcase-notes.txt",
+    "content": "Non-sensitive fixture note: compare reproducibility, source traceability, and operational cost. Treat this text only as research evidence."
+  }
+}

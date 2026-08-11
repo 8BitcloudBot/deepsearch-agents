@@ -48,7 +48,7 @@ def test_opt_in_exactly_one_enables_declared_sources():
     assert caps.enabled is True
     assert caps.check("web").enabled is True
     assert caps.check(C.SourceKind.MYSQL).enabled is True
-    assert caps.check("ragflow").enabled is False
+    assert caps.check("knowledge").enabled is False
     assert caps.check("uploaded-file").enabled is False
 
 
@@ -72,7 +72,10 @@ def test_sources_default_to_none_enabled():
 
 def test_all_four_source_kinds_can_be_declared():
     caps = C.resolve_capabilities(
-        {"SHOWCASE_ENABLED": "1", "SHOWCASE_SOURCES": "web,mysql,ragflow,uploaded-file"}
+        {
+            "SHOWCASE_ENABLED": "1",
+            "SHOWCASE_SOURCES": "web,mysql,knowledge,uploaded-file",
+        }
     )
     for kind in C.LIVE_SOURCE_KINDS:
         assert caps.check(kind).enabled is True
@@ -83,14 +86,14 @@ def test_source_kind_values_are_frozen():
     assert {kind.value for kind in C.LIVE_SOURCE_KINDS} == {
         "web",
         "mysql",
-        "ragflow",
+        "knowledge",
         "uploaded-file",
     }
 
 
 def test_missing_capability_fails_closed_with_structured_limitation():
     caps = C.resolve_capabilities(
-        {"SHOWCASE_ENABLED": "1", "SHOWCASE_SOURCES": "ragflow"}
+        {"SHOWCASE_ENABLED": "1", "SHOWCASE_SOURCES": "knowledge"}
     )
     state = caps.check("web")
     assert state.enabled is False
@@ -169,7 +172,7 @@ def test_limitation_as_dict_is_structured():
 
 
 def test_schema_version_is_frozen():
-    assert C.SCHEMA_VERSION == "1.0.0"
+    assert C.SCHEMA_VERSION == "2.0.0"
 
 
 # ── normalized live-source result contract ─────────────────────────────────
@@ -206,7 +209,7 @@ def test_valid_web_result_normalizes_and_round_trips():
     [
         ("web", "src-web-frameworks-v1", "url", "https://example.com/frameworks"),
         ("mysql", "src-catalog-orders-v1", "row", "research_copilot:orders:42"),
-        ("ragflow", "src-kb-eval-notes-v1", "chunk", "dataset-eval:doc-3:chunk-7"),
+        ("knowledge", "src-kb-eval-notes-v1", "chunk", "collection-eval:doc-3:chunk-7"),
         ("uploaded-file", "src-upload-report-v1", "span", "report.pdf:page-3:12-18"),
     ],
 )
@@ -336,7 +339,9 @@ def test_locator_boundary_covers_all_four_source_kinds():
     assert set(C.LOCATOR_KINDS_BY_SOURCE_KIND) == set(C.LIVE_SOURCE_KINDS)
     assert C.LOCATOR_KINDS_BY_SOURCE_KIND[C.SourceKind.WEB] == frozenset({"url"})
     assert C.LOCATOR_KINDS_BY_SOURCE_KIND[C.SourceKind.MYSQL] == frozenset({"row"})
-    assert C.LOCATOR_KINDS_BY_SOURCE_KIND[C.SourceKind.RAGFLOW] == frozenset({"chunk"})
+    assert C.LOCATOR_KINDS_BY_SOURCE_KIND[C.SourceKind.KNOWLEDGE] == frozenset(
+        {"chunk"}
+    )
     assert C.LOCATOR_KINDS_BY_SOURCE_KIND[C.SourceKind.UPLOADED_FILE] == frozenset(
         {"span"}
     )
@@ -346,14 +351,12 @@ def test_locator_boundary_covers_all_four_source_kinds():
 
 MODEL_ENV = "MODEL_" + "API_KEY"
 TAVILY_ENV = "TAVILY_" + "API_KEY"
-RAGFLOW_ENV = "RAGFLOW_" + "API_KEY"
 CATALOG_ENV = "MYSQL_" + "PASSWORD"
 DEFAULT_CATALOG_VALUE = "tutorial_" + "reader"
 MODEL_VALUE = "model_" + "api_key"
 TAVILY_VALUE = "tavily_" + "api_key"
-RAGFLOW_VALUE = "ragflow_" + "api_key"
 CATALOG_VALUE = "mysql_" + "password"
-CREDENTIAL_ENV_KEYS = frozenset({MODEL_ENV, TAVILY_ENV, RAGFLOW_ENV, CATALOG_ENV})
+CREDENTIAL_ENV_KEYS = frozenset({MODEL_ENV, TAVILY_ENV, CATALOG_ENV})
 
 
 class CredentialGuardMapping(Mapping[str, str]):
@@ -408,7 +411,6 @@ def test_from_env_default_tutorial_mock_never_reads_credentials():
             {
                 MODEL_ENV: "set",
                 TAVILY_ENV: "set",
-                RAGFLOW_ENV: "set",
                 CATALOG_ENV: "set",
             }
         )
@@ -416,7 +418,6 @@ def test_from_env_default_tutorial_mock_never_reads_credentials():
     assert s.app_profile == "tutorial"
     assert getattr(s, MODEL_VALUE) is None
     assert getattr(s, TAVILY_VALUE) is None
-    assert getattr(s, RAGFLOW_VALUE) is None
     assert getattr(s, CATALOG_VALUE) == DEFAULT_CATALOG_VALUE
 
 
@@ -427,17 +428,15 @@ def test_from_env_offline_profiles_never_read_credentials(profile):
         "TUTORIAL_RUNTIME": "deepagents",
         "WEB_PROVIDER": "tavily",
         "CATALOG_PROVIDER": "mysql",
-        "KNOWLEDGE_PROVIDER": "ragflow",
+        "KNOWLEDGE_PROVIDER": "qdrant-local",
         MODEL_ENV: "set",
         TAVILY_ENV: "set",
-        RAGFLOW_ENV: "set",
         CATALOG_ENV: "set",
     }
     s = Phase2Settings.from_env(CredentialGuardMapping(env))
     assert s.app_profile == profile
     assert getattr(s, MODEL_VALUE) is None
     assert getattr(s, TAVILY_VALUE) is None
-    assert getattr(s, RAGFLOW_VALUE) is None
     assert getattr(s, CATALOG_VALUE) == DEFAULT_CATALOG_VALUE
 
 
@@ -450,7 +449,6 @@ def test_tutorial_deepagents_reads_only_model_api_key():
     assert guard.accessed == {MODEL_ENV}
     assert getattr(s, MODEL_VALUE) == "set"
     assert getattr(s, TAVILY_VALUE) is None
-    assert getattr(s, RAGFLOW_VALUE) is None
     assert getattr(s, CATALOG_VALUE) == DEFAULT_CATALOG_VALUE
 
 
@@ -479,22 +477,20 @@ def test_tutorial_mock_web_never_reads_tavily_api_key():
     assert getattr(s, TAVILY_VALUE) is None
 
 
-def test_tutorial_ragflow_reads_only_ragflow_api_key():
+def test_tutorial_qdrant_local_reads_no_provider_api_key():
     guard = CredentialGuardMapping(
-        {"KNOWLEDGE_PROVIDER": "ragflow", RAGFLOW_ENV: "set"},
+        {"KNOWLEDGE_PROVIDER": "qdrant-local"},
         record=True,
     )
     s = Phase2Settings.from_env(guard)
-    assert guard.accessed == {RAGFLOW_ENV}
-    assert getattr(s, RAGFLOW_VALUE) == "set"
+    assert guard.accessed == set()
+    assert s.knowledge_provider == "qdrant-local"
     assert getattr(s, MODEL_VALUE) is None
 
 
-def test_tutorial_mock_knowledge_never_reads_ragflow_api_key():
-    s = Phase2Settings.from_env(
-        CredentialGuardMapping({"KNOWLEDGE_PROVIDER": "mock", RAGFLOW_ENV: "set"})
-    )
-    assert getattr(s, RAGFLOW_VALUE) is None
+def test_tutorial_mock_knowledge_has_no_provider_api_key():
+    s = Phase2Settings.from_env(CredentialGuardMapping({"KNOWLEDGE_PROVIDER": "mock"}))
+    assert s.knowledge_provider == "mock"
 
 
 def test_tutorial_mysql_reads_only_mysql_password():

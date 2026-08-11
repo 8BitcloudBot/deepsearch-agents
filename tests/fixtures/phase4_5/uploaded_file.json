@@ -1,0 +1,9 @@
+{
+  "thread_id": "aaaaaaaa-0000-4000-8000-000000000001",
+  "artifact_name": "report.pdf",
+  "position": {"page": 3, "line_start": 12, "line_end": 18, "char_start": 4, "char_end": 92},
+  "title": "report.pdf",
+  "display_text": "A deterministic uploaded-file excerpt.",
+  "captured_at": "2026-08-10T01:02:03Z",
+  "version": "1.0.0"
+}

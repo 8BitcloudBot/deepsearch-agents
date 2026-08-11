@@ -4,15 +4,13 @@
 
 ## Status
 
-Phase 0 (`v0.0-foundation`) and Phase 1
-(`v0.0-deepagents-examples`) are accepted. Phase 2 — Tutorial Parity is
-complete: Phase 2A Demo Closure, Phase 2B Safety Hardening, and Phase 2C
-Release Evidence are accepted. Phase 3 — Research Evaluation and Phase 4 —
-Trustworthy Citations are accepted at local checkpoints; Phase 5 —
-Orchestration is not started. The next stage is Phase 4.5 — Research Showcase
-and Live-Source Parity, which reconnects the accepted citation layer to the
-original DeepAgents multi-source workflow and portfolio-facing delivery. The
-published Phase 2 tag remains
+Phase 0 (`v0.0-foundation`) through Phase 4 — Trustworthy Citations are
+accepted at their recorded checkpoints. Phase 4.5 — Research Showcase and
+Live-Source Parity is active: P4.5-1 is accepted, P4.5-2 through P4.5-5 and the
+local knowledge migration are implemented in the current worktree, and P4.5-6
+integrated acceptance has passed. The Phase 4.5 portfolio checkpoint is ready
+for separately authorized Git closeout. Phase 5 — Orchestration is not
+started. The published Phase 2 tag remains
 `v0.1.1-tutorial-parity`; later checkpoints are not tagged or pushed without
 explicit authorization.
 
@@ -25,7 +23,7 @@ The accepted research profile preserves the original DeepAgents workflow:
 orchestrated Web, catalog, knowledge, uploaded-file and Markdown/PDF research
 delivery. Citation and evaluation evidence strengthens that workflow; it does
 not turn offline fixtures into claims about real Provider or live-source quality.
-The executable next-stage boundary is documented in
+The active-stage boundary is documented in
 [Phase 4.5](./docs/phases/phase-4-5-research-showcase.md).
 
 ### Phase 1 Examples
@@ -71,6 +69,50 @@ uv run uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8000
 # Start frontend
 pnpm --dir frontend dev
 ```
+
+The commands above use the offline tutorial/mock profile unless Showcase is
+explicitly enabled. They do not require model or Provider credentials.
+
+### Showcase opt-in
+
+Start from the commented Phase 4.5 block in `.env.example` and enable only the
+capabilities you intend to exercise. Showcase itself requires a configured
+model. Each source remains independently gated:
+
+| Source | Provider/configuration | Behavior when unavailable |
+|---|---|---|
+| Web | Tavily and `TAVILY_API_KEY` | structured Web limitation |
+| MySQL | read-only MySQL settings | structured MySQL limitation |
+| Knowledge base | Qdrant Local index; no provider key | structured knowledge limitation |
+| Uploaded file | thread-scoped upload workspace | omitted when not enabled |
+
+Real Provider and model smoke is separate from normal startup and tests. It
+requires `PHASE45_REAL_SHOWCASE_SMOKE=1`, usable enabled capabilities, and
+explicit user authorization; do not treat the flag alone as authorization.
+
+### Local knowledge manifest
+
+Knowledge indexing consumes one explicitly selected UTF-8 JSON manifest; it
+does not crawl directories, parse documents, or build the formal knowledge
+corpus. Validate a manifest without loading FastEmbed or creating an index:
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/index_knowledge.py \
+  --manifest /explicit/path/to/manifest.json \
+  --index-path .data/knowledge-index \
+  --collection deepsearch-showcase-v1 \
+  --validate-only
+```
+
+Remove `--validate-only` only for an intentional local indexing run. That mode
+uses the supported FastEmbed model and may populate `.cache/fastembed` when the
+model is not already cached. If `.data/knowledge-index` is absent or invalid,
+Showcase continues with its other enabled sources and reports knowledge as
+unavailable instead of fabricating evidence.
+
+The formal knowledge corpus, ingestion/chunking pipeline, retrieval-quality
+dataset, and accuracy evaluation have not been built. Current fixtures and the
+local adapter smoke prove contracts and citation flow only.
 
 ## Architecture
 

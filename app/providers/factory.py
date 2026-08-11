@@ -3,7 +3,7 @@
 from app.providers.contracts import ProviderBundle
 from app.providers.mock import (
     MockCatalogProvider,
-    MockKnowledgeProvider,
+    MockKnowledgeRetriever,
     MockWebProvider,
 )
 from app.settings import Phase2Settings
@@ -51,15 +51,8 @@ def _build_catalog(settings: Phase2Settings):
 
 
 def _build_knowledge(settings: Phase2Settings):
-    if settings.knowledge_provider == "ragflow":
-        if not settings.ragflow_api_key or not settings.ragflow_base_url:
-            raise ValueError(
-                "RAGFLOW_API_KEY and RAGFLOW_BASE_URL required for ragflow"
-            )
-        from app.providers.ragflow import RAGFlowKnowledgeProvider
-
-        return RAGFlowKnowledgeProvider(
-            api_key=settings.ragflow_api_key,
-            base_url=settings.ragflow_base_url,
+    if settings.knowledge_provider == "qdrant-local":
+        raise ValueError(
+            "qdrant-local knowledge retrieval is available in the showcase profile"
         )
-    return MockKnowledgeProvider()
+    return MockKnowledgeRetriever()

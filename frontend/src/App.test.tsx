@@ -25,6 +25,7 @@ const HEALTH_PAYLOAD = {
   status: "ok",
   service: "research-copilot-api",
   phase: "2",
+  app_profile: "tutorial",
   tutorial_profile: "tutorial",
   tutorial_runtime: "mock",
   web_provider: "mock",
@@ -220,6 +221,26 @@ describe("App workbench shell", () => {
     expect(screen.getByText(/Web: mock/i)).toBeInTheDocument();
     expect(screen.getByText(/Catalog: mock/i)).toBeInTheDocument();
     expect(screen.getByText(/Knowledge: mock/i)).toBeInTheDocument();
+  });
+
+  it("preserves the tutorial activity-before-artifacts reading order", async () => {
+    render(<App />);
+    await screen.findByText(/Runtime: mock/i);
+
+    const children = Array.from(document.querySelector("main")?.children ?? []);
+    const timelineIndex = children.findIndex((item) =>
+      item.classList.contains("event-timeline")
+    );
+    const artifactIndex = children.findIndex((item) =>
+      item.classList.contains("artifact-panel")
+    );
+    const citationIndex = children.findIndex((item) =>
+      item.classList.contains("citation-panel")
+    );
+
+    expect(timelineIndex).toBeGreaterThan(-1);
+    expect(artifactIndex).toBeGreaterThan(timelineIndex);
+    expect(citationIndex).toBeGreaterThan(artifactIndex);
   });
 
   it("keeps start disabled until a query, an accepted upload and an open WebSocket are present", async () => {
@@ -1865,6 +1886,9 @@ describe("contract", () => {
 });
 
 describe("citation events, report and panel", () => {
+  beforeEach(() => {
+    stubHealthResponse({ ...HEALTH_PAYLOAD, app_profile: "agent-research" });
+  });
   const CITATION_REPORT_FILE = {
     name: "citation-report.json",
     path: "citation-report.json",
@@ -2345,5 +2369,306 @@ describe("citation events, report and panel", () => {
       panel.querySelector(".citation-downloads .download")
     ).not.toBeNull();
     await act(async () => {});
+  });
+});
+
+describe("showcase profile routing", () => {
+  function emptyLiveDocument(threadId: string) {
+    return {
+      schema_version: "2.0.0",
+      thread_id: threadId,
+      answer: "A deterministic showcase answer.",
+      claims: [
+        { claim_id: "claim-1", statement: "A live claim.", evidence_ids: [] },
+      ],
+      sources: [],
+      evidence: [],
+      limitations: [
+        {
+          code: "no-evidence",
+          source_kind: null,
+          message: "No live evidence was collected.",
+        },
+      ],
+      artifacts: [
+        "live-citations.json",
+        "showcase-report.md",
+        "showcase-report.pdf",
+      ],
+    };
+  }
+
+  function showcaseFetch() {
+    const fetchMock = vi.fn().mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.endsWith("/health")) {
+        return Promise.resolve(
+          jsonResponse({ ...HEALTH_PAYLOAD, app_profile: "showcase" })
+        );
+      }
+      if (url.includes("/api/live-citations?thread_id=")) {
+        const threadId = new URL(url).searchParams.get("thread_id") ?? "";
+        return Promise.resolve(
+          jsonResponse({ thread_id: threadId, document: emptyLiveDocument(threadId) })
+        );
+      }
+      return Promise.resolve(jsonResponse({ detail: "unexpected" }, 500));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("loads live citations only for showcase completion and retains progress", async () => {
+    const fetchMock = showcaseFetch();
+    const { result } = renderHook(() =>
+      useWorkbench("http://127.0.0.1:8000")
+    );
+    await waitFor(() => expect(result.current.health?.app_profile).toBe("showcase"));
+    const threadId = result.current.threadId;
+    openSocket();
+
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 1,
+          type: "citation_started",
+          data: { claim_count: 1, evidence_count: 0 },
+        })
+      )
+    );
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 2,
+          type: "citation_completed",
+          data: { status: "completed" },
+        })
+      )
+    );
+
+    await waitFor(() => expect(result.current.liveDocument).not.toBeNull());
+    expect(result.current.liveProgress).toEqual({ claimCount: 1, evidenceCount: 0 });
+    expect(result.current.liveDeliveryStatus).toBe("completed");
+    expect(result.current.liveLoading).toBe(false);
+    expect(result.current.liveError).toBeNull();
+    expect(result.current.citations).toBeNull();
+    expect(
+      fetchMock.mock.calls.filter(([input]) =>
+        String(input).includes("/api/live-citations")
+      )
+    ).toHaveLength(1);
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes("/api/citations?"))
+    ).toBe(false);
+  });
+
+  it("marks degraded delivery without probing either citation endpoint", async () => {
+    const fetchMock = showcaseFetch();
+    const { result } = renderHook(() =>
+      useWorkbench("http://127.0.0.1:8000")
+    );
+    await waitFor(() => expect(result.current.health?.app_profile).toBe("showcase"));
+    const threadId = result.current.threadId;
+    openSocket();
+
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 1,
+          type: "citation_completed",
+          data: { status: "degraded" },
+        })
+      )
+    );
+
+    expect(result.current.liveDeliveryStatus).toBe("degraded");
+    expect(result.current.liveError).toBe(
+      "Live citation delivery did not complete."
+    );
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes("citations"))
+    ).toBe(false);
+  });
+
+  it("does not infer a citation profile for tutorial events", async () => {
+    const fetchMock = vi.mocked(fetch);
+    const { result } = renderHook(() =>
+      useWorkbench("http://127.0.0.1:8000")
+    );
+    await waitFor(() => expect(result.current.health?.app_profile).toBe("tutorial"));
+    const threadId = result.current.threadId;
+    openSocket();
+
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 1,
+          type: "citation_completed",
+          data: { status: "completed" },
+        })
+      )
+    );
+
+    expect(result.current.liveDocument).toBeNull();
+    expect(result.current.citations).toBeNull();
+    expect(
+      fetchMock.mock.calls.some(([input]) => String(input).includes("citations"))
+    ).toBe(false);
+  });
+
+  it("selects showcase Markdown from the current-thread artifact list", async () => {
+    const fetchMock = vi.fn().mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.endsWith("/health")) {
+        return Promise.resolve(
+          jsonResponse({ ...HEALTH_PAYLOAD, app_profile: "showcase" })
+        );
+      }
+      if (url.includes("/api/files?thread_id=")) {
+        const threadId = new URL(url).searchParams.get("thread_id") ?? "";
+        return Promise.resolve(
+          jsonResponse({
+            thread_id: threadId,
+            files: [
+              {
+                name: "showcase-report.md",
+                path: "showcase-report.md",
+                size: 20,
+                media_type: "text/markdown",
+              },
+              {
+                name: "showcase-report.pdf",
+                path: "showcase-report.pdf",
+                size: 30,
+                media_type: "application/pdf",
+              },
+            ],
+          })
+        );
+      }
+      if (url.includes("path=showcase-report.md")) {
+        return Promise.resolve(new Response("# Showcase report", { status: 200 }));
+      }
+      return Promise.resolve(jsonResponse({ detail: "unexpected" }, 500));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { result } = renderHook(() =>
+      useWorkbench("http://127.0.0.1:8000")
+    );
+    await waitFor(() => expect(result.current.health?.app_profile).toBe("showcase"));
+    const threadId = result.current.threadId;
+    openSocket();
+
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({ thread_id: threadId, sequence: 1, type: "task_completed" })
+      )
+    );
+
+    await waitFor(() => expect(result.current.markdown).toBe("# Showcase report"));
+    expect(result.current.files.map((file) => file.name)).toEqual([
+      "showcase-report.md",
+      "showcase-report.pdf",
+    ]);
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes("path=tutorial-report.md")
+      )
+    ).toBe(false);
+  });
+
+  it("clears live state for a new session", async () => {
+    showcaseFetch();
+    const { result } = renderHook(() =>
+      useWorkbench("http://127.0.0.1:8000")
+    );
+    await waitFor(() => expect(result.current.health?.app_profile).toBe("showcase"));
+    const threadId = result.current.threadId;
+    openSocket();
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 1,
+          type: "citation_completed",
+          data: { status: "completed" },
+        })
+      )
+    );
+    await waitFor(() => expect(result.current.liveDocument).not.toBeNull());
+
+    act(() => result.current.newSession());
+
+    expect(result.current.liveDocument).toBeNull();
+    expect(result.current.liveProgress).toBeNull();
+    expect(result.current.liveDeliveryStatus).toBe("idle");
+    expect(result.current.liveError).toBeNull();
+  });
+
+  it("ignores a live citation response that arrives after cancellation", async () => {
+    let resolveLive: ((response: Response) => void) | undefined;
+    const pendingLive = new Promise<Response>((resolve) => {
+      resolveLive = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((input: unknown) => {
+        const url = String(input);
+        if (url.endsWith("/health")) {
+          return Promise.resolve(
+            jsonResponse({ ...HEALTH_PAYLOAD, app_profile: "showcase" })
+          );
+        }
+        if (url.includes("/api/live-citations?thread_id=")) return pendingLive;
+        return Promise.resolve(jsonResponse({ detail: "unexpected" }, 500));
+      })
+    );
+    const { result } = renderHook(() =>
+      useWorkbench("http://127.0.0.1:8000")
+    );
+    await waitFor(() => expect(result.current.health?.app_profile).toBe("showcase"));
+    const threadId = result.current.threadId;
+    openSocket();
+
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({
+          thread_id: threadId,
+          sequence: 1,
+          type: "citation_completed",
+          data: { status: "completed" },
+        })
+      )
+    );
+    await waitFor(() => expect(result.current.liveLoading).toBe(true));
+    deliverMessage(
+      JSON.stringify(
+        makeEvent({ thread_id: threadId, sequence: 2, type: "task_cancelled" })
+      )
+    );
+
+    await act(async () => {
+      resolveLive?.(
+        jsonResponse({ thread_id: threadId, document: emptyLiveDocument(threadId) })
+      );
+      await pendingLive;
+    });
+
+    expect(result.current.liveDocument).toBeNull();
+    expect(result.current.liveDeliveryStatus).toBe("idle");
+    expect(result.current.liveError).toBeNull();
+  });
+
+  it("composes the showcase result surface without the Phase 4 evaluation panel", async () => {
+    showcaseFetch();
+    render(<App />);
+
+    expect(await screen.findByText(/Profile: showcase/i)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /citations/i })).toBeNull();
+    expect(screen.queryByRole("region", { name: /artifacts/i })).toBeNull();
   });
 });

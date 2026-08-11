@@ -10,7 +10,7 @@ from app.api.server import create_app
 from app.providers.contracts import ProviderBundle
 from app.providers.mock import (
     MockCatalogProvider,
-    MockKnowledgeProvider,
+    MockKnowledgeRetriever,
     MockWebProvider,
 )
 
@@ -19,7 +19,7 @@ def _bundle():
     return ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",

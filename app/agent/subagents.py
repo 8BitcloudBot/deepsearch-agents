@@ -38,8 +38,8 @@ def build_tutorial_subagents(
             "description": "Queries the private knowledge base.",
             "system_prompt": (
                 "You are a knowledge retrieval specialist. Use "
-                "list_knowledge_assistants and ask_knowledge_assistant "
-                "to query private knowledge."
+                "search_knowledge to retrieve evidence chunks from the local "
+                "knowledge index. Do not invent answers or source identities."
             ),
             "tools": knowledge_tools,
         },

@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+from app.knowledge.contracts import KnowledgeRetriever
+
 
 @dataclass(frozen=True)
 class SearchHit:
@@ -29,19 +31,6 @@ class QueryResult:
     truncated: bool
 
 
-@dataclass(frozen=True)
-class KnowledgeAssistant:
-    name: str
-    description: str
-    knowledge_bases: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class KnowledgeAnswer:
-    assistant_name: str
-    answer: str
-
-
 class WebSearchProvider(Protocol):
     def search(self, query: str, *, max_results: int = 5) -> SearchResult: ...
 
@@ -56,20 +45,14 @@ class CatalogProvider(Protocol):
     def execute_readonly(self, query: str, *, limit: int = 100) -> QueryResult: ...
 
 
-class KnowledgeProvider(Protocol):
-    def list_assistants(self) -> tuple[KnowledgeAssistant, ...]: ...
-
-    def ask(self, assistant_name: str, question: str) -> KnowledgeAnswer: ...
-
-
 @dataclass(frozen=True)
 class ProviderBundle:
     web: WebSearchProvider
     catalog: CatalogProvider
-    knowledge: KnowledgeProvider
+    knowledge: KnowledgeRetriever
     web_mode: Literal["mock", "tavily"]
     catalog_mode: Literal["mock", "mysql"]
-    knowledge_mode: Literal["mock", "ragflow"]
+    knowledge_mode: Literal["mock", "qdrant-local"]
 
     @property
     def uses_mock(self) -> bool:

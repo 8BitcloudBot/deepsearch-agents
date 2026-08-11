@@ -1,5 +1,11 @@
 """Phase 4.5 showcase profile and frozen live-source contracts (P4.5-1)."""
 
+from app.showcase.agent import (
+    SHOWCASE_PROMPT,
+    DeepAgentsShowcaseExecutor,
+    create_showcase_agent,
+)
+from app.showcase.config import ShowcaseRuntimeConfig
 from app.showcase.contracts import (
     LIVE_SOURCE_KINDS,
     LIVE_SOURCE_RESULT_FIELDS,
@@ -21,6 +27,56 @@ from app.showcase.contracts import (
     SourceKind,
     resolve_capabilities,
     validate_live_source_result,
+)
+from app.showcase.delivery import (
+    LIVE_CITATION_FILENAME,
+    LIVE_CITATION_SCHEMA_VERSION,
+    SHOWCASE_MARKDOWN_FILENAME,
+    SHOWCASE_PDF_FILENAME,
+    DeliveryClaim,
+    LiveCitationDocument,
+    ShowcaseCitationDelivery,
+    ShowcaseDeliveryResult,
+    build_live_citation_document,
+    render_showcase_markdown,
+    validate_live_citation_document,
+)
+from app.showcase.locator_adapters import (
+    normalize_knowledge_chunk,
+    normalize_mysql_row,
+    normalize_tavily_hit,
+    normalize_uploaded_span,
+)
+from app.showcase.locators import (
+    FilePosition,
+    KnowledgeChunkLocator,
+    LocatorError,
+    LocatorResolution,
+    LocatorState,
+    MySQLLocator,
+    SourceLocator,
+    UploadedFileLocator,
+    WebLocator,
+    missing_resolution,
+    stale_resolution,
+)
+from app.showcase.research import (
+    LiveEvidence,
+    LiveSourceCollector,
+    ShowcaseRunResult,
+    collector_context,
+    current_collector,
+)
+from app.showcase.runtime import (
+    ShowcaseAgentExecutor,
+    ShowcaseDelivery,
+    ShowcaseResearchRuntime,
+)
+from app.showcase.source_tools import (
+    MySQLLocatorContext,
+    ShowcaseProviders,
+    ShowcaseToolSet,
+    create_showcase_source_tools,
 )
 
 __all__ = [
@@ -44,4 +100,46 @@ __all__ = [
     "ShowcaseCapabilities",
     "resolve_capabilities",
     "validate_live_source_result",
+    "FilePosition",
+    "LocatorError",
+    "LocatorResolution",
+    "LocatorState",
+    "MySQLLocator",
+    "KnowledgeChunkLocator",
+    "SourceLocator",
+    "UploadedFileLocator",
+    "WebLocator",
+    "missing_resolution",
+    "stale_resolution",
+    "normalize_mysql_row",
+    "normalize_knowledge_chunk",
+    "normalize_tavily_hit",
+    "normalize_uploaded_span",
+    "DeepAgentsShowcaseExecutor",
+    "SHOWCASE_PROMPT",
+    "create_showcase_agent",
+    "ShowcaseRuntimeConfig",
+    "LIVE_CITATION_FILENAME",
+    "LIVE_CITATION_SCHEMA_VERSION",
+    "SHOWCASE_MARKDOWN_FILENAME",
+    "SHOWCASE_PDF_FILENAME",
+    "DeliveryClaim",
+    "LiveCitationDocument",
+    "ShowcaseCitationDelivery",
+    "ShowcaseDelivery",
+    "ShowcaseDeliveryResult",
+    "build_live_citation_document",
+    "render_showcase_markdown",
+    "validate_live_citation_document",
+    "LiveEvidence",
+    "LiveSourceCollector",
+    "ShowcaseRunResult",
+    "collector_context",
+    "current_collector",
+    "ShowcaseAgentExecutor",
+    "ShowcaseResearchRuntime",
+    "MySQLLocatorContext",
+    "ShowcaseProviders",
+    "ShowcaseToolSet",
+    "create_showcase_source_tools",
 ]

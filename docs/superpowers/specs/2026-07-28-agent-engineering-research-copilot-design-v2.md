@@ -1,5 +1,8 @@
 # Agent Engineering Research Copilot 项目规划（v2）
 
+> **Historical design:** 本文保留早期教程路线和 provider 选择的历史事实，不再作为
+> 当前产品路线或执行指导。当前方向以 `docs/phase-status.md` 为准。
+
 > 面向 AI Agent 框架选型、技术调研和工程决策的多智能体可信研究系统
 
 | 项目属性 | 内容 |

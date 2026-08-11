@@ -1,17 +1,19 @@
 # Phase 4.5 Research Showcase Implementation Plan
 
-**Status:** P4.5-1 accepted; P4.5-2 ready but not started.
+**Status:** P4.5-1 through P4.5-6 accepted in the current worktree. The Phase
+4.5 portfolio checkpoint is ready for separately authorized Git closeout.
 
 **Goal:** Deliver one portfolio-quality DeepAgents research workflow that uses
 real source adapters when explicitly enabled, preserves deterministic offline
 verification, links every displayed citation to a validated source locator,
 and produces a coherent React plus Markdown/PDF experience.
 
-**Execution rule:** One fresh bounded Reasonix node per package. Codex supplies
-the exact task and file boundary, reviews the returned diff, independently runs
-the proportionate gates, and accepts or rejects the package before authorizing
-the next. Reasonix must not commit, tag, push, release, alter global
-configuration, or process `.reasonix/`.
+**Execution rule:** The current Codex session implements one bounded package at
+a time, reviews its own complete diff, runs proportionate gates, and accepts or
+rejects the package before starting the next. Do not invoke Reasonix, use
+DeepSeek as a coding worker, or dispatch subagents. Commit, tag, push, release,
+global configuration changes, and real-provider execution require separate
+explicit authorization.
 
 ## Frozen Baseline And Constraints
 
@@ -54,7 +56,9 @@ without changing tutorial or offline behavior.
 
 ## P4.5-2 — Multi-Source Citation Locators
 
-Implement and validate typed locators for Tavily Web, MySQL, RAGFlow and
+**Status:** Complete in the current worktree.
+
+Implement and validate typed locators for Tavily Web, MySQL, local knowledge retrieval and
 uploaded files through existing adapters. Cover canonicalization, stable IDs,
 version/capture metadata, thread scope, safe display links, stale/missing
 sources and secret/path redaction. Add adapter-level tests and one fixture per
@@ -62,6 +66,8 @@ source kind, but no real credentials or captured private content. Exit when
 every enabled source can map evidence to a server-validated locator.
 
 ## P4.5-3 — DeepAgents Live Research Integration
+
+**Status:** Complete in the current worktree.
 
 Connect the main-agent/expert-worker research runtime to the normalized source
 results and Phase 4 citation contracts. Keep worker failures isolated, preserve
@@ -72,6 +78,8 @@ covering all four source kinds through the existing task runtime.
 
 ## P4.5-4 — Citation-Rich Delivery
 
+**Status:** Complete in the current worktree.
+
 Make the validated live citation records drive Markdown/PDF reports, artifact
 downloads, thread-scoped APIs and non-terminal WebSocket progress. Reports must
 show claim references, source metadata and limitations without credentials,
@@ -79,6 +87,9 @@ absolute paths or raw Provider responses. Exit with an end-to-end backend test
 from task submission to events, citation retrieval and both report formats.
 
 ## P4.5-5 — React Showcase Polish
+
+**Status:** Complete in the current worktree. See
+[P4.5-5 evidence](../../verification/p4-5-5-evidence.md).
 
 Refine the existing research workspace around the actual workflow: request,
 agent/source progress, source coverage, claim-to-evidence inspection,
@@ -89,13 +100,18 @@ smoke. Exit when the showcase is readable and stable at both viewports.
 
 ## P4.5-6 — Real-Provider Showcase Smoke And Acceptance
 
+**Status:** Accepted in the current worktree. The explicitly authorized real
+smoke, integrated offline gates, desktop/mobile flow and corrected
+uploaded-source browser download passed. See
+[finalization evidence](../../verification/phase-4-5-finalization-evidence.md).
+
 Create a fixed, documented opt-in smoke that uses configured LLM, Tavily and
-available MySQL/RAGFlow/upload inputs without changing configuration or storing
+available MySQL/knowledge/upload inputs without changing configuration or storing
 secrets. Record capability matrix, timestamps, redacted provenance, source
 coverage, artifact checks and known limitations in a live-only evidence file.
-Then run the full offline backend/frontend/static gates and verify the smoke
-does not modify offline fixtures or aggregates. Codex alone performs final
-acceptance and Git closeout.
+Then run the package-acceptance offline backend/frontend/static gates and
+verify the smoke does not modify offline fixtures or aggregates. Codex alone
+performs final acceptance; Git closeout remains a separate authorized action.
 
 ## Final Acceptance Evidence
 
@@ -105,7 +121,9 @@ acceptance and Git closeout.
 - desktop and mobile browser smoke for the complete research flow;
 - explicit live smoke result or an honest capability-based skip report;
 - secret, absolute-path, raw-response and cross-mode contamination scans;
-- clean Git diff excluding `.reasonix/`, followed by a Codex-owned checkpoint.
+- clean Git diff containing only accepted package changes, followed by an
+  explicitly authorized Codex-owned checkpoint.
 
-Phase 5 remains inactive until all six packages are accepted and the Phase 4.5
-evidence is frozen.
+Acceptance of all six packages and frozen Phase 4.5 evidence is sufficient for
+a portfolio checkpoint. Phase 5-8 remain optional and inactive until separately
+authorized.

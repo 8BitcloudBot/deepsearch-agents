@@ -1,5 +1,9 @@
 # Phase 1 DeepAgents Capability Examples
 
+> **Historical background:** The Phase 1 README records the tutorial-era
+> Phase 2 preview vocabulary only. It is not current product or execution
+> guidance; current direction is defined by `docs/phase-status.md`.
+
 七个独立、可运行的 DeepAgents 能力示例。
 
 ## 示例映射

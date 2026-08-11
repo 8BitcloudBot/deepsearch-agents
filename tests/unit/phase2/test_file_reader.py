@@ -831,14 +831,14 @@ def test_factory_requires_callable_workspace_factory():
     from app.providers.contracts import ProviderBundle
     from app.providers.mock import (
         MockCatalogProvider,
-        MockKnowledgeProvider,
+        MockKnowledgeRetriever,
         MockWebProvider,
     )
 
     bundle = ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",

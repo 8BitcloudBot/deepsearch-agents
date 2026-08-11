@@ -15,15 +15,14 @@ import pytest
 from app.agent.runtime import MockTutorialRuntime, RuntimeRequest, RuntimeResult
 from app.api.context import SessionContext
 from app.api.events import InMemoryEventBus
+from app.knowledge.contracts import KnowledgeChunk
 from app.providers.contracts import (
-    KnowledgeAnswer,
-    KnowledgeAssistant,
     ProviderBundle,
     TableInfo,
 )
 from app.providers.mock import (
     MockCatalogProvider,
-    MockKnowledgeProvider,
+    MockKnowledgeRetriever,
     MockWebProvider,
 )
 from app.tools.files import SessionWorkspace
@@ -35,7 +34,7 @@ def _bundle() -> ProviderBundle:
     return ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",
@@ -276,7 +275,7 @@ async def test_mock_runtime_uses_all_three_providers(
         "preview_table",
         "execute_readonly_query",
     }
-    knowledge_tools = {"list_knowledge_assistants", "ask_knowledge_assistant"}
+    knowledge_tools = {"search_knowledge"}
 
     assert tool_names & web_tools, f"No web tool calls in {tool_names}"
     assert tool_names & catalog_tools, f"No catalog tool calls in {tool_names}"
@@ -340,7 +339,6 @@ class TestPreciseEventPairs:
         from app.agent.runtime import MockTutorialRuntime, RuntimeRequest
         from app.api.context import SessionContext
         from app.providers.contracts import (
-            KnowledgeAnswer,
             ProviderBundle,
             QueryResult,
             SearchResult,
@@ -372,15 +370,21 @@ class TestPreciseEventPairs:
                 return QueryResult(columns=("id",), rows=(), truncated=False)
 
         class SpyKnowledge:
-            def list_assistants(self):
-                trace.append("call:knowledge.list_assistants")
-                from app.providers.contracts import KnowledgeAssistant
-
-                return (KnowledgeAssistant("a", "d", ()),)
-
-            def ask(self, an, q):
-                trace.append("call:knowledge.ask")
-                return KnowledgeAnswer(assistant_name=an, answer="ok")
+            def search(
+                self, query, *, limit=8, collection_id=None, document_version=None
+            ):
+                trace.append("call:knowledge.search")
+                return (
+                    KnowledgeChunk(
+                        "tutorial-knowledge",
+                        "doc-1",
+                        "chunk-1",
+                        "Knowledge",
+                        "ok",
+                        1.0,
+                        "1.0.0",
+                    ),
+                )
 
         bundle = ProviderBundle(
             web=SpyWeb(),
@@ -465,14 +469,9 @@ class TestPreciseEventPairs:
             "tool_completed:execute_readonly_query",
         )
         _assert_triple(
-            "tool_started:list_knowledge_assistants",
-            "call:knowledge.list_assistants",
-            "tool_completed:list_knowledge_assistants",
-        )
-        _assert_triple(
-            "tool_started:ask_knowledge_assistant",
-            "call:knowledge.ask",
-            "tool_completed:ask_knowledge_assistant",
+            "tool_started:search_knowledge",
+            "call:knowledge.search",
+            "tool_completed:search_knowledge",
         )
         _assert_triple(
             "tool_started:generate_markdown_report",
@@ -491,8 +490,7 @@ class TestPreciseEventPairs:
             "list_sql_tables",
             "preview_table",
             "execute_readonly_query",
-            "list_knowledge_assistants",
-            "ask_knowledge_assistant",
+            "search_knowledge",
             "generate_markdown_report",
             "generate_pdf_report",
         ):
@@ -667,10 +665,7 @@ class _FailingCatalog:
 
 
 class _FailingKnowledge:
-    def list_assistants(self):
-        return (KnowledgeAssistant("a", "d", ()),)
-
-    def ask(self, assistant_name, question):
+    def search(self, query, *, limit=8, collection_id=None, document_version=None):
         raise _sensitive_error()
 
 
@@ -678,7 +673,7 @@ def _failing_bundle(web=None, catalog=None, knowledge=None) -> ProviderBundle:
     return ProviderBundle(
         web=web or MockWebProvider(),
         catalog=catalog or MockCatalogProvider(),
-        knowledge=knowledge or MockKnowledgeProvider(),
+        knowledge=knowledge or MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",
@@ -751,7 +746,7 @@ class TestProviderFailureRedaction:
         assert not list(ws.output_dir.glob("tutorial-report.*"))
 
     @pytest.mark.asyncio
-    async def test_failing_knowledge_ask_events_clean(self, tmp_path, events):
+    async def test_failing_knowledge_search_events_clean(self, tmp_path, events):
         rt = MockTutorialRuntime(_failing_bundle(knowledge=_FailingKnowledge()), events)
         tid = "00000000-0000-4000-8000-0000000000a3"
         ws = SessionWorkspace.for_thread(
@@ -767,8 +762,8 @@ class TestProviderFailureRedaction:
         completed = {
             e.data.get("tool_name") for e in emitted if e.type == "tool_completed"
         }
-        assert "ask_knowledge_assistant" in started
-        assert "ask_knowledge_assistant" not in completed
+        assert "search_knowledge" in started
+        assert "search_knowledge" not in completed
         assert not list(ws.output_dir.glob("tutorial-report.*"))
 
 
@@ -822,22 +817,19 @@ class TestDeepAgentsReportRedaction:
 
 class TestKnowledgeToolEventStability:
     @pytest.mark.asyncio
-    async def test_ask_tool_events_never_carry_assistant_name(self, events):
+    async def test_search_tool_events_never_carry_query(self, events):
         from app.tools.knowledge import create_knowledge_tools
 
         class _QuietKnowledge:
-            def list_assistants(self):
+            def search(
+                self, query, *, limit=8, collection_id=None, document_version=None
+            ):
                 return ()
 
-            def ask(self, assistant_name, question):
-                return KnowledgeAnswer(assistant_name=assistant_name, answer="ok")
-
-        ask_tool = create_knowledge_tools(_QuietKnowledge(), events)[1]
+        search_tool = create_knowledge_tools(_QuietKnowledge(), events)[0]
         config = {"configurable": {"thread_id": THREAD_ID}}
         async with events.subscribe(THREAD_ID) as sub:
-            await ask_tool.ainvoke(
-                {"an": f"assistant-{FAKE_KEY}", "q": "q"}, config=config
-            )
+            await search_tool.ainvoke({"query": f"query-{FAKE_KEY}"}, config=config)
             emitted = []
             while not sub.queue.empty():
                 emitted.append(sub.queue.get_nowait())
@@ -845,4 +837,4 @@ class TestKnowledgeToolEventStability:
         assert emitted, "expected paired tool events"
         for e in emitted:
             assert FAKE_KEY not in e.message
-            assert e.message == "ask_knowledge_assistant"
+            assert e.message == "search_knowledge"

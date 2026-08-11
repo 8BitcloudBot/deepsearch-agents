@@ -1,5 +1,8 @@
 # Phase 0 Verification Evidence
 
+> **Historical evidence:** Provider names below record the Phase 0 environment
+> at that time. They are not current route, configuration, or execution guidance.
+
 > 只记录真实执行过的命令和结果。禁止未执行的"通过"。
 
 ## Environment

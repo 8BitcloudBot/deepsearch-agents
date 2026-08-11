@@ -11,7 +11,7 @@ from app.api.events import InMemoryEventBus
 from app.providers.contracts import ProviderBundle
 from app.providers.mock import (
     MockCatalogProvider,
-    MockKnowledgeProvider,
+    MockKnowledgeRetriever,
     MockWebProvider,
 )
 from app.tools.files import SessionWorkspace
@@ -34,7 +34,7 @@ def _bundle() -> ProviderBundle:
     return ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",
@@ -200,7 +200,7 @@ async def test_registry_failure_terminal_empty_events_clean_no_reports(
     failing = ProviderBundle(
         web=_FailingWeb(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",

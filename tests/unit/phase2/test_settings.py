@@ -49,9 +49,9 @@ def test_allows_mysql_provider():
     assert s.catalog_provider == "mysql"
 
 
-def test_allows_ragflow_provider():
-    s = Phase2Settings.from_env({"KNOWLEDGE_PROVIDER": "ragflow"})
-    assert s.knowledge_provider == "ragflow"
+def test_allows_qdrant_local_provider():
+    s = Phase2Settings.from_env({"KNOWLEDGE_PROVIDER": "qdrant-local"})
+    assert s.knowledge_provider == "qdrant-local"
 
 
 def test_default_model_name():

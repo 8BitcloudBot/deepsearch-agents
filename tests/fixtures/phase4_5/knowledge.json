@@ -1,0 +1,12 @@
+{
+  "collection_id": "deepsearch-fixture-v1",
+  "document_id": "agent-retrieval-notes",
+  "chunk_id": "chunk-0001",
+  "title": "Local knowledge retrieval notes",
+  "content": "Qdrant Local stores fixture vectors while the retriever returns source chunks only.",
+  "score": 0.91,
+  "captured_at": "2026-08-10T01:02:03Z",
+  "version": "1.0.0",
+  "section_path": "Architecture / Retrieval",
+  "source_uri": "https://example.test/knowledge/agent-retrieval-notes"
+}

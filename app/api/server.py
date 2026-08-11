@@ -25,6 +25,7 @@ from app.api.schemas import (
     FileInfo,
     FileListResponse,
     HeartbeatMessage,
+    LiveCitationsResponse,
     TaskCancelResponse,
     TaskStartRequest,
     TaskStartResponse,
@@ -39,6 +40,14 @@ from app.tools.files import (
     SessionWorkspace,
     save_uploaded_file,
 )
+
+_UPLOAD_MEDIA_TYPES = {
+    ".txt": "text/plain",
+    ".md": "text/markdown",
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
 
 
 def _validate_uuid(tid: str, label: str = "thread_id") -> None:
@@ -76,14 +85,14 @@ def create_app(
             if bundle is None:
                 from app.providers.mock import (
                     MockCatalogProvider,
-                    MockKnowledgeProvider,
+                    MockKnowledgeRetriever,
                     MockWebProvider,
                 )
 
                 bundle = ProviderBundle(
                     web=MockWebProvider(),
                     catalog=MockCatalogProvider(),
-                    knowledge=MockKnowledgeProvider(),
+                    knowledge=MockKnowledgeRetriever(),
                     web_mode="mock",
                     catalog_mode="mock",
                     knowledge_mode="mock",
@@ -170,6 +179,32 @@ def create_app(
                 raise HTTPException(status_code=400, detail=str(exc))
         return UploadResponse(thread_id=thread_id, files=results)
 
+    @app.get("/api/threads/{thread_id}/uploads/{name}")
+    async def get_uploaded_source(thread_id: str, name: str):
+        _validate_uuid(thread_id)
+        media_type = _UPLOAD_MEDIA_TYPES.get(Path(name).suffix.lower())
+        if media_type is None:
+            raise HTTPException(status_code=404, detail="file not found")
+        workspace = SessionWorkspace.for_thread(
+            thread_id=thread_id,
+            base_upload="updated",
+            base_output="output",
+        )
+        try:
+            resolved = workspace.resolve_upload(name)
+            unresolved = workspace.upload_dir / name
+        except Exception:
+            if Path(name).name == name and (workspace.upload_dir / name).is_symlink():
+                raise HTTPException(status_code=404, detail="file not found")
+            raise HTTPException(status_code=400, detail="invalid path")
+        if unresolved.is_symlink() or not resolved.exists() or not resolved.is_file():
+            raise HTTPException(status_code=404, detail="file not found")
+        return FileResponse(
+            str(resolved),
+            media_type=media_type,
+            filename=resolved.name,
+        )
+
     # ── Files ─────────────────────────────────────────────────────────────
 
     @app.get("/api/files")
@@ -238,6 +273,34 @@ def create_app(
         report = json.loads(report_path.read_text(encoding="utf-8"))
         return CitationsResponse(thread_id=thread_id, report=report)
 
+    @app.get("/api/live-citations")
+    async def get_live_citations(thread_id: str = Query(...)):
+        _validate_uuid(thread_id)
+        from app.showcase.delivery import (
+            LIVE_CITATION_FILENAME,
+            validate_live_citation_document,
+        )
+
+        workspace = SessionWorkspace.for_thread(
+            thread_id=thread_id,
+            base_upload="updated",
+            base_output="output",
+        )
+        try:
+            path = workspace.resolve_output(LIVE_CITATION_FILENAME)
+            document = json.loads(path.read_text(encoding="utf-8"))
+            document = validate_live_citation_document(
+                document, expected_thread_id=thread_id
+            )
+        except FileNotFoundError:
+            raise HTTPException(
+                status_code=404,
+                detail="no live citation results for this thread",
+            )
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid live citation results")
+        return LiveCitationsResponse(thread_id=thread_id, document=document)
+
     # ── WebSocket ─────────────────────────────────────────────────────────
 
     @app.websocket("/ws/{thread_id}")
@@ -299,6 +362,7 @@ def create_app(
 def _guess_media_type(filename: str) -> str:
     ext = Path(filename).suffix.lower()
     mapping: dict[str, str] = {
+        ".json": "application/json",
         ".md": "text/markdown",
         ".txt": "text/plain",
         ".pdf": "application/pdf",

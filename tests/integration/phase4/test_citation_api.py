@@ -176,7 +176,7 @@ async def test_tutorial_profile_has_no_citation_results(events, tmp_path, monkey
     from app.providers.contracts import ProviderBundle
     from app.providers.mock import (
         MockCatalogProvider,
-        MockKnowledgeProvider,
+        MockKnowledgeRetriever,
         MockWebProvider,
     )
 
@@ -184,7 +184,7 @@ async def test_tutorial_profile_has_no_citation_results(events, tmp_path, monkey
     bundle = ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",

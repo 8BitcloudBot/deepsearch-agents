@@ -395,7 +395,6 @@ def test_real_provider_smoke_skips_without_flag_or_credentials(monkeypatch):
 
     monkeypatch.delenv("PHASE3_REAL_PROVIDER_SMOKE", raising=False)
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
-    monkeypatch.delenv("RAGFLOW_API_KEY", raising=False)
     _assert_skip_reason(
         module.test_real_provider_smoke_is_opt_in_and_bounded,
         "PHASE3_REAL_PROVIDER_SMOKE",

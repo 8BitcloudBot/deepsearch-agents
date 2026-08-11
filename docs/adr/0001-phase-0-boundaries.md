@@ -1,5 +1,9 @@
 # ADR 0001: Phase 0 Boundaries
 
+> **Historical background:** This accepted Phase 0 record predates the local
+> knowledge retrieval migration. Its provider examples are not current route
+> or execution guidance; current direction is defined by `docs/phase-status.md`.
+
 - **Date:** 2026-07-28
 - **Status:** Accepted
 - **Deciders:** wxhu

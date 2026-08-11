@@ -1,8 +1,7 @@
 """Deterministic mock adapters for offline testing."""
 
+from app.knowledge.contracts import KnowledgeChunk
 from app.providers.contracts import (
-    KnowledgeAnswer,
-    KnowledgeAssistant,
     QueryResult,
     SearchHit,
     SearchResult,
@@ -78,25 +77,32 @@ class MockCatalogProvider:
         raise ValueError(f"No mock table matched query: {query!r}")
 
 
-class MockKnowledgeProvider:
-    _assistants = (
-        KnowledgeAssistant(
-            name="research-assistant",
-            description="Tutorial research knowledge base.",
-            knowledge_bases=("research_corpus",),
+class MockKnowledgeRetriever:
+    """Deterministic offline retriever returning evidence chunks only."""
+
+    _chunks = (
+        KnowledgeChunk(
+            collection_id="tutorial-knowledge",
+            document_id="tutorial-research-notes",
+            chunk_id="chunk-0001",
+            title="Tutorial research notes",
+            content="Research indicates relevant findings for the requested topic.",
+            score=1.0,
+            version="1.0.0",
         ),
     )
 
-    def list_assistants(self) -> tuple[KnowledgeAssistant, ...]:
-        return self._assistants
-
-    def ask(self, assistant_name: str, question: str) -> KnowledgeAnswer:
-        for a in self._assistants:
-            if a.name == assistant_name:
-                return KnowledgeAnswer(
-                    assistant_name=assistant_name,
-                    answer=(
-                        f"Answer to '{question}': Research indicates relevant findings."
-                    ),
-                )
-        raise ValueError(f"Unknown assistant: {assistant_name!r}")
+    def search(
+        self, query: str, *, collection_id=None, limit=8, document_version=None
+    ) -> tuple[KnowledgeChunk, ...]:
+        del query
+        chunks = self._chunks
+        if collection_id is not None:
+            chunks = tuple(
+                chunk for chunk in chunks if chunk.collection_id == collection_id
+            )
+        if document_version is not None:
+            chunks = tuple(
+                chunk for chunk in chunks if chunk.version == document_version
+            )
+        return chunks[:limit]

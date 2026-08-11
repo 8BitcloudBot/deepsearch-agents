@@ -1,5 +1,8 @@
 # Phase 5 — Orchestration Experiments
 
+> **Optional follow-on:** This phase is excluded from the current execution
+> context until Phase 4.5 is accepted and the user explicitly authorizes it.
+
 **Status:** Not started
 **Entry Gate:** Phase 4.5 live-source showcase is accepted, with offline and
 real-run evidence strictly separated
@@ -17,7 +20,7 @@ real-run evidence strictly separated
 - S3 Planner-Executor-Reviewer；
 - S4 Parallel Research + Reviewer；
 - 统一策略接口、消融开关和质量/成本/延迟/失败报告。
-- 对 Tavily、MySQL、RAGFlow、上传文件、引用定位与 Markdown/PDF 交付采用同一
+- 对 Tavily、MySQL、本地知识检索、上传文件、引用定位与 Markdown/PDF 交付采用同一
   场景协议，不另建脱离产品流程的评测平台。
 
 ## Minimum Acceptance

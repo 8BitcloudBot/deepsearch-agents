@@ -7,6 +7,7 @@ and STSong-Light for CJK. XML-escapes cell content.
 
 import os
 import tempfile
+from pathlib import Path
 
 from app.tools.files import ReportGenerationError, _atomic_write_bytes
 
@@ -16,24 +17,51 @@ def _escape_xml(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;")
 
 
-def generate_markdown_report(content: str) -> str:
-    """Write tutorial-report.md atomically. Returns relative path."""
+def _report_target(filename: str, expected_extension: str) -> tuple[Path, str]:
+    """Resolve one safe report basename without exposing workspace details."""
     from app.api.context import current_session
 
-    output_dir = current_session().workspace.output_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
-    target = output_dir / "tutorial-report.md"
+    workspace = current_session().workspace
+    try:
+        clean = Path(filename)
+        if clean.suffix.lower() != expected_extension or clean.name != filename:
+            raise ValueError("invalid report extension")
+        target = workspace.resolve_output(filename)
+    except Exception:
+        # Replacing an existing final symlink is safe: os.replace() operates on
+        # the link itself and never follows it to an external target.
+        try:
+            if (
+                isinstance(filename, str)
+                and clean.name == filename
+                and clean.suffix.lower() == expected_extension
+            ):
+                symlink_target = workspace.output_dir / clean.name
+                if symlink_target.is_symlink():
+                    target = symlink_target
+                else:
+                    raise ValueError("invalid report filename")
+            else:
+                raise ValueError("invalid report filename")
+        except Exception as symlink_exc:
+            raise ReportGenerationError("invalid report filename") from symlink_exc
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return target, target.name
+
+
+def generate_markdown_report(
+    content: str, *, filename: str = "tutorial-report.md"
+) -> str:
+    """Write a Markdown report atomically. Returns its safe basename."""
+    target, relative_name = _report_target(filename, ".md")
     _atomic_write_bytes(target, content.encode("utf-8"))
-    return "tutorial-report.md"
+    return relative_name
 
 
-def generate_pdf_report(content: str) -> str:
-    """Generate tutorial-report.pdf with ReportLab Table + CJK."""
-    from app.api.context import current_session
-
-    output_dir = current_session().workspace.output_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
-    target = output_dir / "tutorial-report.pdf"
+def generate_pdf_report(content: str, *, filename: str = "tutorial-report.pdf") -> str:
+    """Generate a PDF report with ReportLab Table + CJK."""
+    target, relative_name = _report_target(filename, ".pdf")
+    output_dir = target.parent
 
     fd = -1
     tmp_path = None
@@ -147,4 +175,4 @@ def generate_pdf_report(content: str) -> str:
         if fd >= 0:
             os.close(fd)
 
-    return "tutorial-report.pdf"
+    return relative_name

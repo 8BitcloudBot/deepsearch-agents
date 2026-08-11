@@ -1,5 +1,9 @@
 # Phase 2C Runbook — Local Mock Reproduction & Release Evidence
 
+> **Historical runbook:** This closed tutorial runbook retains its original
+> optional-provider smoke names for audit. It is not a current setup guide;
+> use the canonical Phase 4.5 documents and `.env.example` for current work.
+
 **Purpose:** reproduce the Phase 2 tutorial-parity closed loop locally with mock
 providers (no API keys, no network), observe events over WebSocket, download
 Markdown/PDF artifacts, and re-run the exact verification gates. Optional

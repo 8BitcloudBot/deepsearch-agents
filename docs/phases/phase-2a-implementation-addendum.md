@@ -1,5 +1,9 @@
 # Phase 2A Implementation Addendum
 
+> **Historical background:** This closed tutorial addendum preserves the
+> original tutorial provider facts for audit. It is not a current route or
+> execution instruction; current direction is defined by `docs/phase-status.md`.
+
 **Status:** Accepted and closed
 **Date:** 2026-08-07
 **Applies to:** Phase 2A — Demo Closure

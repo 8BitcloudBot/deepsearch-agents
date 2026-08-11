@@ -6,7 +6,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 
 from app.api.events import InMemoryEventBus
-from app.providers.contracts import KnowledgeProvider
+from app.knowledge.contracts import KnowledgeRetriever
 
 
 def _tid(c: RunnableConfig) -> str:
@@ -16,43 +16,28 @@ def _tid(c: RunnableConfig) -> str:
     return t
 
 
-def create_knowledge_tools(p: KnowledgeProvider, ev: InMemoryEventBus):
+def create_knowledge_tools(p: KnowledgeRetriever, ev: InMemoryEventBus):
     @tool
-    async def list_knowledge_assistants(config: RunnableConfig) -> str:
-        """List assistants."""
+    async def search_knowledge(
+        query: str, config: RunnableConfig, limit: int = 8
+    ) -> str:
+        """Retrieve evidence chunks from the configured knowledge index."""
         tid = _tid(config)
         ev.emit(
             tid,
             "tool_started",
-            "list_knowledge_assistants",
-            {"tool_name": "list_knowledge_assistants"},
+            "search_knowledge",
+            {"tool_name": "search_knowledge"},
         )
-        r = await asyncio.to_thread(p.list_assistants)
+        chunks = await asyncio.to_thread(p.search, query, limit=limit)
         ev.emit(
             tid,
             "tool_completed",
-            "list_knowledge_assistants",
-            {"tool_name": "list_knowledge_assistants"},
+            "search_knowledge",
+            {"tool_name": "search_knowledge"},
         )
-        return "\n".join(f"- {a.name}: {a.description}" for a in r)
+        if not chunks:
+            return "No knowledge evidence found."
+        return "\n".join(f"- {chunk.title}: {chunk.content}" for chunk in chunks)
 
-    @tool
-    async def ask_knowledge_assistant(an: str, q: str, config: RunnableConfig) -> str:
-        """Ask assistant."""
-        tid = _tid(config)
-        ev.emit(
-            tid,
-            "tool_started",
-            "ask_knowledge_assistant",
-            {"tool_name": "ask_knowledge_assistant"},
-        )
-        r = await asyncio.to_thread(p.ask, an, q)
-        ev.emit(
-            tid,
-            "tool_completed",
-            "ask_knowledge_assistant",
-            {"tool_name": "ask_knowledge_assistant"},
-        )
-        return f"[{r.assistant_name}] {r.answer}"
-
-    return [list_knowledge_assistants, ask_knowledge_assistant]
+    return [search_knowledge]

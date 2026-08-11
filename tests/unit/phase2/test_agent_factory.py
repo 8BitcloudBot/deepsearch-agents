@@ -14,7 +14,7 @@ from app.api.events import InMemoryEventBus
 from app.providers.contracts import ProviderBundle
 from app.providers.mock import (
     MockCatalogProvider,
-    MockKnowledgeProvider,
+    MockKnowledgeRetriever,
     MockWebProvider,
 )
 
@@ -25,7 +25,7 @@ def _bundle() -> ProviderBundle:
     return ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",
@@ -177,7 +177,7 @@ def test_factory_main_tools_include_file_and_report_tools():
         # Provider tools must NOT be in main tools
         assert "internet_search" not in main_tool_names
         assert "list_sql_tables" not in main_tool_names
-        assert "ask_knowledge_assistant" not in main_tool_names
+        assert "search_knowledge" not in main_tool_names
 
 
 @pytest.mark.parametrize(
@@ -195,7 +195,7 @@ def test_factory_main_tools_include_file_and_report_tools():
         ),
         (
             "knowledge-base",
-            {"list_knowledge_assistants", "ask_knowledge_assistant"},
+            {"search_knowledge"},
         ),
     ],
 )

@@ -53,12 +53,82 @@ export interface HealthInfo {
   status: string;
   service: string;
   phase: string;
+  app_profile: AppProfile;
   tutorial_profile: string;
   tutorial_runtime: string;
   web_provider: string;
   catalog_provider: string;
   knowledge_provider: string;
 }
+
+export type AppProfile = "tutorial" | "agent-research" | "showcase";
+
+export type LiveSourceKind = "web" | "mysql" | "knowledge" | "uploaded-file";
+export type LiveLocatorKind = "url" | "row" | "chunk" | "span";
+
+export interface LiveLocator {
+  kind: LiveLocatorKind;
+  value: string;
+}
+
+export interface LiveCitationClaim {
+  claim_id: string;
+  statement: string;
+  evidence_ids: string[];
+}
+
+export interface LiveEvidence {
+  evidence_id: string;
+  source_id: string;
+  source_kind: LiveSourceKind;
+  locator: LiveLocator;
+  quote: string;
+  content_sha256: string;
+  thread_id: string | null;
+}
+
+export interface LiveSource {
+  type: "live_source_result";
+  source_id: string;
+  source_kind: LiveSourceKind;
+  title: string;
+  captured_at: string;
+  version: string;
+  display_text: string;
+  locator: LiveLocator;
+  execution_mode: "live";
+  evidence_partition: "live";
+  safe_display_link?: string;
+}
+
+export interface LiveLimitation {
+  code: string;
+  /** Null when the limitation applies to the whole live run. */
+  source_kind: LiveSourceKind | null;
+  message: string;
+}
+
+export interface LiveCitationDocument {
+  schema_version: "2.0.0";
+  thread_id: string;
+  answer: string;
+  claims: LiveCitationClaim[];
+  sources: LiveSource[];
+  evidence: LiveEvidence[];
+  limitations: LiveLimitation[];
+  artifacts: [
+    "live-citations.json",
+    "showcase-report.md",
+    "showcase-report.pdf",
+  ];
+}
+
+export interface LiveCitationProgress {
+  claimCount: number | null;
+  evidenceCount: number | null;
+}
+
+export type LiveDeliveryStatus = "idle" | "loading" | "completed" | "degraded";
 
 export interface UploadFileInfo {
   name: string;

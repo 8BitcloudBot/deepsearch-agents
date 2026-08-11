@@ -34,7 +34,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "2.0.0"
 
 SHOWCASE_ENABLED_ENV = "SHOWCASE_ENABLED"
 SHOWCASE_SOURCES_ENV = "SHOWCASE_SOURCES"
@@ -45,14 +45,14 @@ class SourceKind(StrEnum):
 
     WEB = "web"
     MYSQL = "mysql"
-    RAGFLOW = "ragflow"
+    KNOWLEDGE = "knowledge"
     UPLOADED_FILE = "uploaded-file"
 
 
 LIVE_SOURCE_KINDS: tuple[SourceKind, ...] = (
     SourceKind.WEB,
     SourceKind.MYSQL,
-    SourceKind.RAGFLOW,
+    SourceKind.KNOWLEDGE,
     SourceKind.UPLOADED_FILE,
 )
 
@@ -246,7 +246,7 @@ _VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+
 LOCATOR_KINDS_BY_SOURCE_KIND: dict[SourceKind, frozenset[str]] = {
     SourceKind.WEB: frozenset({"url"}),
     SourceKind.MYSQL: frozenset({"row"}),
-    SourceKind.RAGFLOW: frozenset({"chunk"}),
+    SourceKind.KNOWLEDGE: frozenset({"chunk"}),
     SourceKind.UPLOADED_FILE: frozenset({"span"}),
 }
 

@@ -97,21 +97,12 @@ class MockTutorialRuntime:
                 self._emit_tool(tid, "tool_completed", "execute_readonly_query")
                 catalog_data.append(f"\nQuery result: {len(readonly.rows)} rows")
 
-            # 3. Knowledge
-            self._emit_tool(tid, "tool_started", "list_knowledge_assistants")
-            assistants = await asyncio.to_thread(self._bundle.knowledge.list_assistants)
-            self._emit_tool(tid, "tool_completed", "list_knowledge_assistants")
-
-            knowledge_answer = ""
-            if assistants:
-                self._emit_tool(tid, "tool_started", "ask_knowledge_assistant")
-                answer = await asyncio.to_thread(
-                    self._bundle.knowledge.ask,
-                    assistants[0].name,
-                    request.query,
-                )
-                self._emit_tool(tid, "tool_completed", "ask_knowledge_assistant")
-                knowledge_answer = answer.answer
+            # 3. Knowledge retrieval returns evidence chunks, never answers.
+            self._emit_tool(tid, "tool_started", "search_knowledge")
+            knowledge_chunks = await asyncio.to_thread(
+                self._bundle.knowledge.search, request.query, limit=8
+            )
+            self._emit_tool(tid, "tool_completed", "search_knowledge")
 
             # 4. Optional: read uploaded file
             uploaded_content = ""
@@ -147,10 +138,11 @@ class MockTutorialRuntime:
             report_lines.append("")
             report_lines.append("## Catalog Data")
             report_lines.extend(catalog_data)
-            if knowledge_answer:
+            if knowledge_chunks:
                 report_lines.append("")
                 report_lines.append("## Knowledge Base")
-                report_lines.append(knowledge_answer)
+                for chunk in knowledge_chunks:
+                    report_lines.append(f"- {chunk.title}: {chunk.content}")
             if uploaded_content:
                 report_lines.append("")
                 report_lines.append("## Uploaded Source Material")

@@ -1,5 +1,10 @@
 # ADR 0003: Phase 2 Tutorial Contracts
 
+> **Historical background:** This accepted tutorial contract records the
+> pre-migration provider vocabulary. It is retained for audit only and is not
+> current execution guidance; current direction is defined by
+> `docs/phase-status.md`.
+
 - **Date:** 2026-07-29
 - **Status:** Accepted
 - **Deciders:** wxhu

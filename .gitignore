@@ -36,6 +36,10 @@ coverage.xml
 mysql_data/
 docker/**/data/
 
+# Local knowledge index and model cache
+.data/knowledge-index/
+.cache/fastembed/
+
 # IDE
 .vscode/
 .idea/

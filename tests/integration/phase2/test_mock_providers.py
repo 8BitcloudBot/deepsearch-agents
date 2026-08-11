@@ -8,7 +8,7 @@ from app.providers.contracts import (
 )
 from app.providers.mock import (
     MockCatalogProvider,
-    MockKnowledgeProvider,
+    MockKnowledgeRetriever,
     MockWebProvider,
 )
 
@@ -48,26 +48,23 @@ def test_mock_catalog_rejects_unknown_table():
         provider.describe_table("nonexistent")
 
 
-def test_mock_knowledge_exposes_tutorial_assistant():
-    provider = MockKnowledgeProvider()
-    assistants = provider.list_assistants()
-    names = [a.name for a in assistants]
-    assert any("research" in n for n in names)
+def test_mock_knowledge_returns_typed_chunks():
+    provider = MockKnowledgeRetriever()
+    chunks = provider.search("test")
+    assert chunks
+    assert chunks[0].collection_id == "tutorial-knowledge"
 
 
-def test_mock_knowledge_returns_fixed_answer():
-    provider = MockKnowledgeProvider()
-    assistants = provider.list_assistants()
-    answer = provider.ask(assistants[0].name, "test")
-    assert answer.assistant_name == assistants[0].name
-    assert len(answer.answer) > 0
+def test_mock_knowledge_search_is_deterministic():
+    provider = MockKnowledgeRetriever()
+    assert provider.search("test") == provider.search("test")
 
 
 def test_provider_bundle_uses_mock_detects_mock():
     bundle = ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",
@@ -79,9 +76,9 @@ def test_provider_bundle_uses_mock_detects_real():
     bundle = ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="tavily",
         catalog_mode="mysql",
-        knowledge_mode="ragflow",
+        knowledge_mode="qdrant-local",
     )
     assert bundle.uses_mock is False

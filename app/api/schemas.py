@@ -77,6 +77,13 @@ class CitationsResponse(BaseModel):
     report: dict[str, Any]
 
 
+class LiveCitationsResponse(BaseModel):
+    """Thread-scoped live citation delivery document (P4.5-4)."""
+
+    thread_id: str
+    document: dict[str, Any]
+
+
 # ── WebSocket messages ───────────────────────────────────────────────────────
 
 

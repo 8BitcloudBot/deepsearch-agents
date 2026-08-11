@@ -1,5 +1,9 @@
 # Phase 2B Safety Hardening Implementation Plan
 
+> **Historical plan:** Phase 2B is closed. Provider names and collaboration
+> instructions below record the tutorial-era implementation only and are not
+> current route or execution guidance.
+
 > **For agentic workers:** Execute B1 through B8 as separate fresh Reasonix
 > nodes. Codex reviews the complete diff and independently reruns each node's
 > acceptance commands before the next node starts.

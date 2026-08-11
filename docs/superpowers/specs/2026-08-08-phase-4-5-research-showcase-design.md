@@ -1,6 +1,9 @@
 # Phase 4.5 Research Showcase Design
 
-**Status:** Approved direction; implementation not started
+**Status:** Approved; P4.5-1 accepted, P4.5-2 ready
+
+The durable product-direction decision is recorded in
+[`ADR 0004`](../../adr/0004-product-direction-and-codex-governance.md).
 
 ## Context
 
@@ -40,7 +43,7 @@ locator. Locator payloads remain adapter-specific:
 - Tavily/Web: canonical URL, retrieval timestamp and bounded content span;
 - MySQL: approved connection alias, schema/table identity, query fingerprint
   and row/column identity, never credentials or raw connection strings;
-- RAGFlow: dataset, document, chunk and version identity;
+- Local knowledge retrieval: collection, document, chunk and version identity;
 - uploaded file: thread-scoped artifact identity plus page/line/span.
 
 The server validates all locators before emitting API/event data. The frontend

@@ -31,6 +31,28 @@ def _in_session(ws):
 
 
 class TestMarkdownReport:
+    def test_accepts_safe_showcase_basename(self, tmp_path):
+        from app.tools.reports import generate_markdown_report
+
+        ws = _workspace(tmp_path)
+        with _in_session(ws):
+            result = generate_markdown_report(
+                "# Showcase", filename="showcase-report.md"
+            )
+        assert result == "showcase-report.md"
+        assert ws.resolve_output(result).read_text(encoding="utf-8") == "# Showcase"
+
+    def test_rejects_path_and_wrong_extension(self, tmp_path):
+        from app.tools.reports import generate_markdown_report
+
+        ws = _workspace(tmp_path)
+        with pytest.raises(ReportGenerationError):
+            with _in_session(ws):
+                generate_markdown_report("content", filename="../escape.md")
+        with pytest.raises(ReportGenerationError):
+            with _in_session(ws):
+                generate_markdown_report("content", filename="showcase-report.pdf")
+
     def test_generates_utf8(self, tmp_path):
         from app.tools.reports import generate_markdown_report
 
@@ -86,6 +108,26 @@ class TestMarkdownReport:
 
 
 class TestPDFReport:
+    def test_accepts_safe_showcase_basename(self, tmp_path):
+        from app.tools.reports import generate_pdf_report
+
+        ws = _workspace(tmp_path)
+        with _in_session(ws):
+            result = generate_pdf_report("# Showcase", filename="showcase-report.pdf")
+        assert result == "showcase-report.pdf"
+        assert ws.resolve_output(result).read_bytes()[:4] == b"%PDF"
+
+    def test_rejects_path_and_wrong_extension(self, tmp_path):
+        from app.tools.reports import generate_pdf_report
+
+        ws = _workspace(tmp_path)
+        with pytest.raises(ReportGenerationError):
+            with _in_session(ws):
+                generate_pdf_report("content", filename="../escape.pdf")
+        with pytest.raises(ReportGenerationError):
+            with _in_session(ws):
+                generate_pdf_report("content", filename="showcase-report.md")
+
     def test_generates_pdf_header(self, tmp_path):
         from app.tools.reports import generate_pdf_report
 

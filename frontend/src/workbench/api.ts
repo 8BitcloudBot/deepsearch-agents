@@ -17,6 +17,13 @@ import {
   type EventType,
   type FileListResponse,
   type HealthInfo,
+  type LiveCitationClaim,
+  type LiveCitationDocument,
+  type LiveEvidence,
+  type LiveLimitation,
+  type LiveLocator,
+  type LiveSource,
+  type LiveSourceKind,
   type TaskCancelResponse,
   type TaskStartResponse,
   type TutorialEvent,
@@ -30,6 +37,8 @@ const MALFORMED_EVENT_MESSAGE = "Received a malformed event payload.";
 const UNSUPPORTED_EVENT_MESSAGE = "Received an unsupported event payload.";
 const UNSUPPORTED_VERSION_MESSAGE = "Received an unsupported event version.";
 const CITATION_UNAVAILABLE_MESSAGE = "Citation results are unavailable.";
+export const LIVE_CITATION_UNAVAILABLE_MESSAGE =
+  "Live citation results are unavailable.";
 
 /** Server-returned relative citation artifact names (P4-5). */
 export const CITATION_REPORT_FILENAME = "citation-report.json";
@@ -234,6 +243,371 @@ export async function getCitations(
   const report = parseCitationsReport(body.report);
   if (report === null) throw new Error(CITATION_UNAVAILABLE_MESSAGE);
   return { thread_id: body.thread_id, report };
+}
+
+const LIVE_ARTIFACTS = [
+  "live-citations.json",
+  "showcase-report.md",
+  "showcase-report.pdf",
+] as const;
+const LIVE_SOURCE_KINDS = ["web", "mysql", "knowledge", "uploaded-file"] as const;
+const LIVE_LOCATOR_KINDS = ["url", "row", "chunk", "span"] as const;
+const LIVE_ID_PATTERN = /^(?:src|ev-live)-[A-Za-z0-9][A-Za-z0-9-]{0,127}$/;
+const HEX_HASH_PATTERN = /^[0-9a-f]{64}$/i;
+
+function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_PATTERN.test(value);
+}
+
+function liveUnavailable(): Error {
+  return new Error(LIVE_CITATION_UNAVAILABLE_MESSAGE);
+}
+
+function boundedLiveString(
+  value: unknown,
+  allowEmpty = false,
+  allowLineBreaks = false
+): string {
+  if (typeof value !== "string") throw liveUnavailable();
+  if ((!allowEmpty && value.trim() === "") || value.length > 4096) {
+    throw liveUnavailable();
+  }
+  if (
+    [...value].some(
+      (character) =>
+        character.charCodeAt(0) < 0x20 &&
+        !(allowLineBreaks && (character === "\n" || character === "\r"))
+    )
+  ) {
+    throw liveUnavailable();
+  }
+  if (
+    /(?:\/Users\/|\/home\/|[A-Za-z]:\\|(?:password|secret|api[_-]?key|token)=)/i.test(
+      value
+    )
+  ) {
+    throw liveUnavailable();
+  }
+  return value;
+}
+
+function exactKeys(
+  value: Record<string, unknown>,
+  required: readonly string[],
+  optional: readonly string[] = []
+): void {
+  const allowed = new Set([...required, ...optional]);
+  if (
+    Object.keys(value).some((key) => !allowed.has(key)) ||
+    required.some((key) => !Object.prototype.hasOwnProperty.call(value, key))
+  ) {
+    throw liveUnavailable();
+  }
+}
+
+function liveRecord(value: unknown): Record<string, unknown> {
+  if (!isRecord(value)) throw liveUnavailable();
+  return value;
+}
+
+function liveId(value: unknown): string {
+  if (typeof value !== "string" || !LIVE_ID_PATTERN.test(value)) {
+    throw liveUnavailable();
+  }
+  return value;
+}
+
+function liveLocator(value: unknown): LiveLocator {
+  const record = liveRecord(value);
+  exactKeys(record, ["kind", "value"]);
+  const kind = record.kind;
+  if (
+    typeof kind !== "string" ||
+    !(LIVE_LOCATOR_KINDS as readonly string[]).includes(kind)
+  ) {
+    throw liveUnavailable();
+  }
+  return { kind: kind as LiveLocator["kind"], value: boundedLiveString(record.value) };
+}
+
+function liveSourceKind(value: unknown): LiveSourceKind {
+  if (
+    typeof value !== "string" ||
+    !(LIVE_SOURCE_KINDS as readonly string[]).includes(value)
+  ) {
+    throw liveUnavailable();
+  }
+  return value as LiveSourceKind;
+}
+
+function encodedPathSegment(value: string): string {
+  return encodeURIComponent(value).replace(/[!'()*]/g, (character) =>
+    `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+}
+
+function safeLiveDisplayLink(
+  sourceKind: LiveSourceKind,
+  locator: LiveLocator,
+  candidate: unknown,
+  expectedThreadId: string
+): string | undefined {
+  if (sourceKind === "mysql" || sourceKind === "knowledge") return undefined;
+  if (typeof candidate !== "string") return undefined;
+  if (sourceKind === "web") {
+    if (locator.kind !== "url" || candidate !== locator.value) return undefined;
+    try {
+      const url = new URL(candidate);
+      return (url.protocol === "https:" || url.protocol === "http:") &&
+        url.hostname !== "" &&
+        url.username === "" &&
+        url.password === ""
+        ? candidate
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  if (locator.kind !== "span") return undefined;
+  const artifactName = locator.value.split(":", 1)[0];
+  if (
+    artifactName === "" ||
+    artifactName === "." ||
+    artifactName === ".." ||
+    artifactName.includes("/") ||
+    artifactName.includes("\\")
+  ) {
+    return undefined;
+  }
+  const expected =
+    `/api/threads/${expectedThreadId}/uploads/${encodedPathSegment(artifactName)}`;
+  return candidate === expected ? candidate : undefined;
+}
+
+function parseLiveSource(
+  value: unknown,
+  expectedThreadId: string
+): LiveSource {
+  const record = liveRecord(value);
+  exactKeys(
+    record,
+    [
+      "type",
+      "source_id",
+      "source_kind",
+      "title",
+      "captured_at",
+      "version",
+      "display_text",
+      "locator",
+      "execution_mode",
+      "evidence_partition",
+    ],
+    ["safe_display_link"]
+  );
+  if (record.type !== "live_source_result") throw liveUnavailable();
+  const sourceKind = liveSourceKind(record.source_kind);
+  const locator = liveLocator(record.locator);
+  const expectedLocatorKind: Record<LiveSourceKind, LiveLocator["kind"]> = {
+    web: "url",
+    mysql: "row",
+    knowledge: "chunk",
+    "uploaded-file": "span",
+  };
+  if (locator.kind !== expectedLocatorKind[sourceKind]) throw liveUnavailable();
+  if (record.execution_mode !== "live" || record.evidence_partition !== "live") {
+    throw liveUnavailable();
+  }
+  const safeDisplayLink = safeLiveDisplayLink(
+    sourceKind,
+    locator,
+    record.safe_display_link,
+    expectedThreadId
+  );
+  return {
+    type: "live_source_result",
+    source_id: liveId(record.source_id),
+    source_kind: sourceKind,
+    title: boundedLiveString(record.title),
+    captured_at: boundedLiveString(record.captured_at),
+    version: boundedLiveString(record.version),
+    display_text: boundedLiveString(record.display_text, false, true),
+    locator,
+    execution_mode: "live",
+    evidence_partition: "live",
+    ...(safeDisplayLink ? { safe_display_link: safeDisplayLink } : {}),
+  };
+}
+
+function parseLiveEvidence(
+  value: unknown,
+  expectedThreadId: string
+): LiveEvidence {
+  const record = liveRecord(value);
+  exactKeys(record, [
+    "evidence_id",
+    "source_id",
+    "source_kind",
+    "locator",
+    "quote",
+    "content_sha256",
+    "thread_id",
+  ]);
+  const sourceKind = liveSourceKind(record.source_kind);
+  const locator = liveLocator(record.locator);
+  const expectedLocatorKind: Record<LiveSourceKind, LiveLocator["kind"]> = {
+    web: "url",
+    mysql: "row",
+    knowledge: "chunk",
+    "uploaded-file": "span",
+  };
+  if (locator.kind !== expectedLocatorKind[sourceKind]) throw liveUnavailable();
+  if (
+    (sourceKind === "uploaded-file" && record.thread_id !== expectedThreadId) ||
+    (sourceKind !== "uploaded-file" && record.thread_id !== null)
+  ) {
+    throw liveUnavailable();
+  }
+  if (
+    typeof record.content_sha256 !== "string" ||
+    !HEX_HASH_PATTERN.test(record.content_sha256)
+  ) {
+    throw liveUnavailable();
+  }
+  return {
+    evidence_id: liveId(record.evidence_id),
+    source_id: liveId(record.source_id),
+    source_kind: sourceKind,
+    locator,
+    quote: boundedLiveString(record.quote, false, true),
+    content_sha256: record.content_sha256,
+    thread_id: record.thread_id as string | null,
+  };
+}
+
+function parseLiveLimitation(value: unknown): LiveLimitation {
+  const record = liveRecord(value);
+  exactKeys(record, ["code", "source_kind", "message"]);
+  const sourceKind =
+    record.source_kind === null ? null : liveSourceKind(record.source_kind);
+  return {
+    code: boundedLiveString(record.code),
+    source_kind: sourceKind,
+    message: boundedLiveString(record.message),
+  };
+}
+
+/** Parse a persisted P4.5 live document without rendering unvalidated data. */
+export function parseLiveCitationDocument(
+  value: unknown,
+  expectedThreadId: string
+): LiveCitationDocument {
+  try {
+    if (!isUuid(expectedThreadId)) throw liveUnavailable();
+    const record = liveRecord(value);
+    exactKeys(record, [
+      "schema_version",
+      "thread_id",
+      "answer",
+      "claims",
+      "sources",
+      "evidence",
+      "limitations",
+      "artifacts",
+    ]);
+    if (
+      record.schema_version !== "2.0.0" ||
+      record.thread_id !== expectedThreadId ||
+      !Array.isArray(record.artifacts) ||
+      record.artifacts.length !== LIVE_ARTIFACTS.length ||
+      record.artifacts.some((item, index) => item !== LIVE_ARTIFACTS[index])
+    ) {
+      throw liveUnavailable();
+    }
+    const claimsValue = record.claims;
+    const sourcesValue = record.sources;
+    const evidenceValue = record.evidence;
+    const limitationsValue = record.limitations;
+    if (
+      !Array.isArray(claimsValue) ||
+      !Array.isArray(sourcesValue) ||
+      !Array.isArray(evidenceValue) ||
+      !Array.isArray(limitationsValue)
+    ) {
+      throw liveUnavailable();
+    }
+    const sources = sourcesValue.map((item) =>
+      parseLiveSource(item, expectedThreadId)
+    );
+    const sourceById = new Map<string, LiveSource>();
+    for (const source of sources) {
+      if (sourceById.has(source.source_id)) throw liveUnavailable();
+      sourceById.set(source.source_id, source);
+    }
+    const evidence = evidenceValue.map((item) =>
+      parseLiveEvidence(item, expectedThreadId)
+    );
+    const evidenceById = new Map<string, LiveEvidence>();
+    for (const item of evidence) {
+      if (evidenceById.has(item.evidence_id)) throw liveUnavailable();
+      const source = sourceById.get(item.source_id);
+      if (
+        !source ||
+        source.source_kind !== item.source_kind ||
+        source.locator.kind !== item.locator.kind ||
+        source.locator.value !== item.locator.value
+      ) {
+        throw liveUnavailable();
+      }
+      evidenceById.set(item.evidence_id, item);
+    }
+    const claims: LiveCitationClaim[] = claimsValue.map((item, index) => {
+      const claim = liveRecord(item);
+      exactKeys(claim, ["claim_id", "statement", "evidence_ids"]);
+      if (claim.claim_id !== `claim-${index + 1}`) throw liveUnavailable();
+      if (!Array.isArray(claim.evidence_ids)) throw liveUnavailable();
+      const evidenceIds = claim.evidence_ids.map(liveId);
+      if (new Set(evidenceIds).size !== evidenceIds.length) throw liveUnavailable();
+      if (evidenceIds.some((id) => !evidenceById.has(id))) throw liveUnavailable();
+      return {
+        claim_id: claim.claim_id,
+        statement: boundedLiveString(claim.statement, false, true),
+        evidence_ids: evidenceIds,
+      };
+    });
+    const limitations = limitationsValue.map(parseLiveLimitation);
+    return {
+      schema_version: "2.0.0",
+      thread_id: expectedThreadId,
+      answer: boundedLiveString(record.answer, true, true),
+      claims,
+      sources,
+      evidence,
+      limitations,
+      artifacts: [...LIVE_ARTIFACTS],
+    };
+  } catch {
+    throw liveUnavailable();
+  }
+}
+
+/** `GET /api/live-citations?thread_id=...` — current-thread showcase data. */
+export async function getLiveCitations(
+  baseUrl: string,
+  threadId: string
+): Promise<LiveCitationDocument> {
+  try {
+    const body = liveRecord(
+      await requestJson(
+        baseUrl,
+        `/api/live-citations?thread_id=${encodeURIComponent(threadId)}`
+      )
+    );
+    if (body.thread_id !== threadId) throw liveUnavailable();
+    return parseLiveCitationDocument(body.document, threadId);
+  } catch {
+    throw liveUnavailable();
+  }
 }
 
 function normalizeBase(baseUrl: string): string {

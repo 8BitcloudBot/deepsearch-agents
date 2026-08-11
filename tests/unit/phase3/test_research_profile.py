@@ -66,8 +66,8 @@ def test_agent_research_skips_build_providers_with_residual_env(monkeypatch):
     monkeypatch.setenv("APP_PROFILE", "agent-research")
     monkeypatch.setenv("WEB_PROVIDER", "tavily")
     monkeypatch.setenv("CATALOG_PROVIDER", "mysql")
-    monkeypatch.setenv("KNOWLEDGE_PROVIDER", "ragflow")
-    for key in ("TAVILY_API_KEY", "RAGFLOW_API_KEY", "RAGFLOW_BASE_URL"):
+    monkeypatch.setenv("KNOWLEDGE_PROVIDER", "qdrant-local")
+    for key in ("TAVILY_API_KEY",):
         monkeypatch.delenv(key, raising=False)
 
     calls: list = []
@@ -161,7 +161,7 @@ def test_showcase_profile_never_builds_providers_with_opt_in(monkeypatch):
     and every source declared, it must never construct providers."""
     monkeypatch.setenv("APP_PROFILE", "showcase")
     monkeypatch.setenv("SHOWCASE_ENABLED", "1")
-    monkeypatch.setenv("SHOWCASE_SOURCES", "web,mysql,ragflow,uploaded-file")
+    monkeypatch.setenv("SHOWCASE_SOURCES", "web,mysql,knowledge,uploaded-file")
 
     calls: list = []
 
@@ -204,8 +204,8 @@ def test_showcase_profile_starts_with_residual_provider_env(monkeypatch):
     monkeypatch.setenv("APP_PROFILE", "showcase")
     monkeypatch.setenv("WEB_PROVIDER", "tavily")
     monkeypatch.setenv("CATALOG_PROVIDER", "mysql")
-    monkeypatch.setenv("KNOWLEDGE_PROVIDER", "ragflow")
-    for key in ("TAVILY_API_KEY", "RAGFLOW_API_KEY", "RAGFLOW_BASE_URL"):
+    monkeypatch.setenv("KNOWLEDGE_PROVIDER", "qdrant-local")
+    for key in ("TAVILY_API_KEY",):
         monkeypatch.delenv(key, raising=False)
 
     from app.main import create_app

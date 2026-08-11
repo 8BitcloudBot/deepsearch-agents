@@ -1,5 +1,9 @@
 # Phase 4 Trustworthy Citations Evidence
 
+> **Historical evidence:** Provider smoke names below record the accepted
+> Phase 4 environment at that time. They are not current route or configuration
+> guidance.
+
 **Result:** Phase 4 accepted at closeout checkpoint `acf7c46`
 
 This is a Codex-only acceptance record. It does not claim real Provider or model

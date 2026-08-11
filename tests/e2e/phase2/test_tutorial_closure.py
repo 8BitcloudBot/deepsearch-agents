@@ -17,7 +17,7 @@ from app.api.server import create_app
 from app.providers.contracts import ProviderBundle
 from app.providers.mock import (
     MockCatalogProvider,
-    MockKnowledgeProvider,
+    MockKnowledgeRetriever,
     MockWebProvider,
 )
 
@@ -37,7 +37,7 @@ def app(events):
     bundle = ProviderBundle(
         web=MockWebProvider(),
         catalog=MockCatalogProvider(),
-        knowledge=MockKnowledgeProvider(),
+        knowledge=MockKnowledgeRetriever(),
         web_mode="mock",
         catalog_mode="mock",
         knowledge_mode="mock",
@@ -95,7 +95,7 @@ async def test_full_api_closure(app, events, tmp_path, monkeypatch):
     tool_names = {e.data.get("tool_name", "") for e in collected}
     assert "internet_search" in tool_names, f"web: {sorted(tool_names)}"
     assert "list_sql_tables" in tool_names, f"catalog: {sorted(tool_names)}"
-    assert "list_knowledge_assistants" in tool_names, f"knowledge: {sorted(tool_names)}"
+    assert "search_knowledge" in tool_names, f"knowledge: {sorted(tool_names)}"
     terminals = [
         e
         for e in collected

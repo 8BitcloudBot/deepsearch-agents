@@ -8,7 +8,7 @@ VALID_RUNTIMES = frozenset({"mock", "deepagents"})
 VALID_APP_PROFILES = frozenset({"tutorial", "agent-research", "showcase"})
 VALID_WEB_PROVIDERS = frozenset({"mock", "tavily"})
 VALID_CATALOG_PROVIDERS = frozenset({"mock", "mysql"})
-VALID_KNOWLEDGE_PROVIDERS = frozenset({"mock", "ragflow"})
+VALID_KNOWLEDGE_PROVIDERS = frozenset({"mock", "qdrant-local"})
 
 
 @dataclass(frozen=True)
@@ -22,8 +22,6 @@ class Phase2Settings:
     model_base_url: str | None = None
     model_api_key: str | None = None
     tavily_api_key: str | None = None
-    ragflow_base_url: str | None = None
-    ragflow_api_key: str | None = None
     mysql_host: str = "127.0.0.1"
     mysql_port: int = 3307
     mysql_user: str = "tutorial_reader"
@@ -92,12 +90,6 @@ class Phase2Settings:
             tavily_api_key=(
                 _get("TAVILY_API_KEY") or None
                 if profile == "tutorial" and web == "tavily"
-                else None
-            ),
-            ragflow_base_url=_get("RAGFLOW_BASE_URL") or None,
-            ragflow_api_key=(
-                _get("RAGFLOW_API_KEY") or None
-                if profile == "tutorial" and knowledge == "ragflow"
                 else None
             ),
             mysql_host=_get("MYSQL_HOST", "127.0.0.1"),

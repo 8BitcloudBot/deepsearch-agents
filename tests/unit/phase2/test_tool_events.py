@@ -7,21 +7,20 @@ import pytest
 from app.api.events import InMemoryEventBus
 from app.providers.mock import (
     MockCatalogProvider,
-    MockKnowledgeProvider,
+    MockKnowledgeRetriever,
     MockWebProvider,
 )
 from app.tools.catalog import create_catalog_tools
 from app.tools.knowledge import create_knowledge_tools
 from app.tools.web import create_internet_search_tool
 
-ALL_SEVEN = [
+ALL_SIX = [
     "internet_search",
     "list_sql_tables",
     "describe_table",
     "preview_table",
     "execute_readonly_query",
-    "list_knowledge_assistants",
-    "ask_knowledge_assistant",
+    "search_knowledge",
 ]
 
 
@@ -64,7 +63,7 @@ async def test_all_seven_tools_emit_paired_events():
     bus = InMemoryEventBus()
     web = create_internet_search_tool(MockWebProvider(), bus)
     cat_tools = create_catalog_tools(MockCatalogProvider(), bus)
-    k_tools = create_knowledge_tools(MockKnowledgeProvider(), bus)
+    k_tools = create_knowledge_tools(MockKnowledgeRetriever(), bus)
     all_tools = [web] + cat_tools + k_tools
 
     config = {"configurable": {"thread_id": "t-main"}}
@@ -92,11 +91,9 @@ async def test_all_seven_tools_emit_paired_events():
                         {"q": "SELECT * FROM drugs LIMIT 1"},
                         config=RunnableConfigWrapper(config),
                     )
-                elif tool.name == "list_knowledge_assistants":
-                    await tool.ainvoke({}, config=RunnableConfigWrapper(config))
-                elif tool.name == "ask_knowledge_assistant":
+                elif tool.name == "search_knowledge":
                     await tool.ainvoke(
-                        {"an": "research-assistant", "q": "q"},
+                        {"query": "q"},
                         config=RunnableConfigWrapper(config),
                     )
             except Exception as exc:
@@ -107,11 +104,11 @@ async def test_all_seven_tools_emit_paired_events():
         collected.append(sub.queue.get_nowait())
 
     types = [e.type for e in collected]
-    assert types.count("tool_started") == 7, (
-        f"Expected 7 starts, got {types.count('tool_started')}"
+    assert types.count("tool_started") == 6, (
+        f"Expected 6 starts, got {types.count('tool_started')}"
     )
-    assert types.count("tool_completed") == 7, (
-        f"Expected 7 completes, got {types.count('tool_completed')}"
+    assert types.count("tool_completed") == 6, (
+        f"Expected 6 completes, got {types.count('tool_completed')}"
     )
     for e in collected:
         assert e.thread_id == "t-main"

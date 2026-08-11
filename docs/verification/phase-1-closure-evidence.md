@@ -1,5 +1,8 @@
 # Phase 1 Release Closure Evidence
 
+> **Historical evidence:** Provider names below record the accepted Phase 1
+> boundary at that time. They are not current route or execution guidance.
+
 ## Scope
 
 This release-closure pass makes the Phase 1 environment reproducible, aligns CI

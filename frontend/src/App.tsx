@@ -1,5 +1,6 @@
 import { useWorkbench } from "./workbench/useWorkbench";
 import type { ConnectionState } from "./workbench/useWorkbench";
+import { ShowcaseResults } from "./workbench/ShowcaseResults";
 import {
   CITATION_PARTITIONS_FILENAME,
   CITATION_REPORT_FILENAME,
@@ -60,7 +61,7 @@ function SessionHeader(props: {
       </p>
       {props.health ? (
         <p className="health-modes">
-          Runtime: {props.health.tutorial_runtime} · Web:{" "}
+          Profile: {props.health.app_profile} · Runtime: {props.health.tutorial_runtime} · Web:{" "}
           {props.health.web_provider} · Catalog: {props.health.catalog_provider}{" "}
           · Knowledge: {props.health.knowledge_provider}
         </p>
@@ -452,6 +453,7 @@ function CitationPanel(props: {
 
 function App() {
   const workbench = useWorkbench(API_BASE_URL);
+  const isShowcase = workbench.health?.app_profile === "showcase";
   const taskActive =
     workbench.status === "uploading" || workbench.status === "running";
   const canUpload = !taskActive && !workbench.taskStartPending;
@@ -490,23 +492,43 @@ function App() {
         connectionState={workbench.connectionState}
         error={workbench.error}
       />
-      <EventTimeline events={workbench.events} />
-      <ArtifactPanel
-        apiBaseUrl={API_BASE_URL}
-        threadId={workbench.threadId}
-        files={workbench.files}
-        markdown={workbench.markdown}
-        markdownError={workbench.markdownError}
-      />
-      <CitationPanel
-        apiBaseUrl={API_BASE_URL}
-        threadId={workbench.threadId}
-        files={workbench.files}
-        summary={workbench.citationSummary}
-        citations={workbench.citations}
-        citationsLoading={workbench.citationsLoading}
-        citationsError={workbench.citationsError}
-      />
+      {isShowcase ? (
+        <>
+          <ShowcaseResults
+            apiBaseUrl={API_BASE_URL}
+            threadId={workbench.threadId}
+            document={workbench.liveDocument}
+            loading={workbench.liveLoading}
+            error={workbench.liveError}
+            deliveryStatus={workbench.liveDeliveryStatus}
+            progress={workbench.liveProgress}
+            files={workbench.files}
+            markdown={workbench.markdown}
+            markdownError={workbench.markdownError}
+          />
+          <EventTimeline events={workbench.events} />
+        </>
+      ) : (
+        <>
+          <EventTimeline events={workbench.events} />
+          <ArtifactPanel
+            apiBaseUrl={API_BASE_URL}
+            threadId={workbench.threadId}
+            files={workbench.files}
+            markdown={workbench.markdown}
+            markdownError={workbench.markdownError}
+          />
+          <CitationPanel
+            apiBaseUrl={API_BASE_URL}
+            threadId={workbench.threadId}
+            files={workbench.files}
+            summary={workbench.citationSummary}
+            citations={workbench.citations}
+            citationsLoading={workbench.citationsLoading}
+            citationsError={workbench.citationsError}
+          />
+        </>
+      )}
     </main>
   );
 }

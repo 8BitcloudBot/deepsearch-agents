@@ -15,10 +15,12 @@ import {
   cancelTask,
   downloadUrl,
   getCitations,
+  getLiveCitations,
   health,
   listFiles,
   parseCitationCompletedData,
   parseEvent,
+  LIVE_CITATION_UNAVAILABLE_MESSAGE,
   startTask,
   uploadConstraint,
 } from "./api";
@@ -27,6 +29,9 @@ import type {
   CitationReport,
   FileInfo,
   HealthInfo,
+  LiveCitationDocument,
+  LiveCitationProgress,
+  LiveDeliveryStatus,
   RunStatus,
   TutorialEvent,
   UploadFileInfo,
@@ -68,6 +73,12 @@ export interface WorkbenchState {
   citations: CitationReport | null;
   citationsLoading: boolean;
   citationsError: string | null;
+  // P4.5 live citation state — showcase profile only.
+  liveDocument: LiveCitationDocument | null;
+  liveLoading: boolean;
+  liveError: string | null;
+  liveDeliveryStatus: LiveDeliveryStatus;
+  liveProgress: LiveCitationProgress | null;
 }
 
 const SLOW_CONSUMER_MESSAGE =
@@ -111,6 +122,30 @@ function stableMessage(cause: unknown, fallback: string): string {
     : fallback;
 }
 
+function parseLiveProgress(data: Record<string, unknown>): LiveCitationProgress | null {
+  const claimCount = data.claim_count;
+  const evidenceCount = data.evidence_count;
+  if (
+    typeof claimCount !== "number" ||
+    !Number.isInteger(claimCount) ||
+    claimCount < 0 ||
+    typeof evidenceCount !== "number" ||
+    !Number.isInteger(evidenceCount) ||
+    evidenceCount < 0
+  ) {
+    return null;
+  }
+  return { claimCount, evidenceCount };
+}
+
+function parseLiveCompletion(
+  data: Record<string, unknown>
+): "completed" | "degraded" | null {
+  return data.status === "completed" || data.status === "degraded"
+    ? data.status
+    : null;
+}
+
 export function useWorkbench(apiBaseUrl: string): WorkbenchState {
   const [threadId, setThreadId] = useState<string>(createThreadId);
   const [healthInfo, setHealthInfo] = useState<HealthInfo | null>(null);
@@ -133,6 +168,14 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
   const [citations, setCitations] = useState<CitationReport | null>(null);
   const [citationsLoading, setCitationsLoading] = useState<boolean>(false);
   const [citationsError, setCitationsError] = useState<string | null>(null);
+  const [liveDocument, setLiveDocument] =
+    useState<LiveCitationDocument | null>(null);
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const [liveDeliveryStatus, setLiveDeliveryStatus] =
+    useState<LiveDeliveryStatus>("idle");
+  const [liveProgress, setLiveProgress] =
+    useState<LiveCitationProgress | null>(null);
   // The accepted terminal event guard: later events stay visible but cannot
   // change the terminal status once this is set.
   const terminalRef = useRef<TutorialEvent | null>(null);
@@ -142,6 +185,7 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
   // Incremented on every new run; artifact refresh continuations check it so
   // a late response cannot repopulate a cleared run.
   const runRef = useRef(0);
+  const profileRef = useRef<HealthInfo["app_profile"] | null>(null);
 
   // Load non-secret provider/runtime modes once on mount.
   useEffect(() => {
@@ -150,6 +194,7 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
       .then((info) => {
         if (!cancelled) {
           setHealthInfo(info);
+          profileRef.current = info.app_profile;
           setHealthError(null);
         }
       })
@@ -195,10 +240,12 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
           }
         });
         setFiles(safeFiles);
+        const markdownName =
+          profileRef.current === "showcase"
+            ? "showcase-report.md"
+            : "tutorial-report.md";
         const markdownFile = safeFiles.find(
-          (file) =>
-            file.name === "tutorial-report.md" ||
-            file.path === "tutorial-report.md"
+          (file) => file.name === markdownName || file.path === markdownName
         );
         if (!markdownFile) {
           setMarkdown(null);
@@ -238,6 +285,30 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
         setFiles([]);
         setMarkdown(null);
         setMarkdownError(PREVIEW_UNAVAILABLE_MESSAGE);
+      });
+  }, [apiBaseUrl, threadId]);
+
+  const fetchLiveCitations = useCallback(() => {
+    const currentThreadId = threadId;
+    const session = sessionRef.current;
+    const run = runRef.current;
+    setLiveLoading(true);
+    setLiveError(null);
+    setLiveDeliveryStatus("loading");
+    getLiveCitations(apiBaseUrl, currentThreadId)
+      .then((document) => {
+        if (sessionRef.current !== session || runRef.current !== run) return;
+        if (document.thread_id !== currentThreadId) throw new Error("thread mismatch");
+        setLiveDocument(document);
+        setLiveLoading(false);
+        setLiveDeliveryStatus("completed");
+      })
+      .catch(() => {
+        if (sessionRef.current !== session || runRef.current !== run) return;
+        setLiveDocument(null);
+        setLiveLoading(false);
+        setLiveDeliveryStatus("degraded");
+        setLiveError(LIVE_CITATION_UNAVAILABLE_MESSAGE);
       });
   }, [apiBaseUrl, threadId]);
 
@@ -334,7 +405,27 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
           case "task_started":
             setStatus("running");
             break;
+          case "citation_started": {
+            if (profileRef.current !== "showcase") break;
+            const progress = parseLiveProgress(parsed.data);
+            if (progress !== null) setLiveProgress(progress);
+            break;
+          }
           case "citation_completed": {
+            if (profileRef.current === "showcase") {
+              const completion = parseLiveCompletion(parsed.data);
+              if (completion === null) break;
+              if (completion === "completed") {
+                fetchLiveCitations();
+              } else {
+                setLiveLoading(false);
+                setLiveDeliveryStatus("degraded");
+                setLiveDocument(null);
+                setLiveError("Live citation delivery did not complete.");
+              }
+              break;
+            }
+            if (profileRef.current !== "agent-research") break;
             const summary = parseCitationCompletedData(parsed.data);
             if (summary === null) break;
             setCitationSummary(summary);
@@ -348,6 +439,7 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
             refreshArtifacts();
             break;
           case "task_failed":
+            runRef.current += 1;
             terminalRef.current = parsed;
             setTerminalEvent(parsed);
             setStatus("failed");
@@ -358,8 +450,14 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
             setCitations(null);
             setCitationsLoading(false);
             setCitationsError(null);
+            setLiveDocument(null);
+            setLiveLoading(false);
+            setLiveError(null);
+            setLiveDeliveryStatus("idle");
+            setLiveProgress(null);
             break;
           case "task_cancelled":
+            runRef.current += 1;
             terminalRef.current = parsed;
             setTerminalEvent(parsed);
             setStatus("cancelled");
@@ -370,6 +468,11 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
             setCitations(null);
             setCitationsLoading(false);
             setCitationsError(null);
+            setLiveDocument(null);
+            setLiveLoading(false);
+            setLiveError(null);
+            setLiveDeliveryStatus("idle");
+            setLiveProgress(null);
             break;
           default:
             break;
@@ -396,7 +499,13 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
         }
       }
     };
-  }, [apiBaseUrl, fetchCitations, refreshArtifacts, threadId]);
+  }, [
+    apiBaseUrl,
+    fetchCitations,
+    fetchLiveCitations,
+    refreshArtifacts,
+    threadId,
+  ]);
 
   const setQuery = useCallback((value: string) => {
     setQueryState(value);
@@ -457,6 +566,11 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
     setCitations(null);
     setCitationsLoading(false);
     setCitationsError(null);
+    setLiveDocument(null);
+    setLiveLoading(false);
+    setLiveError(null);
+    setLiveDeliveryStatus("idle");
+    setLiveProgress(null);
     setError(null);
     setStatus("ready");
     // Guard the in-flight POST so a second click cannot duplicate the start;
@@ -505,6 +619,11 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
     setCitations(null);
     setCitationsLoading(false);
     setCitationsError(null);
+    setLiveDocument(null);
+    setLiveLoading(false);
+    setLiveError(null);
+    setLiveDeliveryStatus("idle");
+    setLiveProgress(null);
   }, []);
 
   return {
@@ -534,5 +653,10 @@ export function useWorkbench(apiBaseUrl: string): WorkbenchState {
     citations,
     citationsLoading,
     citationsError,
+    liveDocument,
+    liveLoading,
+    liveError,
+    liveDeliveryStatus,
+    liveProgress,
   };
 }

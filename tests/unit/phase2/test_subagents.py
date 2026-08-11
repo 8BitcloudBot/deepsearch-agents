@@ -21,8 +21,7 @@ TOOLS = [  # noqa: F811
     _fake_tool("describe_table"),
     _fake_tool("preview_table"),
     _fake_tool("execute_readonly_query"),
-    _fake_tool("list_knowledge_assistants"),
-    _fake_tool("ask_knowledge_assistant"),
+    _fake_tool("search_knowledge"),
 ]
 
 
@@ -71,7 +70,7 @@ def test_knowledge_base_description_and_prompt():
     )
     kb = subs[2]
     assert "knowledge" in kb["description"].lower()
-    assert "ask_knowledge_assistant" in kb["system_prompt"]
+    assert "search_knowledge" in kb["system_prompt"]
 
 
 def test_web_tools_only_in_web_research():
@@ -83,7 +82,7 @@ def test_web_tools_only_in_web_research():
     wr_tool_names = [t.name for t in subs[0]["tools"]]
     assert "internet_search" in wr_tool_names
     assert "execute_readonly_query" not in wr_tool_names
-    assert "ask_knowledge_assistant" not in wr_tool_names
+    assert "search_knowledge" not in wr_tool_names
 
 
 def test_catalog_tools_only_in_structured_data():
@@ -110,8 +109,8 @@ def test_knowledge_tools_only_in_knowledge_base():
         knowledge_tools=TOOLS[5:7],
     )
     kb_tool_names = [t.name for t in subs[2]["tools"]]
-    assert len(kb_tool_names) == 2
-    for name in ["list_knowledge_assistants", "ask_knowledge_assistant"]:
+    assert len(kb_tool_names) == 1
+    for name in ["search_knowledge"]:
         assert name in kb_tool_names
 
 

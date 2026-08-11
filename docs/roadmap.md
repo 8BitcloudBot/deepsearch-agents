@@ -30,9 +30,9 @@
 | `v0.0-foundation` | Phase 0 | 可安装、测试和构建的工程基础 |
 | `v0.0-deepagents-examples` | Phase 1 | DeepAgents 核心能力示例 |
 | `v0.1.1-tutorial-parity` | Phase 2 | 教程后端与 React 工作台闭环（accepted at `364180d`） |
-| `v0.2-portfolio-core` | Phase 3-6 | 研究评测、可信引用、真实多源展示、编排和观测 |
-| `v0.3-reliable-runtime` | Phase 7-8 | 持久化、恢复、审批和成本治理 |
-| `v1.0-portfolio` | Phase 9 | 可公开展示的作品集版本 |
+| `v0.2-portfolio-showcase` | Phase 3-4.5 | 研究评测、可信引用、真实多源展示与作品集收口 |
+| `v0.3-optional-runtime` | Phase 5-8 | 经明确授权的编排、观测、恢复和治理扩展 |
+| `v1.0-portfolio` | Release lane | 基于已验收展示闭环的公开作品集版本 |
 
 ## Phase Map
 
@@ -43,26 +43,24 @@
 | [2 — Tutorial Parity](phases/phase-2-tutorial-parity.md) | Web、数据、知识、文件、API、WS、React 闭环 | 已验收（`v0.1.1-tutorial-parity`） |
 | [3 — Research Evaluation](phases/phase-3-research-evaluation.md) | AI Agent 研究领域与评测基线 | 已验收（P3-1–P3-7；clean checkpoint `8afa4cd`，[证据](verification/phase-3-evidence.md)） |
 | [4 — Trustworthy Citations](phases/phase-4-trustworthy-citations.md) | 声明、证据和引用可信度 | 已验收（P4-1–P4-7；checkpoint `acf7c46`，[证据](verification/phase-4-evidence.md)） |
-| [4.5 — Research Showcase](phases/phase-4-5-research-showcase.md) | 真实多源研究、引用回链与报告展示 | 已规划，未实施 |
-| [5 — Orchestration](phases/phase-5-orchestration.md) | 编排策略对照与消融 | 未开始 |
-| [6 — Observability](phases/phase-6-observability.md) | 版本化事件、trace、指标 | 未开始 |
-| [7 — Persistence & Recovery](phases/phase-7-persistence-recovery.md) | 持久化、重试和恢复 | 未开始 |
-| [8 — Approval & Governance](phases/phase-8-approval-governance.md) | 人工审批和预算治理 | 未开始 |
-| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | 演示、复盘和简历证据 | 未开始 |
+| [4.5 — Research Showcase](phases/phase-4-5-research-showcase.md) | 真实多源研究、引用回链与报告展示 | 已验收；作品集 checkpoint 可进行授权后的 Git 收口 |
+| [5 — Orchestration](phases/phase-5-orchestration.md) | 现有 DeepAgents 编排策略对照 | 可选；需新授权 |
+| [6 — Observability](phases/phase-6-observability.md) | 版本化事件、trace、指标 | 可选；需新授权 |
+| [7 — Persistence & Recovery](phases/phase-7-persistence-recovery.md) | 持久化、重试和恢复 | 可选生产声明 |
+| [8 — Approval & Governance](phases/phase-8-approval-governance.md) | 人工审批和预算治理 | 可选生产声明 |
+| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | 演示、复盘和简历证据 | P4.5 验收后可进入 release lane |
 
 ## Next Development Boundary
 
 Phase 4.5 is the only next development stage. It restores the original
-DeepAgents business emphasis by connecting Tavily Web, MySQL, RAGFlow and
+DeepAgents business emphasis by connecting Tavily Web, MySQL, local knowledge retrieval and
 uploaded files to source locators, citation-rich reports, API/WebSocket
 delivery and the React workbench. Real Provider and live-source execution is
 explicit opt-in and its evidence is kept separate from offline fixture metrics.
 
-Phase 5 requires accepted Phase 4.5 evidence and a new bounded authorization.
-It compares orchestration strategies through that same multi-source research
-workflow; it must not replace the product with an unrelated evaluation
-framework. Phase 6 completes the portfolio-core observability boundary. A
-portfolio milestone may then be prepared; Phase 7/8 are required only for
-production-level persistence, recovery, approval or governance claims.
+P4.5-6 验收后即可创建作品集 checkpoint，不要求先完成 Phase 5-8。Phase 5 及以后
+均需要新的明确授权；Phase 5 只能在同一多来源 DeepAgents 研究流程中比较编排策略，
+不得用无关 Agent 框架或独立评测产品替代业务闭环。Phase 7/8 仅在项目明确声称生产级
+持久化、恢复、审批或治理能力时需要。
 
 当前唯一执行入口见 [phase-status.md](phase-status.md)。

@@ -108,27 +108,34 @@ class MySQLCatalogProvider:
                 password=self._password,
                 database=self._database,
                 connect_timeout=5,
+                use_pure=True,
             )
         except Exception as exc:
             # Never propagate raw SDK text (may carry credentials/paths).
             raise RuntimeError("MySQL connection failed") from exc
 
     def _query(self, conn, operation: str, sql: str):
-        """Execute one statement, close the cursor and redact SDK errors."""
+        """Execute one statement and return an open cursor to the caller.
+
+        Callers consume and close the cursor after reading rows/description;
+        closing it here would make real connector cursors unreadable.
+        """
         cursor = conn.cursor()
         try:
             cursor.execute(sql)
             return cursor
         except Exception as exc:
-            raise RuntimeError(f"MySQL {operation} failed") from exc
-        finally:
             cursor.close()
+            raise RuntimeError(f"MySQL {operation} failed") from exc
 
     def list_tables(self) -> tuple[TableInfo, ...]:
         conn = self._connect()
         try:
             cursor = self._query(conn, "list_tables", "SHOW TABLES")
-            return tuple(TableInfo(name=row[0]) for row in cursor.fetchall())
+            try:
+                return tuple(TableInfo(name=row[0]) for row in cursor.fetchall())
+            finally:
+                cursor.close()
         finally:
             conn.close()
 
@@ -137,7 +144,10 @@ class MySQLCatalogProvider:
         conn = self._connect()
         try:
             cursor = self._query(conn, "describe_table", f"DESCRIBE `{table_name}`")
-            rows = cursor.fetchall()
+            try:
+                rows = cursor.fetchall()
+            finally:
+                cursor.close()
             return QueryResult(
                 columns=("Field", "Type", "Null", "Key", "Default", "Extra"),
                 rows=tuple(rows),
@@ -156,10 +166,15 @@ class MySQLCatalogProvider:
                 "preview_table",
                 f"SELECT * FROM `{table_name}` LIMIT {_clamp_limit(limit)}",
             )
-            columns = (
-                tuple(d[0] for d in cursor.description) if cursor.description else ()
-            )
-            rows = cursor.fetchall()
+            try:
+                columns = (
+                    tuple(d[0] for d in cursor.description)
+                    if cursor.description
+                    else ()
+                )
+                rows = cursor.fetchall()
+            finally:
+                cursor.close()
             return QueryResult(
                 columns=columns,
                 rows=tuple(rows),
@@ -178,10 +193,15 @@ class MySQLCatalogProvider:
                 f"FROM ({query}) AS phase2_query LIMIT {_clamp_limit(limit)}"
             )
             cursor = self._query(conn, "execute_readonly", wrapped)
-            columns = (
-                tuple(d[0] for d in cursor.description) if cursor.description else ()
-            )
-            rows = cursor.fetchall()
+            try:
+                columns = (
+                    tuple(d[0] for d in cursor.description)
+                    if cursor.description
+                    else ()
+                )
+                rows = cursor.fetchall()
+            finally:
+                cursor.close()
             return QueryResult(
                 columns=columns,
                 rows=tuple(rows),

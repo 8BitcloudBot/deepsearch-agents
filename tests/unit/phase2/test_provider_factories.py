@@ -5,7 +5,7 @@ import pytest
 from app.providers.factory import build_providers
 from app.providers.mock import (
     MockCatalogProvider,
-    MockKnowledgeProvider,
+    MockKnowledgeRetriever,
     MockWebProvider,
 )
 from app.providers.mysql import MySQLCatalogProvider
@@ -26,7 +26,7 @@ def test_build_providers_mock_returns_mock_adapters():
     bundle = build_providers(settings)
     assert isinstance(bundle.web, MockWebProvider)
     assert isinstance(bundle.catalog, MockCatalogProvider)
-    assert isinstance(bundle.knowledge, MockKnowledgeProvider)
+    assert isinstance(bundle.knowledge, MockKnowledgeRetriever)
     assert bundle.web_mode == "mock"
     assert bundle.catalog_mode == "mock"
     assert bundle.knowledge_mode == "mock"
@@ -43,15 +43,9 @@ def test_build_providers_rejects_tavily_without_key():
         build_providers(settings)
 
 
-def test_build_providers_rejects_ragflow_without_config():
-    settings = Phase2Settings.from_env(
-        {
-            "KNOWLEDGE_PROVIDER": "ragflow",
-            "RAGFLOW_API_KEY": "",
-            "RAGFLOW_BASE_URL": "",
-        }
-    )
-    with pytest.raises(ValueError, match="RAGFLOW"):
+def test_build_providers_routes_qdrant_local_to_showcase_profile():
+    settings = Phase2Settings.from_env({"KNOWLEDGE_PROVIDER": "qdrant-local"})
+    with pytest.raises(ValueError, match="showcase profile"):
         build_providers(settings)
 
 
@@ -81,11 +75,7 @@ def test_build_providers_lazy_construction():
 def test_factory_errors_never_echo_credentials_or_paths():
     env_cases = [
         {"WEB_PROVIDER": "tavily", "TAVILY_API_KEY": ""},
-        {
-            "KNOWLEDGE_PROVIDER": "ragflow",
-            "RAGFLOW_API_KEY": "",
-            "RAGFLOW_BASE_URL": "",
-        },
+        {"KNOWLEDGE_PROVIDER": "qdrant-local"},
         {"CATALOG_PROVIDER": "mysql", "MYSQL_USER": "root"},
     ]
     for env in env_cases:

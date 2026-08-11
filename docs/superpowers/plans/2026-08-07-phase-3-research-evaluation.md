@@ -1,5 +1,9 @@
 # Phase 3 Research Evaluation Implementation Plan
 
+> **Historical plan:** Phase 3 is accepted. Provider names and collaboration
+> instructions below are retained for audit only and are not current route or
+> execution guidance.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use
 > `superpowers:subagent-driven-development` (recommended) or
 > `superpowers:executing-plans` to implement this plan task-by-task. Each package
