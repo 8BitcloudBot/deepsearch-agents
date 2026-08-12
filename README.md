@@ -4,15 +4,12 @@
 
 ## Status
 
-Phase 0 (`v0.0-foundation`) through Phase 4 — Trustworthy Citations are
-accepted at their recorded checkpoints. Phase 4.5 — Research Showcase and
-Live-Source Parity is active: P4.5-1 is accepted, P4.5-2 through P4.5-5 and the
-local knowledge migration are implemented in the current worktree, and P4.5-6
-integrated acceptance has passed. The Phase 4.5 portfolio checkpoint is ready
-for separately authorized Git closeout. Phase 5 — Orchestration is not
-started. The published Phase 2 tag remains
-`v0.1.1-tutorial-parity`; later checkpoints are not tagged or pushed without
-explicit authorization.
+Phase 0 (`v0.0-foundation`) through Phase 4.5 — Research Showcase and
+Live-Source Parity are accepted. The multi-source showcase is published as
+[`v0.2-portfolio-showcase`](https://github.com/8BitcloudBot/deepsearch-agents/releases/tag/v0.2-portfolio-showcase).
+Phase 9 — Portfolio Release is active for README, architecture, demonstration,
+failure-review, screenshot, and interview evidence. Phase 5-8 remain optional
+and require separate authorization.
 
 See [Current Phase Status](./docs/phase-status.md) for the live state,
 [Roadmap](./docs/roadmap.md) for Phase 0-9 boundaries, and the
@@ -20,10 +17,13 @@ See [Current Phase Status](./docs/phase-status.md) for the live state,
 for the local mock reproduction and release verification commands.
 
 The accepted research profile preserves the original DeepAgents workflow:
-orchestrated Web, catalog, knowledge, uploaded-file and Markdown/PDF research
-delivery. Citation and evaluation evidence strengthens that workflow; it does
-not turn offline fixtures into claims about real Provider or live-source quality.
+orchestrated Tavily Web, read-only MySQL, local knowledge retrieval,
+uploaded-file and Markdown/PDF research delivery. Citation and evaluation
+evidence strengthens that workflow; it does not turn offline fixtures into
+claims about real Provider or live-source quality.
 The active-stage boundary is documented in
+[Phase 9](./docs/phases/phase-9-portfolio-release.md). The accepted showcase
+boundary remains recorded in
 [Phase 4.5](./docs/phases/phase-4-5-research-showcase.md).
 
 ### Phase 1 Examples

@@ -7,8 +7,7 @@ Read only these documents by default, in order:
 1. `docs/README.md`
 2. `docs/phase-status.md`
 3. `docs/roadmap.md`
-4. `docs/phases/phase-4-5-research-showcase.md`
-5. `docs/superpowers/plans/2026-08-08-phase-4-5-research-showcase.md`
+4. `docs/phases/phase-9-portfolio-release.md`
 
 Do not preload `docs/handoffs/`, historical plans/specs, or verification evidence.
 Read them only when the user asks for historical analysis or a current canonical
@@ -25,11 +24,11 @@ Evaluation runners, deterministic fixtures, fingerprints, and citation metrics
 prove the product's behavior. They must not replace the research workflow as
 the primary user experience.
 
-Phase 4.5 is the only active development stage. P4.5-1 through P4.5-5 are
-implemented in the current worktree. P4.5-6 and the Phase 4.5 portfolio
-checkpoint are accepted in the current worktree; Git closeout remains a
-separate authorization.
-Phases 5-8 are optional follow-on work requiring explicit user authorization.
+Phase 4.5 is accepted and published as `v0.2-portfolio-showcase`. Phase 9 is
+the active stage for portfolio documentation, architecture communication,
+demonstration assets, failure review, and interview evidence. Phases 5-8 are
+optional follow-on work requiring explicit user authorization and do not block
+Phase 9.
 
 ## Execution Rules
 

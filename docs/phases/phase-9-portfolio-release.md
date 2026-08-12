@@ -1,9 +1,11 @@
 # Phase 9 — Portfolio Release
 
-**Status:** Not started
-**Entry Gate:** Phase 6 accepted for portfolio-core claims. Phase 7/8 are
-required only when the release claims production persistence, recovery,
-approval, or governance.
+**Status:** Active after `v0.2-portfolio-showcase`
+
+**Entry Gate:** Phase 4.5 accepted; this is sufficient to enter the portfolio
+release lane. Phase 5-8 remain optional and are required only when the
+portfolio makes claims about their orchestration, observability, persistence,
+recovery, approval, or governance capabilities.
 
 ## Goal
 
@@ -13,7 +15,7 @@ approval, or governance.
 
 - 固定 `portfolio-100` 与 `hidden-20`；
 - 可重复的质量、成本、延迟和失败指标；
-- README、架构图、演示视频和失败复盘；
+- README、架构图、演示脚本、截图和失败复盘；
 - STAR/面试证据与 `v1.0-portfolio`。
 
 ## Minimum Acceptance

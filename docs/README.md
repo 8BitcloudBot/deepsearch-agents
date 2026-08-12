@@ -6,8 +6,7 @@ Agent 应按以下顺序读取：
 1. [仓库开发约束](../AGENTS.md)：Codex 执行、上下文和验证边界。
 2. [当前阶段状态](phase-status.md)：唯一的实时进度与当前阻塞来源。
 3. [整体开发路线](roadmap.md)：项目目标、发布线和 Phase 边界。
-4. [Phase 4.5 阶段文档](phases/phase-4-5-research-showcase.md)：当前产品交付边界。
-5. [Phase 4.5 执行计划](superpowers/plans/2026-08-08-phase-4-5-research-showcase.md)：当前 package 顺序与验收。
+4. [Phase 9 阶段文档](phases/phase-9-portfolio-release.md)：当前作品集整理与发布边界。
 
 产品方向由 [ADR 0004](adr/0004-product-direction-and-codex-governance.md)
 固定：评测和可信能力服务于多来源研究闭环，不替代产品主路径。
@@ -18,9 +17,9 @@ Agent 应按以下顺序读取：
 同样，旧 ADR、Phase 2 runbook、Phase 1 示例说明和已关闭阶段补充文档中的旧 provider
 词汇只属于明确标注的历史背景，不构成当前技术路线或配置指导。
 
-当前唯一可执行计划是
-[Phase 4.5 Research Showcase](superpowers/plans/2026-08-08-phase-4-5-research-showcase.md)；
-Phase 4 及更早计划均已冻结为历史证据，Phase 5 尚未激活。
+当前执行阶段是 [Phase 9 Portfolio Release](phases/phase-9-portfolio-release.md)。
+Phase 4.5 及更早计划均已冻结为历史证据；Phase 5-8 保持可选，未获授权时不进入
+当前执行上下文。
 
 ## 文档维护规则
 

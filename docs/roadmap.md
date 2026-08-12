@@ -30,7 +30,7 @@
 | `v0.0-foundation` | Phase 0 | 可安装、测试和构建的工程基础 |
 | `v0.0-deepagents-examples` | Phase 1 | DeepAgents 核心能力示例 |
 | `v0.1.1-tutorial-parity` | Phase 2 | 教程后端与 React 工作台闭环（accepted at `364180d`） |
-| `v0.2-portfolio-showcase` | Phase 3-4.5 | 研究评测、可信引用、真实多源展示与作品集收口 |
+| `v0.2-portfolio-showcase` | Phase 3-4.5 | 已发布：研究评测、可信引用与真实多源展示 |
 | `v0.3-optional-runtime` | Phase 5-8 | 经明确授权的编排、观测、恢复和治理扩展 |
 | `v1.0-portfolio` | Release lane | 基于已验收展示闭环的公开作品集版本 |
 
@@ -48,12 +48,13 @@
 | [6 — Observability](phases/phase-6-observability.md) | 版本化事件、trace、指标 | 可选；需新授权 |
 | [7 — Persistence & Recovery](phases/phase-7-persistence-recovery.md) | 持久化、重试和恢复 | 可选生产声明 |
 | [8 — Approval & Governance](phases/phase-8-approval-governance.md) | 人工审批和预算治理 | 可选生产声明 |
-| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | 演示、复盘和简历证据 | 当前进入 `v0.2-portfolio-showcase` release lane |
+| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | README、架构、演示、复盘和面试证据 | 当前阶段 |
 
 ## Next Development Boundary
 
-Phase 4.5 已在 checkpoint `3a84c58` 完成验收。当前下一步是
-`v0.2-portfolio-showcase` release lane；push、tag 和 release 尚未执行，仍需分别授权。
+Phase 4.5 已在 checkpoint `3a84c58` 完成验收，并以
+`v0.2-portfolio-showcase` 发布；发布 tag 指向 `bab5da4`。当前进入 Phase 9，整理公开
+README、架构图、演示脚本、截图、失败复盘和面试 STAR 证据。
 
 Phase 5-8 均为可选后续能力，不是本次作品集发布的阻塞项，并且需要新的明确授权。
 其中 Phase 5 只能在同一多来源 DeepAgents 研究流程中比较编排策略，不得用无关 Agent

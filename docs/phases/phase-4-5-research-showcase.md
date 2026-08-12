@@ -1,10 +1,9 @@
 # Phase 4.5 — Research Showcase and Live-Source Parity
 
-**Status:** Accepted in the current worktree; P4.5-1 through P4.5-6 complete,
-with Git checkpoint creation pending separate authorization
+**Status:** Accepted at checkpoint `3a84c58`; released as
+`v0.2-portfolio-showcase` at `bab5da4`
 **Entry Gate:** Phase 4 accepted and frozen; implementation checkpoint
-`e817c79`, with P4.5-1 accepted at `ce3e2f9` and later packages implemented in
-the current worktree
+`e817c79`, with P4.5-1 accepted at `ce3e2f9`
 
 ## Goal
 
@@ -34,7 +33,7 @@ Research request
 - React 工作台展示来源、引用、研究过程、限制与产物，不建设独立评测首页；
 - 一组固定、显式 opt-in 的真实 Provider / 真实数据源 smoke 及脱敏证据。
 
-本地知识检索迁移已在当前工作树实现：运行时使用厂商无关的
+本地知识检索迁移已在 Phase 4.5 checkpoint 验收：运行时使用厂商无关的
 `KnowledgeRetriever`、Qdrant Local 与 FastEmbed；显式 manifest 校验和索引命令不负责
 目录抓取、自动解析或正式知识数据建设。`.data/knowledge-index` 缺失时，knowledge
 来源局部降级，其他已启用来源继续工作。正式知识语料和检索准确率评测仍未建设。
@@ -76,7 +75,8 @@ Reasonix 节点或子代理。commit、tag、push、release 和真实 Provider �
 - 显式 opt-in 的真实 smoke 生成独立、脱敏、可审计证据，不产生离线质量结论；
 - 桌面和移动视口下研究过程、引用与报告可读，无重叠或核心流程回归。
 
-P4.5-6 验收后即可创建作品集 checkpoint。Phase 5-8 是可选扩展，不是本阶段完成条件。
+P4.5-6 已完成验收并进入 `v0.2-portfolio-showcase`。Phase 5-8 是可选扩展，
+不是本阶段完成或进入 Phase 9 的条件。
 
 ## Non-goals
 

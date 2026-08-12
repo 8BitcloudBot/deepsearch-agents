@@ -4,11 +4,12 @@
 
 **Branch:** `main`
 
-**Current checkpoint:** `3a84c58` — Phase 4.5 accepted
+**Published release:** `v0.2-portfolio-showcase` at `bab5da4`
 
-**Current phase:** Phase 4.5 — Research Showcase and Live-Source Parity
+**Current phase:** Phase 9 — Portfolio Release
 
-**Next lane:** `v0.2-portfolio-showcase` release lane
+**Current package:** portfolio README, architecture diagram, demonstration
+script, screenshots, failure review, and interview STAR evidence
 
 The knowledge retrieval route is now vendor-neutral: Showcase uses the
 `KnowledgeRetriever` contract with Qdrant Local + FastEmbed by default. No
@@ -43,12 +44,12 @@ product entry point. See [ADR 0004](adr/0004-product-direction-and-codex-governa
 | Phase 2 — Tutorial Parity | accepted | `v0.1.1-tutorial-parity` |
 | Phase 3 — Research Evaluation | accepted | [Phase 3 evidence](verification/phase-3-evidence.md) |
 | Phase 4 — Trustworthy Citations | accepted | [Phase 4 evidence](verification/phase-4-evidence.md) |
-| P4.5-1 — Showcase Profile And Contracts | accepted | baseline `ce3e2f9` |
+| Phase 4.5 — Research Showcase | released | `v0.2-portfolio-showcase` at `bab5da4` |
 
 Historical command output and test counts stay in the linked evidence records;
 they are not repeated here.
 
-## Active Package Sequence
+## Phase 4.5 Release Baseline
 
 | Package | Status | Exit condition |
 |---|---|---|
@@ -63,15 +64,26 @@ they are not repeated here.
 P4.5-6 acceptance is sufficient for a portfolio checkpoint. Phase 5-8 are
 optional follow-on work and require a new explicit authorization.
 
-The current P4.5-6 record is
+The P4.5-6 acceptance record is
 [Phase 4.5 finalization evidence](verification/phase-4-5-finalization-evidence.md).
-The Phase 4.5 portfolio checkpoint is `3a84c58`. The current next step is the
-`v0.2-portfolio-showcase` release lane. Push, tag, release and deployment remain
-separate authorized actions.
+The accepted implementation checkpoint is `3a84c58`; the published release tag
+`v0.2-portfolio-showcase` points to `bab5da4`, which includes the repository
+import-path CI fix. The GitHub Release is published. Deployment has not been
+performed.
 
 The formal knowledge corpus and retrieval-quality evaluation remain unbuilt.
 Current knowledge fixtures prove adapter and citation contracts, not measured
 retrieval accuracy.
+
+## Active Phase 9 Scope
+
+- Refine the public README around the verified research workflow and limits.
+- Produce an architecture diagram and a repeatable demonstration script.
+- Select repository-safe desktop/mobile screenshots and presentation assets.
+- Record failure analysis and engineering trade-offs without rewriting history.
+- Prepare evidence-backed interview STAR narratives; do not invent quality,
+  latency, cost, accuracy, or production-readiness claims.
+- Keep Phase 5-8 optional unless separately authorized.
 
 ## Development Boundary
 
@@ -84,7 +96,7 @@ retrieval accuracy.
   ordering, one terminal event, API compatibility, and artifact safety.
 - Local verification is proportional to change risk; complete offline gates run
   at package acceptance, CI, or release boundaries.
-- Push, tag, release, and deployment remain separately authorized actions.
+- Future push, tag, release, and deployment actions remain separately authorized.
 
 ## Canonical Documents
 
@@ -92,9 +104,8 @@ retrieval accuracy.
 - [Documentation index](README.md)
 - [Roadmap](roadmap.md)
 - [Product direction decision](adr/0004-product-direction-and-codex-governance.md)
-- [Phase 4.5 stage](phases/phase-4-5-research-showcase.md)
-- [Phase 4.5 design](superpowers/specs/2026-08-08-phase-4-5-research-showcase-design.md)
-- [Phase 4.5 implementation plan](superpowers/plans/2026-08-08-phase-4-5-research-showcase.md)
+- [Phase 9 stage](phases/phase-9-portfolio-release.md)
+- [Accepted Phase 4.5 stage](phases/phase-4-5-research-showcase.md)
 
 Historical plans, handoffs, and evidence are not current execution instructions
 unless one of the documents above links a specific record for a concrete task.
