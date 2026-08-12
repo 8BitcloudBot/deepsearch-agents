@@ -2,10 +2,15 @@
 
 **Date:** 2026-08-12
 
-**Baseline:** `main` at `ce3e2f96420b20994af082997283d7809e2b6055`.
-The repository started and remains a large dirty worktree containing the
-uncommitted P4.5-2 through P4.5-6 implementation. No commit, push, tag, merge,
-release, deployment, stash, reset, checkout, or clean operation was performed.
+**Implementation start baseline:** `main` at
+`ce3e2f96420b20994af082997283d7809e2b6055`.
+
+**Final checkpoint:** `3a84c58` (`feat: complete phase 4.5 research showcase`).
+
+Implementation began from a large dirty worktree containing the uncommitted
+P4.5-2 through P4.5-6 changes. The authorized local checkpoint commit captured
+the accepted implementation and left the worktree clean. No push, tag, merge,
+release, or deployment was performed.
 
 ## Reliability Closeout
 
@@ -165,8 +170,8 @@ All temporary API and Vite processes were stopped after the run.
 
 ## Acceptance Decision
 
-P4.5-6 is **accepted in the current worktree**. The full offline/static gates,
+P4.5-6 is **accepted at checkpoint `3a84c58`**. The full offline/static gates,
 deterministic replay, authorized real Showcase smoke, desktop/mobile flow, safe
-source links, and artifact downloads passed. The Phase 4.5 portfolio checkpoint
-is ready for separately authorized Git closeout. No commit, push, tag, merge,
-release, or deployment was performed.
+source links, and artifact downloads passed. The local checkpoint exists and
+the worktree was clean after its creation. No push, tag, merge, release, or
+deployment was performed.

@@ -43,24 +43,21 @@
 | [2 — Tutorial Parity](phases/phase-2-tutorial-parity.md) | Web、数据、知识、文件、API、WS、React 闭环 | 已验收（`v0.1.1-tutorial-parity`） |
 | [3 — Research Evaluation](phases/phase-3-research-evaluation.md) | AI Agent 研究领域与评测基线 | 已验收（P3-1–P3-7；clean checkpoint `8afa4cd`，[证据](verification/phase-3-evidence.md)） |
 | [4 — Trustworthy Citations](phases/phase-4-trustworthy-citations.md) | 声明、证据和引用可信度 | 已验收（P4-1–P4-7；checkpoint `acf7c46`，[证据](verification/phase-4-evidence.md)） |
-| [4.5 — Research Showcase](phases/phase-4-5-research-showcase.md) | 真实多源研究、引用回链与报告展示 | 已验收；作品集 checkpoint 可进行授权后的 Git 收口 |
+| [4.5 — Research Showcase](phases/phase-4-5-research-showcase.md) | 真实多源研究、引用回链与报告展示 | 已验收（checkpoint `3a84c58`） |
 | [5 — Orchestration](phases/phase-5-orchestration.md) | 现有 DeepAgents 编排策略对照 | 可选；需新授权 |
 | [6 — Observability](phases/phase-6-observability.md) | 版本化事件、trace、指标 | 可选；需新授权 |
 | [7 — Persistence & Recovery](phases/phase-7-persistence-recovery.md) | 持久化、重试和恢复 | 可选生产声明 |
 | [8 — Approval & Governance](phases/phase-8-approval-governance.md) | 人工审批和预算治理 | 可选生产声明 |
-| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | 演示、复盘和简历证据 | P4.5 验收后可进入 release lane |
+| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | 演示、复盘和简历证据 | 当前进入 `v0.2-portfolio-showcase` release lane |
 
 ## Next Development Boundary
 
-Phase 4.5 is the only next development stage. It restores the original
-DeepAgents business emphasis by connecting Tavily Web, MySQL, local knowledge retrieval and
-uploaded files to source locators, citation-rich reports, API/WebSocket
-delivery and the React workbench. Real Provider and live-source execution is
-explicit opt-in and its evidence is kept separate from offline fixture metrics.
+Phase 4.5 已在 checkpoint `3a84c58` 完成验收。当前下一步是
+`v0.2-portfolio-showcase` release lane；push、tag 和 release 尚未执行，仍需分别授权。
 
-P4.5-6 验收后即可创建作品集 checkpoint，不要求先完成 Phase 5-8。Phase 5 及以后
-均需要新的明确授权；Phase 5 只能在同一多来源 DeepAgents 研究流程中比较编排策略，
-不得用无关 Agent 框架或独立评测产品替代业务闭环。Phase 7/8 仅在项目明确声称生产级
-持久化、恢复、审批或治理能力时需要。
+Phase 5-8 均为可选后续能力，不是本次作品集发布的阻塞项，并且需要新的明确授权。
+其中 Phase 5 只能在同一多来源 DeepAgents 研究流程中比较编排策略，不得用无关 Agent
+框架或独立评测产品替代业务闭环。Phase 7/8 仅在项目明确声称生产级持久化、恢复、
+审批或治理能力时需要。
 
 当前唯一执行入口见 [phase-status.md](phase-status.md)。

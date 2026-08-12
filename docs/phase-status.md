@@ -4,12 +4,11 @@
 
 **Branch:** `main`
 
-**Current baseline:** `ce3e2f9` — P4.5-1 accepted; P4.5-2 through P4.5-5 are
-implemented in the current worktree
+**Current checkpoint:** `3a84c58` — Phase 4.5 accepted
 
 **Current phase:** Phase 4.5 — Research Showcase and Live-Source Parity
 
-**Next package:** none; Phase 4.5 portfolio checkpoint ready for authorized Git closeout
+**Next lane:** `v0.2-portfolio-showcase` release lane
 
 The knowledge retrieval route is now vendor-neutral: Showcase uses the
 `KnowledgeRetriever` contract with Qdrant Local + FastEmbed by default. No
@@ -54,20 +53,21 @@ they are not repeated here.
 | Package | Status | Exit condition |
 |---|---|---|
 | P4.5-1 — Showcase Profile And Live-Source Contracts | accepted | explicit profile, capability and evidence partition contracts |
-| P4.5-2 — Multi-Source Citation Locators | complete in current worktree | all enabled sources map to validated, safe locators |
-| P4.5-3 — DeepAgents Live Research Integration | complete in current worktree | four source kinds close through the existing task runtime |
-| P4.5-4 — Citation-Rich Delivery | complete in current worktree | API, WebSocket, Markdown and PDF share validated citations |
-| P4.5-5 — React Showcase Polish | complete in current worktree | complete desktop/mobile research journey is readable |
-| Knowledge retrieval migration | complete in current worktree | Qdrant Local + FastEmbed adapters, fingerprints and offline citation chain |
-| P4.5-6 — Live Smoke And Integrated Acceptance | accepted in current worktree | real smoke, offline gates and desktop/mobile browser acceptance passed |
+| P4.5-2 — Multi-Source Citation Locators | accepted at checkpoint `3a84c58` | all enabled sources map to validated, safe locators |
+| P4.5-3 — DeepAgents Live Research Integration | accepted at checkpoint `3a84c58` | four source kinds close through the existing task runtime |
+| P4.5-4 — Citation-Rich Delivery | accepted at checkpoint `3a84c58` | API, WebSocket, Markdown and PDF share validated citations |
+| P4.5-5 — React Showcase Polish | accepted at checkpoint `3a84c58` | complete desktop/mobile research journey is readable |
+| Knowledge retrieval migration | accepted at checkpoint `3a84c58` | Qdrant Local + FastEmbed adapters, fingerprints and offline citation chain |
+| P4.5-6 — Live Smoke And Integrated Acceptance | accepted at checkpoint `3a84c58` | real smoke, offline gates and desktop/mobile browser acceptance passed |
 
 P4.5-6 acceptance is sufficient for a portfolio checkpoint. Phase 5-8 are
 optional follow-on work and require a new explicit authorization.
 
 The current P4.5-6 record is
 [Phase 4.5 finalization evidence](verification/phase-4-5-finalization-evidence.md).
-The Phase 4.5 portfolio checkpoint is ready. Commit, push, tag, release and
-deployment remain separate authorized actions.
+The Phase 4.5 portfolio checkpoint is `3a84c58`. The current next step is the
+`v0.2-portfolio-showcase` release lane. Push, tag, release and deployment remain
+separate authorized actions.
 
 The formal knowledge corpus and retrieval-quality evaluation remain unbuilt.
 Current knowledge fixtures prove adapter and citation contracts, not measured
