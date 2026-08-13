@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -42,12 +43,22 @@ class QdrantLocalKnowledgeIndex:
         path: Path,
         spec: KnowledgeIndexSpec,
         embedder: EmbeddingAdapter,
+        *,
+        min_score: float | None = None,
     ) -> None:
         self._path = path
         self._spec = spec
         self._embedder = embedder
         if embedder.descriptor != spec.embedding:
             raise ValueError("embedding descriptor does not match index fingerprint")
+        if min_score is not None and (
+            isinstance(min_score, bool)
+            or not isinstance(min_score, int | float)
+            or not math.isfinite(min_score)
+            or not 0.0 <= min_score <= 1.0
+        ):
+            raise ValueError("minimum knowledge score must be between 0 and 1")
+        self._min_score = float(min_score) if min_score is not None else None
         self._check_manifest()
         self._client: Any = None
 
@@ -281,6 +292,8 @@ class QdrantLocalKnowledgeIndex:
 
         chunks: list[KnowledgeChunk] = []
         for point in points:
+            if self._min_score is not None and float(point.score) < self._min_score:
+                continue
             payload = point.payload
             try:
                 chunk = self._chunk_from_payload(payload, float(point.score))

@@ -109,6 +109,23 @@ def test_qdrant_local_indexes_idempotently_and_returns_identity(tmp_path: Path) 
     assert result[0].content == "Qdrant Local fixture content."
 
 
+def test_qdrant_local_min_score_filters_weak_nearest_neighbors(tmp_path: Path) -> None:
+    index = QdrantLocalKnowledgeIndex(
+        tmp_path / "index", spec(), FakeEmbedder(), min_score=0.99
+    )
+    index.index_documents((document(),))
+
+    assert index.search("unrelated football result", limit=3) == ()
+
+
+@pytest.mark.parametrize("value", [-0.01, 1.01, float("nan"), True])
+def test_qdrant_local_rejects_invalid_min_score(tmp_path: Path, value: object) -> None:
+    with pytest.raises(ValueError, match="score"):
+        QdrantLocalKnowledgeIndex(
+            tmp_path / "index", spec(), FakeEmbedder(), min_score=value
+        )
+
+
 def test_reindexing_document_removes_stale_chunks_without_touching_other_documents(
     tmp_path: Path,
 ) -> None:

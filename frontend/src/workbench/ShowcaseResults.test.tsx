@@ -51,7 +51,11 @@ function evidence(
 function liveDocument() {
   const webLocator = { kind: "url" as const, value: "https://example.com/a" };
   const mysqlLocator = { kind: "row" as const, value: "catalog/items#id=7" };
-  const knowledgeLocator = { kind: "chunk" as const, value: "kb/doc/chunk-3" };
+  const knowledgeLocator = {
+    kind: "chunk" as const,
+    value:
+      "deepsearch-showcase-v1:owasp-prompt-injection:owasp-prompt-injection-0014",
+  };
   const uploadLocator = {
     kind: "span" as const,
     value: "brief notes.md:1-3",
@@ -82,7 +86,10 @@ function liveDocument() {
     sources: [
       source("src-web", "web", webLocator, webLocator.value),
       source("src-mysql", "mysql", mysqlLocator),
-      source("src-knowledge", "knowledge", knowledgeLocator),
+      {
+        ...source("src-knowledge", "knowledge", knowledgeLocator),
+        title: "LLM Prompt Injection Prevention Cheat Sheet",
+      },
       source(
         "src-upload",
         "uploaded-file",
@@ -345,6 +352,14 @@ describe("ShowcaseResults", () => {
     expect(screen.getByText("uploaded-file evidence")).toBeInTheDocument();
     expect(screen.getByText("mysql evidence")).toBeInTheDocument();
     expect(screen.getByText("knowledge evidence")).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/LLM Prompt Injection Prevention Cheat Sheet/)
+    ).toHaveLength(2);
+    expect(
+      screen.getAllByText(
+        /deepsearch-showcase-v1:owasp-prompt-injection:owasp-prompt-injection-0014/
+      )
+    ).toHaveLength(2);
     expect(region.querySelector(".showcase-claims")).not.toBeNull();
     expect(region.querySelector(".showcase-inspection")).not.toBeNull();
   });

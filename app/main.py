@@ -105,7 +105,7 @@ def build_showcase_runtime(*, environ: Mapping[str, str], events):
                 collection_id=config.knowledge_collection or "",
                 embedding=embedder.descriptor,
                 distance="cosine",
-                chunking_version="showcase-v1",
+                chunking_version=config.knowledge_chunking_version or "",
             )
             index_path = resolve_knowledge_index_path(
                 config.knowledge_index_path or "",
@@ -115,6 +115,7 @@ def build_showcase_runtime(*, environ: Mapping[str, str], events):
                 index_path,
                 spec,
                 embedder,
+                min_score=config.knowledge_min_score,
             )
         except Exception:
             limitations.append(

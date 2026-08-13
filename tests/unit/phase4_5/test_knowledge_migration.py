@@ -84,6 +84,8 @@ def test_showcase_config_accepts_qdrant_local_without_credentials() -> None:
     assert config.knowledge_index_path == ".data/knowledge-index"
     assert config.knowledge_collection == "deepsearch-showcase-v1"
     assert config.knowledge_embedding_provider == "fastembed"
+    assert config.knowledge_chunking_version == "semantic-markdown-v1"
+    assert config.knowledge_min_score == 0.4
     assert not any(
         item.source_kind is SourceKind.KNOWLEDGE for item in config.limitations
     )

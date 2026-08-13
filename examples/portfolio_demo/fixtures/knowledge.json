@@ -1,0 +1,9 @@
+{
+  "collection_id": "portfolio-demo-v1",
+  "document_id": "trustworthy-research-notes",
+  "chunk_id": "architecture-0001",
+  "title": "Trustworthy research architecture",
+  "content": "Validated locators connect claims to Web, MySQL, local knowledge, and uploaded-file evidence.",
+  "captured_at": "2026-08-12T12:00:00Z",
+  "version": "1.0.0"
+}

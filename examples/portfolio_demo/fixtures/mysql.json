@@ -1,0 +1,15 @@
+{
+  "connection_alias": "portfolio-demo",
+  "database": "research_copilot",
+  "table": "frameworks",
+  "query": "SELECT id, name, focus FROM research_copilot.frameworks WHERE id = 7",
+  "row": {
+    "id": 7,
+    "name": "DeepAgents",
+    "focus": "multi-source research"
+  },
+  "column": "focus",
+  "title": "research_copilot.frameworks",
+  "captured_at": "2026-08-12T12:00:00Z",
+  "version": "1.0.0"
+}

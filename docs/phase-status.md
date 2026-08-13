@@ -1,21 +1,28 @@
 # Current Phase Status
 
-**Updated:** 2026-08-12
+**Updated:** 2026-08-13
 
 **Branch:** `main`
 
-**Published release:** `v0.2-portfolio-showcase` at `bab5da4`
+**Portfolio release:** `v1.0-portfolio` (Phase 9 boundary)
 
-**Current phase:** Phase 9 — Portfolio Release
+**Current phase:** Phase 9 — Portfolio Release, accepted
 
-**Current package:** portfolio README, architecture diagram, demonstration
-script, screenshots, failure review, and interview STAR evidence
+**Current package:** P9-1 through P9-5 and formal local knowledge K1-K6 are
+accepted. The actual-index `formal-knowledge` demo and the one
+authorized real Showcase smoke both close through the existing
+upload/task/citation/report path. Formal-knowledge browser screenshots were
+explicitly waived; no viewport claim is made for that fixture. The
+`v1.0-portfolio` boundary includes the repository, tag, and GitHub Release; it
+does not include deployment.
 
-The knowledge retrieval route is now vendor-neutral: Showcase uses the
-`KnowledgeRetriever` contract with Qdrant Local + FastEmbed by default. No
-formal knowledge corpus has been built. The configured `.data/knowledge-index`
-remains absent; `.cache/fastembed` was populated only by the separately
-authorized adapter smoke. Both paths are ignored by Git.
+The knowledge retrieval route is vendor-neutral: Showcase uses the
+`KnowledgeRetriever` contract with Qdrant Local + FastEmbed by default. A
+formal local pack now freezes 6 official documents into 140 semantic chunks
+and a 13-question acceptance set. The third-party bodies, built manifest,
+`.data/knowledge-index`, evaluation result, and `.cache/fastembed` remain local
+and ignored by Git; only source metadata, licenses, hashes, catalog, question
+set, scripts, tests, and evidence are public.
 
 ## Product Direction
 
@@ -71,19 +78,51 @@ The accepted implementation checkpoint is `3a84c58`; the published release tag
 import-path CI fix. The GitHub Release is published. Deployment has not been
 performed.
 
-The formal knowledge corpus and retrieval-quality evaluation remain unbuilt.
-Current knowledge fixtures prove adapter and citation contracts, not measured
-retrieval accuracy.
+The earlier Phase 4.5 real smoke correctly recorded formal knowledge as
+unavailable at that time. The later local package now proves formal Qdrant +
+FastEmbed retrieval, stable locators, citation schema `2.0.0`, Markdown, PDF,
+and React component rendering without rerunning a real model or Provider. Its
+`13 passed` result is a frozen acceptance set, not measured retrieval accuracy.
 
-## Active Phase 9 Scope
+## Phase 9 Local Package
 
-- Refine the public README around the verified research workflow and limits.
-- Produce an architecture diagram and a repeatable demonstration script.
-- Select repository-safe desktop/mobile screenshots and presentation assets.
-- Record failure analysis and engineering trade-offs without rewriting history.
-- Prepare evidence-backed interview STAR narratives; do not invent quality,
-  latency, cost, accuracy, or production-readiness claims.
-- Keep Phase 5-8 optional unless separately authorized.
+- The public README now centers the verified multi-source research workflow,
+  offline demonstration and explicit limits.
+- A credential-free deterministic demo reproduces success, knowledge-degraded
+  and safe-failure paths through the existing API, WebSocket, citation and
+  report contracts.
+- Architecture, repeatable demonstration, repository-safe desktop/mobile
+  screenshots, failure retrospective, interview STAR narratives and a claim
+  evidence map are present under `docs/portfolio/` and `docs/assets/portfolio/`.
+- Phase 9 still uses existing Phase 3/4/4.5 evidence for the main product. The
+  formal knowledge extension adds 6 frozen official documents and a 13-question
+  local acceptance set; it did not create `portfolio-100`, `hidden-20`, or new
+  real-provider metrics.
+- Phase 5-8 remain optional and require separate authorization.
+
+## Formal Knowledge Package
+
+- K1-K4 are accepted locally: official source inventory, explicit semantic
+  build, validate-only behavior, idempotent path-backed index, and fixed
+  retrieval expectations are recorded in
+  [formal knowledge evidence](verification/showcase-knowledge-evidence.md).
+- The backend K5 smoke passes through local Qdrant + FastEmbed, the knowledge
+  source tool, validated live citations, Markdown, and PDF; React component
+  tests preserve the official title and full chunk locator.
+- The Phase 9 `formal-knowledge` scenario opens the actual local index and
+  carries its evidence through upload, task, live-citation, Markdown, and PDF
+  contracts without a real model or Provider.
+- The sandbox rejected both loopback server binds, and the environment safety
+  reviewer denied their controlled escalation. The user explicitly waived
+  formal-knowledge browser screenshots, so no `1440x900` or `375x812` E2E claim
+  is made for that fixture.
+- One real model Showcase smoke was explicitly authorized and passed with only
+  `knowledge,uploaded-file` enabled. It produced 28 sources and 28 evidence
+  items across the uploaded span and local knowledge chunks; the redacted
+  artifact also records repeated unsuccessful tool attempts as limitations.
+
+The Phase 9 package acceptance record is
+[Phase 9 portfolio evidence](verification/phase-9-portfolio-evidence.md).
 
 ## Development Boundary
 
@@ -96,7 +135,9 @@ retrieval accuracy.
   ordering, one terminal event, API compatibility, and artifact safety.
 - Local verification is proportional to change risk; complete offline gates run
   at package acceptance, CI, or release boundaries.
-- Future push, tag, release, and deployment actions remain separately authorized.
+- Future provider, push, tag, release, and deployment actions require separate
+  authorization; the one-time `v1.0-portfolio` publication authorization does
+  not extend beyond this release.
 
 ## Canonical Documents
 

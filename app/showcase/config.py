@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -37,6 +38,8 @@ class ShowcaseRuntimeConfig:
     knowledge_embedding_model: str | None = None
     knowledge_embedding_version: str | None = None
     knowledge_embedding_dimension: int | None = None
+    knowledge_chunking_version: str | None = None
+    knowledge_min_score: float | None = None
     limitations: tuple[Limitation, ...] = ()
 
     @property
@@ -137,6 +140,14 @@ class ShowcaseRuntimeConfig:
                     "KNOWLEDGE_EMBEDDING_MODEL",
                     "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
                 )
+                chunking_version = environ.get(
+                    "KNOWLEDGE_CHUNKING_VERSION", "semantic-markdown-v1"
+                )
+                raw_min_score = environ.get("KNOWLEDGE_MIN_SCORE", "0.40")
+                try:
+                    min_score = float(raw_min_score)
+                except (TypeError, ValueError):
+                    min_score = None
                 values.update(
                     knowledge_index_path=index_path,
                     knowledge_collection=collection,
@@ -144,6 +155,8 @@ class ShowcaseRuntimeConfig:
                     knowledge_embedding_model=embedding_model,
                     knowledge_embedding_version="0.8.0",
                     knowledge_embedding_dimension=384,
+                    knowledge_chunking_version=chunking_version,
+                    knowledge_min_score=min_score,
                 )
                 try:
                     resolve_knowledge_index_path(index_path, runtime_root=Path.cwd())
@@ -173,6 +186,28 @@ class ShowcaseRuntimeConfig:
                             "configuration-invalid",
                             SourceKind.KNOWLEDGE,
                             "knowledge embedding configuration is unsupported",
+                        )
+                    )
+                if not re.fullmatch(
+                    r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}", chunking_version
+                ):
+                    limitations.append(
+                        _source_limitation(
+                            "configuration-invalid",
+                            SourceKind.KNOWLEDGE,
+                            "knowledge chunking configuration is invalid",
+                        )
+                    )
+                if (
+                    min_score is None
+                    or not math.isfinite(min_score)
+                    or not 0.0 <= min_score <= 1.0
+                ):
+                    limitations.append(
+                        _source_limitation(
+                            "configuration-invalid",
+                            SourceKind.KNOWLEDGE,
+                            "knowledge score configuration is invalid",
                         )
                     )
 

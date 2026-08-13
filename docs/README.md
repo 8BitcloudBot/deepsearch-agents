@@ -21,6 +21,13 @@ Agent 应按以下顺序读取：
 Phase 4.5 及更早计划均已冻结为历史证据；Phase 5-8 保持可选，未获授权时不进入
 当前执行上下文。
 
+公开作品集入口见 [Portfolio Guide](portfolio/README.md)，包括架构、确定性演示、
+失败复盘、面试 STAR 叙事和声明证据矩阵。Phase 9 的精确验收命令和结果集中记录在
+[Phase 9 portfolio evidence](verification/phase-9-portfolio-evidence.md)。
+正式本地知识包的来源、显式构建和解释边界见
+[Formal Local Knowledge](portfolio/knowledge-showcase.md)，精确构建与检索结果集中在
+[Formal knowledge evidence](verification/showcase-knowledge-evidence.md)。
+
 ## 文档维护规则
 
 - `phase-status.md` 只记录当前事实，不累计完整历史。

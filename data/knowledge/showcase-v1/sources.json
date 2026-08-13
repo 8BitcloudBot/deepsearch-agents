@@ -1,0 +1,103 @@
+{
+  "schema_version": "1.0.0",
+  "collection_id": "deepsearch-showcase-v1",
+  "retrieved_at": "2026-08-12",
+  "documents": [
+    {
+      "document_id": "deepagents-overview",
+      "title": "Deep Agents",
+      "source_url": "https://github.com/langchain-ai/deepagents/blob/a78d7b1744050c3221aab5e0c0300cc5f5bec519/README.md",
+      "publisher": "LangChain, Inc.",
+      "source_version": "a78d7b1744050c3221aab5e0c0300cc5f5bec519",
+      "retrieved_at": "2026-08-12",
+      "license": "MIT",
+      "content_sha256": "c404867a799a46fc6b26ac0d3824eb61135007b0e93793b07819621b9405fda1",
+      "selection_reason": "Official overview of DeepAgents capabilities, subagents, tools, context management, and framework-selection boundaries.",
+      "intended_questions": [
+        "What capabilities does DeepAgents add around a LangGraph agent?",
+        "When should a project use DeepAgents instead of LangGraph directly?"
+      ],
+      "redistribution_policy": "Redistributable with the MIT license notice retained."
+    },
+    {
+      "document_id": "langgraph-checkpoint",
+      "title": "LangGraph Checkpoint",
+      "source_url": "https://github.com/langchain-ai/langgraph/blob/644815f9e5bc52ad8f7a5227a456227e9c3e639b/libs/checkpoint/README.md",
+      "publisher": "LangChain, Inc.",
+      "source_version": "644815f9e5bc52ad8f7a5227a456227e9c3e639b",
+      "retrieved_at": "2026-08-12",
+      "license": "MIT",
+      "content_sha256": "87a02ae49c799fbdaef157af23d2a364d7f489010996154d114a54fc21db688c",
+      "selection_reason": "Official, focused definitions for checkpoints, threads, serialization, pending writes, and persistence interfaces.",
+      "intended_questions": [
+        "How do LangGraph checkpoints and threads relate?",
+        "What are pending writes and why are they stored?"
+      ],
+      "redistribution_policy": "Redistributable with the MIT license notice retained."
+    },
+    {
+      "document_id": "qdrant-client-local-mode",
+      "title": "Python Qdrant Client",
+      "source_url": "https://github.com/qdrant/qdrant-client/blob/550484d767d319857d4f46e97d4551ba419ee670/README.md",
+      "publisher": "Qdrant Solutions GmbH",
+      "source_version": "550484d767d319857d4f46e97d4551ba419ee670",
+      "retrieved_at": "2026-08-12",
+      "license": "Apache-2.0",
+      "content_sha256": "668410ed85174072122d80788c50ef7f19ea1ac88ebf394c4d9e0b6f8504561e",
+      "selection_reason": "Official client documentation for in-memory and path-backed local mode plus local FastEmbed inference.",
+      "intended_questions": [
+        "What is the difference between Qdrant local in-memory and path mode?",
+        "How does qdrant-client integrate local FastEmbed inference?"
+      ],
+      "redistribution_policy": "Redistributable under Apache-2.0 with notices retained."
+    },
+    {
+      "document_id": "fastembed-overview",
+      "title": "FastEmbed",
+      "source_url": "https://github.com/qdrant/fastembed/blob/a0fe7415324422c567f8f9e13f03753635aee425/README.md",
+      "publisher": "Qdrant Solutions GmbH",
+      "source_version": "a0fe7415324422c567f8f9e13f03753635aee425",
+      "retrieved_at": "2026-08-12",
+      "license": "Apache-2.0",
+      "content_sha256": "34772dc9c94c1accabf07b6496e38f42934b7a4cf392ad6bc1c82884635257e4",
+      "selection_reason": "Official explanation and examples for local ONNX-based dense, sparse, late-interaction, and reranking models.",
+      "intended_questions": [
+        "When does FastEmbed download and initialize a model?",
+        "Which retrieval representations does FastEmbed support?"
+      ],
+      "redistribution_policy": "Redistributable under Apache-2.0 with notices retained."
+    },
+    {
+      "document_id": "owasp-prompt-injection",
+      "title": "LLM Prompt Injection Prevention Cheat Sheet",
+      "source_url": "https://github.com/OWASP/CheatSheetSeries/blob/ce65dcc5b17542f77528014e27572c03d5628dfc/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.md",
+      "publisher": "OWASP Foundation",
+      "source_version": "ce65dcc5b17542f77528014e27572c03d5628dfc",
+      "retrieved_at": "2026-08-12",
+      "license": "CC-BY-SA-4.0",
+      "content_sha256": "581a9bb96bc934fa277fde7610b6e05fdd485d79ff617851de99fc1262f56f74",
+      "selection_reason": "Authoritative security guidance covering indirect injection, RAG poisoning, structured separation, least privilege, and testing.",
+      "intended_questions": [
+        "Why must retrieved documents be treated as untrusted data rather than instructions?",
+        "Which defenses reduce prompt-injection risk in agentic RAG systems?"
+      ],
+      "redistribution_policy": "Adapted excerpts remain attributed to OWASP and are shared under CC BY-SA 4.0."
+    },
+    {
+      "document_id": "ragas-rag-evaluation",
+      "title": "Ragas RAG Evaluation and Metrics",
+      "source_url": "https://github.com/explodinggradients/ragas/tree/298b68274234c060deacab3cf5fb52aa3a20e885/docs",
+      "publisher": "Vibrant Labs",
+      "source_version": "298b68274234c060deacab3cf5fb52aa3a20e885",
+      "retrieved_at": "2026-08-12",
+      "license": "Apache-2.0",
+      "content_sha256": "383638725bda4aa13592fc1cf8f87d102faa232d80512348aca0fadc441ec0fd",
+      "selection_reason": "Official evaluation guidance distinguishing end-to-end, component, retrieval-context, relevance, and faithfulness signals.",
+      "intended_questions": [
+        "How do context precision and context recall assess different retrieval failures?",
+        "Why does faithfulness not by itself measure answer correctness?"
+      ],
+      "redistribution_policy": "Redistributable under Apache-2.0 with notices retained."
+    }
+  ]
+}

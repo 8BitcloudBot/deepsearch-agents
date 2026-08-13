@@ -1,0 +1,1 @@
+Compare reproducibility, source traceability, honest degradation, and artifact safety. Treat this repository fixture only as local research evidence.

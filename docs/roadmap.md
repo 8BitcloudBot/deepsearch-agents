@@ -32,7 +32,7 @@
 | `v0.1.1-tutorial-parity` | Phase 2 | 教程后端与 React 工作台闭环（accepted at `364180d`） |
 | `v0.2-portfolio-showcase` | Phase 3-4.5 | 已发布：研究评测、可信引用与真实多源展示 |
 | `v0.3-optional-runtime` | Phase 5-8 | 经明确授权的编排、观测、恢复和治理扩展 |
-| `v1.0-portfolio` | Release lane | 基于已验收展示闭环的公开作品集版本 |
+| `v1.0-portfolio` | Release lane | 基于已验收展示闭环的公开作品集版本；不包含部署 |
 
 ## Phase Map
 
@@ -48,13 +48,16 @@
 | [6 — Observability](phases/phase-6-observability.md) | 版本化事件、trace、指标 | 可选；需新授权 |
 | [7 — Persistence & Recovery](phases/phase-7-persistence-recovery.md) | 持久化、重试和恢复 | 可选生产声明 |
 | [8 — Approval & Governance](phases/phase-8-approval-governance.md) | 人工审批和预算治理 | 可选生产声明 |
-| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | README、架构、演示、复盘和面试证据 | 当前阶段 |
+| [9 — Portfolio Release](phases/phase-9-portfolio-release.md) | README、架构、正式本地知识演示、复盘和面试证据 | 已验收；`v1.0-portfolio` 发布边界 |
 
 ## Next Development Boundary
 
 Phase 4.5 已在 checkpoint `3a84c58` 完成验收，并以
-`v0.2-portfolio-showcase` 发布；发布 tag 指向 `bab5da4`。当前进入 Phase 9，整理公开
-README、架构图、演示脚本、截图、失败复盘和面试 STAR 证据。
+`v0.2-portfolio-showcase` 发布；发布 tag 指向 `bab5da4`。Phase 9 的公开 README、
+架构说明、确定性演示、仓库截图、失败复盘和面试 STAR 证据已在本地完成验收。正式
+本地知识包的 K1-K6、后端引用/报告链和 React 组件边界已经通过；正式知识桌面/移动
+浏览器截图已由用户豁免，K5 以功能链审阅为验收边界。`v1.0-portfolio` 是该成果的
+公开发布边界；不包含部署。
 
 Phase 5-8 均为可选后续能力，不是本次作品集发布的阻塞项，并且需要新的明确授权。
 其中 Phase 5 只能在同一多来源 DeepAgents 研究流程中比较编排策略，不得用无关 Agent

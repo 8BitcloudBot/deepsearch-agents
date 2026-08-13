@@ -154,6 +154,8 @@ def test_declared_knowledge_reads_only_local_index_configuration_and_model():
     assert config.knowledge_provider == "qdrant-local"
     assert config.knowledge_index_path == ".data/test-index"
     assert config.knowledge_collection == "test-collection"
+    assert config.knowledge_chunking_version == "semantic-markdown-v1"
+    assert config.knowledge_min_score == 0.4
     assert env.accessed == {MODEL_KEY}
 
 
@@ -232,3 +234,24 @@ def test_knowledge_index_path_rejects_absolute_paths():
         item.code == "configuration-invalid" and item.source_kind == "knowledge"
         for item in config.limitations
     )
+
+
+def test_knowledge_rejects_invalid_min_score_without_leaking_value():
+    env = GuardedEnvironment(
+        {
+            "SHOWCASE_ENABLED": "1",
+            "SHOWCASE_SOURCES": "knowledge",
+            "KNOWLEDGE_PROVIDER": "qdrant-local",
+            "KNOWLEDGE_MIN_SCORE": "not-a-number /Users/private",
+            MODEL_KEY: "model-secret",
+        },
+        allowed={MODEL_KEY},
+    )
+
+    config = ShowcaseRuntimeConfig.from_env(env)
+
+    assert any(
+        item.code == "configuration-invalid" and item.source_kind == "knowledge"
+        for item in config.limitations
+    )
+    assert all("/Users/private" not in item.message for item in config.limitations)

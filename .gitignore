@@ -37,6 +37,7 @@ mysql_data/
 docker/**/data/
 
 # Local knowledge index and model cache
+.data/knowledge-corpus/
 .data/knowledge-index/
 .cache/fastembed/
 

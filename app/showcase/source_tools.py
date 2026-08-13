@@ -313,7 +313,8 @@ def create_showcase_source_tools(
                             "content": chunk.content,
                             "captured_at": captured,
                             "version": chunk.version,
-                        }
+                        },
+                        title=chunk.title,
                     )
                     evidence = current_collector().add(
                         source, quote=source.display_text

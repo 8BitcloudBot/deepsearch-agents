@@ -15,6 +15,6 @@
 | 6 | [Observability](phase-6-observability.md) | optional; explicit authorization required |
 | 7 | [Persistence & Recovery](phase-7-persistence-recovery.md) | optional production claim |
 | 8 | [Approval & Governance](phase-8-approval-governance.md) | optional production claim |
-| 9 | [Portfolio Release](phase-9-portfolio-release.md) | active |
+| 9 | [Portfolio Release](phase-9-portfolio-release.md) | accepted; `v1.0-portfolio` release boundary |
 
 实时进度只在 [`../phase-status.md`](../phase-status.md) 维护。
