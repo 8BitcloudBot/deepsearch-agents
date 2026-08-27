@@ -57,8 +57,12 @@ def build_agent_model(
         "model": settings.model_name,
         "api_key": settings.model_api_key,
         "timeout": settings.model_timeout_seconds,
-        "max_retries": 0,
+        "max_retries": settings.model_max_retries,
     }
+    if settings.model_temperature is not None:
+        kwargs["temperature"] = settings.model_temperature
+    if settings.model_top_p is not None:
+        kwargs["top_p"] = settings.model_top_p
     if settings.model_base_url is not None:
         kwargs["base_url"] = settings.model_base_url
     model = ChatOpenAI(**kwargs)

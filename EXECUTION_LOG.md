@@ -9,8 +9,8 @@
 - 备注：基线中 pyproject 主依赖仍含 deepagents / httpx（对应 A1/A4 待办）
 
 ## 已完成任务
-- [x] A2 app/evaluation → benchmarks/evaluation，22 文件 import 修正，citations 原位 (b3b6067)
-- [x] 阶段1文档清扫：全库扫查无漏网散落 md；随 A1 删除的 examples 留下的 ruff per-file-ignores 死配置一并清除；updated//output/ 为运行时输出空目录保留
+- [x] B1 模型参数治理：ConversationSettings 新增 model_temperature=0.2 / model_top_p=None / model_max_retries=2（MODEL_TEMPERATURE/MODEL_TOP_P/MODEL_MAX_RETRIES 可覆盖），build_agent_model 消费；.env.example 同步
+- [x] 阶段1：A4 httpx 移入 dev (6d6502b)；A3 _is_deep_request 收敛 heuristics.py (db4f405)；A1 deepagents 外壳移除+examples 删除（用户确认）(185715e)；A2 evaluation→benchmarks (b3b6067)；文档清扫+ruff 死配置清理 (6895dae)
 - [x] A4 httpx 移入 dev 依赖，uv.lock 刷新 (6d6502b)
 - [x] A3 _is_deep_request 收敛到 app/conversation/heuristics.py 单一定义
 - [x] A1 移除 deepagents 外壳：ModelPlannerAdapter 直连 ainvoke（system prompt/payload/DeepSeek 分支原样保留）；删除 deepagents 依赖；经用户确认删除纯 DeepAgents 演示代码 examples/ 与 tests/examples/
