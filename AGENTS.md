@@ -1,69 +1,55 @@
-# Deepsearch Repository Instructions
+# 项目指令（AGENTS.md）
 
-## Canonical Context
+本文件由 ZCode 自动加载。请遵守其中约定。
 
-Read only these documents by default, in order:
+## 项目一句话
 
-1. `docs/README.md`
-2. `docs/phase-status.md`
-3. `docs/roadmap.md`
-4. `docs/phases/phase-9-portfolio-release.md`
+多轮对话研究助手：每轮回答组合本地知识库（Qdrant）、实时网络（Tavily）、会话上传文件三类证据，产出带引用编号的回答。当前架构是固定 DAG 流水线（plan → retrieve → review → 补充检索 → synthesize）。本目录是从 `/Users/wxhu/Documents/reasonix/deepsearch-agents` 选择性迁移的改造工作区，原仓库只读不动。
 
-Do not preload `docs/handoffs/`, historical plans/specs, or verification evidence.
-Read them only when the user asks for historical analysis or a current canonical
-document links a specific record for a concrete reason.
+## 每次会话开始时
 
-## Product Direction
+1. 若存在 `EXECUTION_LOG.md` → 先读它，那是改造进度的唯一真源；从"进行中"条目恢复，禁止重做已完成任务。
+2. 找不到要做什么时：任务手册《deepsearch-agents-改进计划.md》，阶段流程《deepsearch-agents-执行提示词.md》。
+3. 历史文档一律位于 `benchmarks/docs-history/`，**默认不读**——只有用户点名历史背景或需要在 PR 里引用记录时才查。
 
-This project remains a multi-source DeepAgents research product. Its primary
-flow is:
+## 常用命令
 
-`research request -> main agent and expert workers -> Tavily/MySQL/local knowledge retrieval/uploads -> validated citations -> API/WebSocket/React -> Markdown/PDF`
+```bash
+python -m pytest -q                # 单测（integration 用标记分层，按 pyproject 实际配置）
+ruff check app                     # lint
+python scripts/index_knowledge.py  # 从 data/knowledge 重建 Qdrant 本地索引
+# 服务入口：app/api/server.py（FastAPI + WebSocket）；前端在 frontend/ 下 pnpm install && dev
+```
 
-Evaluation runners, deterministic fixtures, fingerprints, and citation metrics
-prove the product's behavior. They must not replace the research workflow as
-the primary user experience.
+`.env` 已就位且含真实密钥：**绝不提交、绝不在回复里原文打印密钥值**。
 
-Phase 4.5 is accepted and published as `v0.2-portfolio-showcase`. Phase 9 is
-the active stage for portfolio documentation, architecture communication,
-demonstration assets, failure review, and interview evidence. Phases 5-8 are
-optional follow-on work requiring explicit user authorization and do not block
-Phase 9.
+## 代码地图
 
-## Execution Rules
+| 路径 | 职责 |
+|---|---|
+| `app/conversation/turn.py` | 回合研究引擎，LangGraph 固定 DAG 本体 |
+| `app/conversation/runtime.py` | 三角色模型适配器（规划器 / 覆盖审阅器 / 综合器）+ 三类证据检索器 |
+| `app/conversation/contracts.py` | TurnResearchPlan / EvidenceItem / SynthesisDraft 等数据合同 |
+| `app/conversation/application.py`、`store.py`、`settings.py`、`model.py` | 编排入口 / SQLite 状态机 / 配置 / 模型构造 |
+| `app/knowledge/`、`app/providers/tavily.py`、`app/tools/files.py` | 知识库混合检索 / Web 检索 / 附件解析 |
+| `app/citations/` | 引用校验设施（当前只在评测侧使用，改进计划 B9 将接入运行时） |
+| `benchmarks/docs-history/` | 历史文档归档，只读 |
 
-- Use the current Codex session only. Do not invoke Reasonix, use DeepSeek as a
-  coding worker, dispatch subagents, or delegate implementation to another
-  model unless the user explicitly changes this rule.
-- Product-level DeepSeek/provider configuration and DeepAgents `SubAgent`
-  concepts are runtime concerns, not coding-worker authorization.
-- Implement one bounded package at a time and preserve the existing framework,
-  API, event, security, and artifact contracts.
-- Real providers, live data sources, production data, push, tag, release, and
-  deployment require separate explicit authorization.
-- Do not restore deleted collaboration worktrees, plans, or unaccepted partial
-  changes from reflog or historical sessions.
+## 红线（任何任务不得削弱）
 
-## Verification Policy
+1. fail-closed 安全姿态：web 开关关闭强制 web_queries 为空；附件按 user/conversation 隔离；敏感信息脱敏。
+2. `store.py` 的回合状态机与存储合同不得变更语义。
+3. 错误脱敏走 `model.py` 的稳定枚举文案。
+4. `app/citations` 包不删除、不改其规则语义。
+5. API/WS 响应合同向后兼容。
+6. 归档区（benchmarks/docs-history）不参与运行时 import。
 
-Choose the smallest gate that proves the changed behavior:
+## 工作纪律
 
-1. Local change: focused tests at the nearest ownership boundary plus checks on
-   touched files.
-2. Cross-module contract: add the directly affected API, integration, or
-   frontend contract tests.
-3. Package acceptance: run the package's affected backend/frontend regression
-   surface and relevant smoke checks.
-4. CI or release: run the complete offline backend, frontend, static, security,
-   and reproducibility gates.
+- 一律中文回复。计划书里的 文件:行号 是快照——**动手前先 grep 定位标识符确认**，对不上就停下报告。
+- 当前分支基线是 `main`；改造提交在 `opt/deepsearch` 分支上做（已存在则继续用）。一个任务一个 commit（message 以任务编号开头），**测试全绿才提交**，只做本地提交不推送。
+- 会话每轮结尾输出三行：【已完成】【测试状态】【下一步】。
 
-Do not repeat the same internal assertion across multiple layers without a
-distinct failure mode. Do not run the full suite after every small edit.
+## 验证策略（沿用原仓库的有效原则）
 
-## Documentation
-
-- `docs/phase-status.md` contains current facts only.
-- Exact command output and test counts belong in one package evidence record,
-  not in every long-lived status document.
-- Historical plans, handoffs, and evidence retain their original wording and
-  are never current execution instructions.
+选能证明本次行为变化的最小测试面：局部改动跑最近归属边界的聚焦测试；跨模块合同改动补对应契约测试；完整套件留给里程碑验收。不要每次小编辑都跑全套，也不要把同一断言复制多层。
