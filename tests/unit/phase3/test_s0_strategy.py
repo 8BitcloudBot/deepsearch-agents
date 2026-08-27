@@ -14,11 +14,11 @@ import re
 
 import pytest
 
-from app.evaluation.contracts import EvaluationCase, StrategyOutput
-from app.evaluation.datasets import load_dataset
-from app.evaluation.source_corpus import load_corpus
-from app.evaluation.strategies import get_strategy
-from app.evaluation.strategies.s0_single_agent import (
+from benchmarks.evaluation.contracts import EvaluationCase, StrategyOutput
+from benchmarks.evaluation.datasets import load_dataset
+from benchmarks.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.strategies import get_strategy
+from benchmarks.evaluation.strategies.s0_single_agent import (
     MODEL_ID,
     PROMPT_ID,
     S0_CONFIG,

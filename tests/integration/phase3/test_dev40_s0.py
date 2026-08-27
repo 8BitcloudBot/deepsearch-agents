@@ -15,11 +15,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from app.evaluation.datasets import load_dataset_by_name
-from app.evaluation.runner import EvaluationRunner
-from app.evaluation.source_contracts import corpus_sha256
-from app.evaluation.source_corpus import load_corpus
-from app.evaluation.strategies.s0_single_agent import S0SingleAgentStrategy
+from benchmarks.evaluation.datasets import load_dataset_by_name
+from benchmarks.evaluation.runner import EvaluationRunner
+from benchmarks.evaluation.source_contracts import corpus_sha256
+from benchmarks.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.strategies.s0_single_agent import S0SingleAgentStrategy
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEV_IDS = [f"dev-{i:03d}" for i in range(1, 41)]

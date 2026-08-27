@@ -24,15 +24,15 @@ import json
 import re
 from pathlib import Path
 
-from app.evaluation.contracts import (
+from benchmarks.evaluation.contracts import (
     CASE_ID_RE,
     VALID_DIFFICULTIES,
     VALID_SPLITS,
     Dataset,
     EvaluationCase,
 )
-from app.evaluation.source_contracts import Corpus
-from app.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.source_contracts import Corpus
+from benchmarks.evaluation.source_corpus import load_corpus
 
 DEFAULT_DATASET_MANIFEST = (
     Path(__file__).resolve().parent.parent.parent

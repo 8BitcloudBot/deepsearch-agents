@@ -17,12 +17,12 @@ import re
 
 import pytest
 
-from app.evaluation.contracts import EvaluationCase, StrategyOutput
-from app.evaluation.datasets import load_dataset
-from app.evaluation.source_contracts import Corpus, SourceRecord
-from app.evaluation.source_corpus import load_corpus
-from app.evaluation.strategies import get_strategy
-from app.evaluation.strategies.s1_orchestrator_workers import (
+from benchmarks.evaluation.contracts import EvaluationCase, StrategyOutput
+from benchmarks.evaluation.datasets import load_dataset
+from benchmarks.evaluation.source_contracts import Corpus, SourceRecord
+from benchmarks.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.strategies import get_strategy
+from benchmarks.evaluation.strategies.s1_orchestrator_workers import (
     MODEL_ID,
     PROMPT_ID,
     S1_CONFIG,

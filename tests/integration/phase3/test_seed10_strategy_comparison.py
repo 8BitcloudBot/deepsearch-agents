@@ -19,15 +19,15 @@ from pathlib import Path
 
 import pytest
 
-from app.evaluation.datasets import load_dataset
-from app.evaluation.reporting import (
+from benchmarks.evaluation.datasets import load_dataset
+from benchmarks.evaluation.reporting import (
     render_strategy_comparison_markdown,
     write_strategy_comparison,
 )
-from app.evaluation.runner import EvaluationRunner
-from app.evaluation.source_corpus import load_corpus
-from app.evaluation.strategies.s0_single_agent import S0SingleAgentStrategy
-from app.evaluation.strategies.s1_orchestrator_workers import (
+from benchmarks.evaluation.runner import EvaluationRunner
+from benchmarks.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.strategies.s0_single_agent import S0SingleAgentStrategy
+from benchmarks.evaluation.strategies.s1_orchestrator_workers import (
     S1OrchestratorWorkersStrategy,
 )
 

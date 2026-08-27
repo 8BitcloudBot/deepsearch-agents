@@ -13,10 +13,10 @@ import json
 import re
 from pathlib import Path
 
-from app.evaluation.contracts import CaseResult, Dataset, EvaluationCase, StrategyOutput
-from app.evaluation.fingerprint import fingerprint
-from app.evaluation.runner import EvaluationRunner, _aggregate, git_worktree_dirty
-from app.evaluation.source_contracts import Corpus, SourceRecord, corpus_sha256
+from benchmarks.evaluation.contracts import CaseResult, Dataset, EvaluationCase, StrategyOutput
+from benchmarks.evaluation.fingerprint import fingerprint
+from benchmarks.evaluation.runner import EvaluationRunner, _aggregate, git_worktree_dirty
+from benchmarks.evaluation.source_contracts import Corpus, SourceRecord, corpus_sha256
 
 _FAKE_HASH = "ab" * 32
 _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")

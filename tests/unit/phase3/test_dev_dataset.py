@@ -17,14 +17,14 @@ from pathlib import Path
 
 import pytest
 
-from app.evaluation.contracts import Dataset, EvaluationCase
-from app.evaluation.datasets import (
+from benchmarks.evaluation.contracts import Dataset, EvaluationCase
+from benchmarks.evaluation.datasets import (
     DATASET_ALIASES,
     DEFAULT_DATASET_ID,
     load_dataset,
     load_dataset_by_name,
 )
-from app.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.source_corpus import load_corpus
 
 SEED_SHA256 = "a902aba483f89285b02792369963ce5edb35f3460abfdcc1b7f712b0e8cf1055"
 DEV_IDS = [f"dev-{i:03d}" for i in range(1, 41)]

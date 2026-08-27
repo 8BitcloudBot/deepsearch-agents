@@ -17,15 +17,15 @@ from pathlib import Path
 
 import pytest
 
-from app.evaluation.contracts import (
+from benchmarks.evaluation.contracts import (
     CaseResult,
     Dataset,
     EvaluationCase,
     StrategyOutput,
 )
-from app.evaluation.reporting import write_report
-from app.evaluation.runner import RUNNER_VERSION, EvaluationRunner
-from app.evaluation.source_contracts import Corpus, SourceRecord, corpus_sha256
+from benchmarks.evaluation.reporting import write_report
+from benchmarks.evaluation.runner import RUNNER_VERSION, EvaluationRunner
+from benchmarks.evaluation.source_contracts import Corpus, SourceRecord, corpus_sha256
 
 _FAKE_HASH = "ab" * 32
 _ABS_PATH_RE = re.compile(r"(?:/Users/|/tmp/|/private/)")

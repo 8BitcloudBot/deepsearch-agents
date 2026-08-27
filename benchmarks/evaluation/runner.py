@@ -35,7 +35,7 @@ from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path, PurePosixPath
 
-from app.evaluation.contracts import (
+from benchmarks.evaluation.contracts import (
     VALID_STATUSES,
     AggregateSummary,
     CaseResult,
@@ -45,14 +45,14 @@ from app.evaluation.contracts import (
     RunManifest,
     StrategyOutput,
 )
-from app.evaluation.fingerprint import fingerprint
-from app.evaluation.reporting import (
+from benchmarks.evaluation.fingerprint import fingerprint
+from benchmarks.evaluation.reporting import (
     ensure_output_dir_safe,
     redact_text,
     write_report,
 )
-from app.evaluation.source_contracts import Corpus, corpus_sha256
-from app.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.source_contracts import Corpus, corpus_sha256
+from benchmarks.evaluation.source_corpus import load_corpus
 
 RUNNER_VERSION = "1.0.0"
 DEFAULT_EXECUTION_MODE = "offline"

@@ -14,11 +14,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from app.evaluation.datasets import load_dataset_by_name
-from app.evaluation.runner import EvaluationRunner
-from app.evaluation.source_contracts import corpus_sha256
-from app.evaluation.source_corpus import load_corpus
-from app.evaluation.strategies.s1_orchestrator_workers import (
+from benchmarks.evaluation.datasets import load_dataset_by_name
+from benchmarks.evaluation.runner import EvaluationRunner
+from benchmarks.evaluation.source_contracts import corpus_sha256
+from benchmarks.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.strategies.s1_orchestrator_workers import (
     S1OrchestratorWorkersStrategy,
 )
 

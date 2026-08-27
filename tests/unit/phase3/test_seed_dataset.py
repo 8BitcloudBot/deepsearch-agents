@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from app.evaluation.contracts import Dataset, EvaluationCase
-from app.evaluation.datasets import load_dataset
-from app.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.contracts import Dataset, EvaluationCase
+from benchmarks.evaluation.datasets import load_dataset
+from benchmarks.evaluation.source_corpus import load_corpus
 
 SEED_IDS = [f"seed-{i:03d}" for i in range(1, 11)]
 VALID_DIFFICULTIES = {"basic", "intermediate", "advanced"}

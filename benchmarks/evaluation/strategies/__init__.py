@@ -7,32 +7,32 @@ CLI names are ``s0`` and ``s1``; the strategy IDs recorded in reports
 are ``s0-single-agent`` and ``s1-orchestrator-workers``.
 """
 
-from app.evaluation.strategies.s0_single_agent import (
+from benchmarks.evaluation.strategies.s0_single_agent import (
     MODEL_ID as S0_MODEL_ID,
 )
-from app.evaluation.strategies.s0_single_agent import (
+from benchmarks.evaluation.strategies.s0_single_agent import (
     PROMPT_ID as S0_PROMPT_ID,
 )
-from app.evaluation.strategies.s0_single_agent import (
+from benchmarks.evaluation.strategies.s0_single_agent import (
     S0_CONFIG,
     S0_SYSTEM_PROMPT,
     S0SingleAgentStrategy,
 )
-from app.evaluation.strategies.s0_single_agent import (
+from benchmarks.evaluation.strategies.s0_single_agent import (
     STRATEGY_ID as S0_STRATEGY_ID,
 )
-from app.evaluation.strategies.s1_orchestrator_workers import (
+from benchmarks.evaluation.strategies.s1_orchestrator_workers import (
     MODEL_ID as S1_MODEL_ID,
 )
-from app.evaluation.strategies.s1_orchestrator_workers import (
+from benchmarks.evaluation.strategies.s1_orchestrator_workers import (
     PROMPT_ID as S1_PROMPT_ID,
 )
-from app.evaluation.strategies.s1_orchestrator_workers import (
+from benchmarks.evaluation.strategies.s1_orchestrator_workers import (
     S1_CONFIG,
     S1_SYSTEM_PROMPT,
     S1OrchestratorWorkersStrategy,
 )
-from app.evaluation.strategies.s1_orchestrator_workers import (
+from benchmarks.evaluation.strategies.s1_orchestrator_workers import (
     STRATEGY_ID as S1_STRATEGY_ID,
 )
 

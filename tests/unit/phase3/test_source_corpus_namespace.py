@@ -1,5 +1,5 @@
-from app.evaluation.source_contracts import Corpus, SourceRecord, corpus_sha256
-from app.evaluation.source_corpus import load_corpus
+from benchmarks.evaluation.source_contracts import Corpus, SourceRecord, corpus_sha256
+from benchmarks.evaluation.source_corpus import load_corpus
 
 
 def test_phase3_source_corpus_is_owned_by_evaluation_package():

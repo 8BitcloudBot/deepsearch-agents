@@ -44,8 +44,8 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Literal
 
-from app.evaluation.contracts import EvaluationCase, StrategyOutput
-from app.evaluation.source_contracts import Corpus, SourceKind, SourceRecord
+from benchmarks.evaluation.contracts import EvaluationCase, StrategyOutput
+from benchmarks.evaluation.source_contracts import Corpus, SourceKind, SourceRecord
 
 STRATEGY_ID = "s1-orchestrator-workers"
 MODEL_ID = "mock:deterministic"

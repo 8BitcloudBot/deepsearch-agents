@@ -22,7 +22,11 @@ import json
 import re
 from pathlib import Path
 
-from app.evaluation.source_contracts import VALID_SOURCE_KINDS, Corpus, SourceRecord
+from benchmarks.evaluation.source_contracts import (
+    VALID_SOURCE_KINDS,
+    Corpus,
+    SourceRecord,
+)
 
 DEFAULT_MANIFEST = (
     Path(__file__).resolve().parent.parent.parent

@@ -25,10 +25,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.evaluation.datasets import load_dataset_by_name  # noqa: E402
-from app.evaluation.reporting import write_strategy_comparison  # noqa: E402
-from app.evaluation.runner import EvaluationRunner  # noqa: E402
-from app.evaluation.strategies import get_strategy  # noqa: E402
+from benchmarks.evaluation.datasets import load_dataset_by_name  # noqa: E402
+from benchmarks.evaluation.reporting import write_strategy_comparison  # noqa: E402
+from benchmarks.evaluation.runner import EvaluationRunner  # noqa: E402
+from benchmarks.evaluation.strategies import get_strategy  # noqa: E402
 
 
 def _run_strategy(strategy_name: str, dataset, output_dir: str):

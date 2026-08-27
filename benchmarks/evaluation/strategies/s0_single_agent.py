@@ -17,8 +17,8 @@ import json
 import re
 from dataclasses import dataclass
 
-from app.evaluation.contracts import EvaluationCase, StrategyOutput
-from app.evaluation.source_contracts import Corpus
+from benchmarks.evaluation.contracts import EvaluationCase, StrategyOutput
+from benchmarks.evaluation.source_contracts import Corpus
 
 STRATEGY_ID = "s0-single-agent"
 MODEL_ID = "mock:deterministic"

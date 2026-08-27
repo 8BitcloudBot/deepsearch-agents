@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from app.evaluation.fingerprint import canonical_json, fingerprint, sha256_hex
+from benchmarks.evaluation.fingerprint import canonical_json, fingerprint, sha256_hex
 
 
 def test_canonical_json_sorts_keys_recursively():

@@ -12,7 +12,7 @@ import json
 import re
 from pathlib import Path
 
-from app.evaluation.contracts import EvaluationReport
+from benchmarks.evaluation.contracts import EvaluationReport
 
 # Versioned data root (``<repo>/data/phase3``). The runner and report
 # writer never touch it: any output directory equal to or inside this
