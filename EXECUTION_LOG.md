@@ -17,6 +17,8 @@
 - [x] 阶段1文档清扫：全库扫查无漏网散落 md；examples 残留 ruff 死配置清除 (6895dae)
 
 ### 阶段 2 改进（B 组，B1-B9 全部完成）
+- [x] B4 调优：web 证据多查询合并后全局重编衰减分 (4ad2267)，真实时效题复验通过
+- [x] 修复 limitations 对象形状被 str() 成原始字典串 (7c54c4b)：Mapping 提取 detail 等可读字段，未知形状退化 ensure_ascii=False JSON
 - [x] B1 模型参数治理 (671a7fd)：model_temperature=0.2 / model_top_p=None / model_max_retries=2，环境变量可覆盖越界报错
 - [x] B3 历史接线 (f2c520c)：审阅器/综合器 payload 增加 recent_history + 提示词使用说明；无历史传空列表
 - [x] B4 评分贯通与全局排序 (9a3043c)：EvidenceItem.score、knowledge 融合分批级归一、web/session rank 衰减分、全局排序+每来源保底+locator 聚合+published_at 平局权重
