@@ -349,7 +349,7 @@ class TurnResearchEngine:
         return {
             "knowledge": tuple(grouped["knowledge"]),
             "session_files": tuple(grouped["session_file"]),
-            "web": tuple(grouped["web"]),
+            "web": _apply_global_rank_decay(tuple(grouped["web"])),
             "query_outcomes": tuple(outcomes),
             "limitations": tuple(dict.fromkeys(limitations)),
         }
@@ -474,9 +474,12 @@ class TurnResearchEngine:
                 web.extend(result)
         if failed:
             limitations.append("补充检索暂不可用。")
+        # 旧+新全量重编：补充轮证据接在已有位次之后，避免再次冒出并列 1.0
         return {
             "knowledge": tuple(knowledge),
-            "web": tuple(web),
+            "web": _apply_global_rank_decay(
+                (*state.get("web", ()), *web)
+            ),
             "limitations": tuple(dict.fromkeys(limitations)),
             "supplemental_rounds": state.get("supplemental_rounds", 0) + 1,
         }
@@ -573,6 +576,27 @@ def _published_timestamp(value: str | None) -> float:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
     except ValueError:
         return 0.0
+
+
+def _apply_global_rank_decay(
+    items: tuple[EvidenceItem, ...],
+) -> tuple[EvidenceItem, ...]:
+    """对 web 批次按合并后首现顺序统一重打 1/(i+1) 衰减分。
+
+    各 web 查询独立检索时都从 1.0 起算，多查询合并后同位次并列、
+    全局排序退化为插入序；此处按跨查询的唯一位次重编消除扎堆。
+    knowledge 分数是 Qdrant 相关性真值，不得重编，保持原样。
+    """
+    result = list(items)
+    seen: set[str] = set()
+    position = 0
+    for index, item in enumerate(result):
+        if item.source_kind != "web" or item.evidence_id in seen:
+            continue
+        seen.add(item.evidence_id)
+        result[index] = dataclasses.replace(item, score=1 / (position + 1))
+        position += 1
+    return tuple(result)
 
 
 def _evidence_rank(item: EvidenceItem) -> tuple[float, float]:

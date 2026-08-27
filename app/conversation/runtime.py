@@ -346,7 +346,9 @@ def _normalized_scores(values: list[float]) -> list[float]:
 
 
 def _rank_decay_scores(count: int) -> list[float]:
-    return [1 / (index + 1) for index in range(count)]
+    from app.conversation.heuristics import rank_decay_scores
+
+    return rank_decay_scores(count)
 
 
 class KnowledgeEvidenceRetriever:

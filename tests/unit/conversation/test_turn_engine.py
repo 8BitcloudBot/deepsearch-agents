@@ -158,7 +158,7 @@ async def test_turn_graph_uses_session_files_and_web_when_requested() -> None:
 
 
 @pytest.mark.asyncio
-async def test_evidence_delivery_is_bounded_and_rotates_across_sources() -> None:
+async def test_evidence_delivery_is_bounded_with_per_source_floor() -> None:
     knowledge = Retriever(tuple(evidence("knowledge", index) for index in range(1, 8)))
     files = FileRetriever(
         tuple(evidence("session_file", index) for index in range(1, 8))
@@ -189,12 +189,16 @@ async def test_evidence_delivery_is_bounded_and_rotates_across_sources() -> None
         TurnInput("问题", True, ("file-1",), ()),
     )
 
-    assert len(synthesizer.seen_evidence) == 6
-    assert [item.source_kind for item in synthesizer.seen_evidence[:3]] == [
-        "knowledge",
-        "session_file",
-        "web",
-    ]
+    seen = synthesizer.seen_evidence
+    assert len(seen) == 6
+    # 每非空来源保底入选（round-robin 已被全局分数序取代）
+    kinds = {item.source_kind for item in seen}
+    assert {"knowledge", "session_file", "web"} <= kinds
+    # web 批次获得引擎统一重编的衰减分，输出按分数降序
+    web_scores = [item.score for item in seen if item.source_kind == "web"]
+    assert web_scores == sorted(web_scores, reverse=True)
+    assert web_scores[0] == max(web_scores)
+    assert seen[0].evidence_id == "ev-web-1"
 
 
 @pytest.mark.asyncio
@@ -978,8 +982,8 @@ async def test_citation_validation_disabled_matches_legacy_path() -> None:
         citation_validation=False,
     ).run(TurnInput("问题", False, (), ()))
 
-    assert (await legacy).__dict__ if False else True
-    left, right = await legacy, await flagged_off
+    left = await legacy
+    right = await flagged_off
     assert left.answer == right.answer
     assert left.claims == right.claims
     assert left.evidence == right.evidence
@@ -1061,3 +1065,80 @@ def test_citation_validation_settings_default_off() -> None:
     assert settings.enable_citation_validation is False
     enabled = ConversationSettings.from_env({"ENABLE_CITATION_VALIDATION": "true"})
     assert enabled.enable_citation_validation is True
+
+
+@pytest.mark.asyncio
+async def test_web_scores_are_renumbered_globally_across_queries() -> None:
+    """多查询各给独立衰减分时，引擎合并后统一重编消除并列 1.0。"""
+    hit_a = EvidenceItem(
+        "ev-web-a", "web", "命中A", "url", "https://a.example/1",
+        quote="A", hostname="a.example", score=1.0,
+    )
+    hit_b = EvidenceItem(
+        "ev-web-b", "web", "命中B", "url", "https://b.example/1",
+        quote="B", hostname="b.example", score=0.5,
+    )
+    hit_c = EvidenceItem(
+        "ev-web-c", "web", "命中C", "url", "https://c.example/1",
+        quote="C", hostname="c.example", score=1.0,  # 第二个查询的第 1 名
+    )
+
+    class MultiQueryRetriever:
+        async def search(self, query: str, *, limit: int = 10):
+            return {"q1": (hit_a, hit_b), "q2": (hit_c,)}.get(query, ())
+
+    class MultiWebPlanner:
+        async def plan(self, turn: TurnInput) -> TurnResearchPlan:
+            return TurnResearchPlan(
+                objective=turn.question,
+                subquestions=(turn.question,),
+                knowledge_queries=("knowledge query",),
+                web_queries=("q1", "q2") if turn.use_web else (),
+            )
+
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-web-a",)),),
+            limitations=(),
+        )
+    )
+
+    await TurnResearchEngine(
+        MultiWebPlanner(),
+        Retriever(()),
+        FileRetriever(()),
+        MultiQueryRetriever(),
+        synthesizer,
+    ).run(TurnInput("问题", True, (), ()))
+
+    web_scores = [
+        item.score for item in synthesizer.seen_evidence if item.source_kind == "web"
+    ]
+    assert web_scores == [1.0, 0.5, 1 / 3]
+
+
+def test_apply_global_rank_decay_skips_knowledge_and_duplicates() -> None:
+    from dataclasses import replace
+
+    from app.conversation.turn import _apply_global_rank_decay
+
+    kb_high = EvidenceItem(
+        "ev-knowledge-1", "knowledge", "知识", "chunk", "doc#1",
+        quote="k", score=0.87,
+    )
+    dup_first = EvidenceItem(
+        "ev-web-dup", "web", "重复", "url", "https://d.example/1",
+        quote="d1", hostname="d.example", score=0.5,
+    )
+    dup_second = replace(dup_first)
+    other = EvidenceItem(
+        "ev-web-x", "web", "其他", "url", "https://x.example/1",
+        quote="x", hostname="x.example", score=None,
+    )
+
+    result = _apply_global_rank_decay((kb_high, dup_first, dup_second, other))
+
+    assert next(i for i in result if i.evidence_id == "ev-knowledge-1").score == 0.87
+    assert next(i for i in result if i.evidence_id == "ev-web-dup").score == 1.0
+    assert next(i for i in result if i.evidence_id == "ev-web-x").score == 0.5
