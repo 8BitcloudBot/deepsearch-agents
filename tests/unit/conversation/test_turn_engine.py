@@ -1215,3 +1215,61 @@ async def test_uncovered_limitation_keeps_only_latest_when_budget_exhausted() ->
     ]
     # 3 轮补充各产出一条，最终只剩第 4 次（路由退出前）审阅记录的最新一条
     assert uncovered_items == ["未覆盖问题：阶段缺口4"]
+
+
+@pytest.mark.asyncio
+async def test_user_knowledge_results_merge_into_knowledge_branch() -> None:
+    """个人知识库（RAG 入库）结果并入 knowledge 分支并参与评分排序。"""
+    main_item = evidence("knowledge", 1)
+    user_upload = EvidenceItem(
+        "ev-knowledge-upload-doc1-abc", "knowledge", "我的上传",
+        "chunk", "upload-abc#section-0001", quote="个人库独有结论。",
+        score=0.95,
+    )
+
+    class UploadRetriever:
+        calls: list[str] = []
+
+        async def search(self, query: str, *, limit: int = 10):
+            UploadRetriever.calls.append(query)
+            return (user_upload,)
+
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0, 1)),),
+            claims=(
+                SynthesisClaim("主库结论。", ("ev-knowledge-1",)),
+                SynthesisClaim("个人库结论。", ("ev-knowledge-upload-doc1-abc",)),
+            ),
+            limitations=(),
+        )
+    )
+
+    await build_engine(
+        Planner(),
+        Retriever((main_item,)),
+        None,
+        Retriever(()),
+        synthesizer,
+    ).run(TurnInput("问题", False, (), ()) )
+
+    # 未注入时仅主库证据
+    assert {item.evidence_id for item in synthesizer.seen_evidence} == {
+        "ev-knowledge-1"
+    }
+
+    UploadRetriever.calls.clear()
+    synthesizer.seen_evidence = []
+    await build_engine(
+        Planner(),
+        Retriever((main_item,)),
+        None,
+        Retriever(()),
+        synthesizer,
+    ).run(TurnInput("问题", False, (), ()) , user_knowledge=UploadRetriever())
+
+    assert len(UploadRetriever.calls) == 1
+    kinds = [item.source_kind for item in synthesizer.seen_evidence]
+    assert all(kind == "knowledge" for kind in kinds)
+    # 个人库高分证据排前
+    assert synthesizer.seen_evidence[0].evidence_id == "ev-knowledge-upload-doc1-abc"

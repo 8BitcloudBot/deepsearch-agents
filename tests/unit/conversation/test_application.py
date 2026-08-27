@@ -13,7 +13,7 @@ from app.conversation.store import ConversationStore
 class Engine:
     seen: list[object]
 
-    async def run(self, turn):
+    async def run(self, turn, *, user_knowledge=None):
         self.seen.append(turn)
         item = EvidenceItem(
             evidence_id="ev-knowledge-1",
@@ -83,7 +83,7 @@ async def test_application_marks_safe_failure_and_does_not_publish_report(
     tmp_path: Path,
 ) -> None:
     class FailingEngine:
-        async def run(self, turn):
+        async def run(self, turn, *, user_knowledge=None):
             raise RuntimeError("provider details must not leak")
 
     store = ConversationStore(tmp_path / "reasonix.sqlite3")

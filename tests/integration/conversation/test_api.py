@@ -214,7 +214,7 @@ def test_websocket_success_has_one_terminal_event_and_aggregated_stages(
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
 
     class Engine:
-        async def run(self, turn):
+        async def run(self, turn, *, user_knowledge=None):
             item = EvidenceItem(
                 evidence_id="ev-knowledge-1",
                 source_kind="knowledge",

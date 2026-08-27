@@ -6,7 +6,7 @@ import asyncio
 import dataclasses
 from dataclasses import dataclass, replace
 from functools import partial
-from typing import Protocol, TypedDict
+from typing import Any, Protocol, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
@@ -140,6 +140,7 @@ class _TurnState(TypedDict):
     supplemental_rounds: int
     supplemental_used: int
     executed_queries: tuple[str, ...]
+    user_knowledge_retriever: Any
 
 
 def _plan_is_deep(plan: TurnResearchPlan | None, question: str) -> bool:
@@ -207,10 +208,21 @@ class TurnResearchEngine:
     async def run(
         self,
         turn: TurnInput,
+        *,
+        user_knowledge: EvidenceRetriever | None = None,
     ) -> TurnResult:
-        return await self._run(turn)
+        """user_knowledge：当前用户的个人知识库检索器（知识库入库方案）。
 
-    async def _run(self, turn: TurnInput) -> TurnResult:
+        其结果并入 knowledge 来源分支统一评分排序，DAG 形状不变。
+        """
+        return await self._run(turn, user_knowledge=user_knowledge)
+
+    async def _run(
+        self,
+        turn: TurnInput,
+        *,
+        user_knowledge: EvidenceRetriever | None = None,
+    ) -> TurnResult:
         state = await self._graph.ainvoke(
             {
                 "turn": turn,
@@ -224,6 +236,7 @@ class TurnResearchEngine:
                 "supplemental_rounds": 0,
                 "supplemental_used": 0,
                 "executed_queries": (),
+                "user_knowledge_retriever": user_knowledge,
             },
             # plan+retrieve + (review+supplemental)×(MAX_ROUNDS+1) + synthesize
             # 的安全上限；轮次上限保证正常收敛，这里只兜异常路径。
@@ -252,14 +265,30 @@ class TurnResearchEngine:
             else ()
         )
         async def retrieve_knowledge() -> list[tuple[str, int, object]]:
-            records: list[tuple[str, int, object]] = []
-            for index, query in enumerate(knowledge_queries):
-                try:
-                    result: object = await self._knowledge.search(query, limit=10)
-                except Exception as exc:
-                    result = exc
-                records.append(("knowledge", index, result))
-            return records
+            # 主库与当前用户个人知识库"库间并行、库内串行"发同一组查询
+            # （Qdrant local 不支持并发访问）；结果合并进 knowledge 分支统一评分。
+            queries = knowledge_queries
+
+            async def one_library(
+                retriever: Any, index_offset: int
+            ) -> list[tuple[str, int, object]]:
+                records: list[tuple[str, int, object]] = []
+                for offset, query in enumerate(queries):
+                    try:
+                        result: object = await retriever.search(query, limit=10)
+                    except Exception as exc:
+                        result = exc
+                    records.append(("knowledge", index_offset + offset, result))
+                return records
+
+            extra = state.get("user_knowledge_retriever")
+            main_task = one_library(self._knowledge, 0)
+            if extra is None:
+                return await main_task
+            main_records, extra_records = await asyncio.gather(
+                main_task, one_library(extra, len(queries))
+            )
+            return [*main_records, *extra_records]
 
         async def retrieve_web() -> list[tuple[str, int, object]]:
             results = await asyncio.gather(

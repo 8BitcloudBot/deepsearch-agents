@@ -22,6 +22,7 @@ class ConversationApplication:
         engine: TurnResearchEngine,
         report: ConversationReport,
         capabilities: dict[str, dict[str, str]] | None = None,
+        upload_store: Any | None = None,
     ) -> None:
         self.store = store
         self.engine = engine
@@ -33,6 +34,7 @@ class ConversationApplication:
             for source in ("model", "knowledge", "web", "session_file")
         }
         self._turn_locks: dict[tuple[str, str], asyncio.Lock] = {}
+        self.upload_store = upload_store
 
     async def submit(
         self,
@@ -96,7 +98,13 @@ class ConversationApplication:
             }
         )
         try:
-            result = await self.engine.run(input_value)
+            user_knowledge = None
+            if self.upload_store is not None:
+                try:
+                    user_knowledge = self.upload_store.retriever_for(user.id)
+                except Exception:
+                    user_knowledge = None
+            result = await self.engine.run(input_value, user_knowledge=user_knowledge)
             emit(
                 {
                     "type": "stage.changed",

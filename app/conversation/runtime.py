@@ -526,6 +526,41 @@ def _relevant_excerpt(content: str, query: str) -> str:
     return "\n".join(chosen)[:_MAX_QUOTE]
 
 
+class UserKnowledgeRetriever:
+    """当前用户个人知识库（RAG 入库 collection）的检索适配器。
+
+    与 KnowledgeEvidenceRetriever 同构：source_kind 仍为 knowledge，
+    引擎把其结果并入同一分支评分排序；分库物理隔离保证用户间不可见。
+    """
+
+    def __init__(self, index: Any):
+        self._index = index
+
+    def search_sync(self, query: str, *, limit: int = 10) -> tuple[EvidenceItem, ...]:
+        chunks = self._index.search(query, limit=min(10, limit))
+        scores = _normalized_scores([chunk.score for chunk in chunks])
+        result: list[EvidenceItem] = []
+        for chunk, score in zip(chunks, scores):
+            safe_key = re.sub(r"[^A-Za-z0-9_.:-]+", "-", chunk.chunk_id)
+            result.append(
+                EvidenceItem(
+                    evidence_id=f"ev-knowledge-{chunk.document_id}-{safe_key}",
+                    source_kind="knowledge",
+                    title=chunk.title,
+                    locator_kind="chunk",
+                    locator_value=f"{chunk.document_id}#{chunk.chunk_id}",
+                    quote=_relevant_excerpt(chunk.content, query),
+                    score=score,
+                )
+            )
+        return tuple(result)
+
+    async def search(self, query: str, *, limit: int = 10) -> tuple[EvidenceItem, ...]:
+        import asyncio
+
+        return await asyncio.to_thread(self.search_sync, query, limit=limit)
+
+
 def build_conversation_application(
     environ: Any,
     *,
@@ -599,6 +634,20 @@ def build_conversation_application(
     except Exception:
         knowledge = _UnavailableRetriever()
 
+    # 个人知识库（RAG 入库）装配：独立 per-user collection，
+    # 装配失败不拖垮主链路（fail-safe 降级为无个人库）。
+    upload_store: Any = None
+    try:
+        from app.conversation.uploads import UploadKnowledgeStore
+
+        upload_store = UploadKnowledgeStore(
+            runtime_root / ".data" / "user-uploads",
+            embedder,
+            min_score=settings.knowledge.min_score,
+        )
+    except Exception:
+        upload_store = None
+
     web: Any = _UnavailableRetriever()
     web_ready = False
     if settings.tavily_api_key:
@@ -633,4 +682,5 @@ def build_conversation_application(
             # 会话附件路径已由知识库入库方案取代（T1）；键保留维持 WS 合同稳定
             "session_file": {"status": "unavailable"},
         },
+        upload_store=upload_store,
     )
