@@ -40,8 +40,23 @@
 - [x] AGENTS.md 同步现状代码地图与开关清单
 - [x] 前端 pnpm build 验证通过（vite build ✓ built in 902ms）
 
+## 会话附件 → 个人知识库（RAG）改造轮（2026-08-27）
+- [x] T1 移除旧附件会话路径 (4bd53d6)：前端 UI/API 三端点/引擎 session_file 支流/
+  SessionFileIndex/EvidenceRetriever/tools 解析器全链路摘除；store.py attachments 表与
+  source_kind 枚举冻结保留（红线2 与历史数据兼容）
+- [x] T2 后端入库服务 (3378cd5/86c62b4)：uploads.py per-user Qdrant collection
+ （uploads-{user_id} 物理隔离）、增量 upsert 同名覆盖、heading-section-v1 切块、
+  readers.py 恢复 pdf/docx/xlsx 解析器与 zip/宏防护；引擎 run(user_knowledge=) 注入，
+  结果并入 knowledge 分支统一评分；库间并行库内串行
+- [x] T3 API (4879e20)：POST/GET/DELETE /api/library/documents，unavailable→503
+- [x] T4 前端子页面 (7bf47ff)：侧边栏"研究/知识库"切换 + LibraryPage 上传管理页
+- [x] T5 真实验证：私有手册 md 入库→检索 top1 score=1.0→DeepSeek 准确引用
+  "48小时报销制/600元住宿标准" 回答，evidence 标题=company-handbook.md、kind=knowledge
+- 备注：原"附件上传链路真实冒烟"待办由本改造取代并关闭
+
 ## 待办队列
-- 备选池：B10 各项（会话标题模型化 / 滚动记忆 / 优雅降级 / 前端过程展示）；citations 中文 tokenizer 立项（若要正式启用引用校验）；附件上传链路真实冒烟
+- 备选池：B10 各项（会话标题模型化 / 滚动记忆 / 优雅降级 / 前端过程展示）；
+  citations 中文 tokenizer 立项（若要正式启用引用校验）；README 补个人知识库使用说明
 
 ## 用户决策记录
 - 2026-08-27 移除 deepagents 后顶层 examples/ 处置 => 删除 examples/（推荐选项）
