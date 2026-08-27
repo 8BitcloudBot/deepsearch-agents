@@ -39,6 +39,20 @@
 - [x] README.md 重写为现状版 (15fb7a5)
 - 全部任务状态：A1-A4 ✓、B1-B9 ✓（B6 仅第3点未实施，见用户决策项）、B10 未做（P2，仅在点名时执行）
 
+## 真实凭证端到端验收（2026-08-27，用户提供的 .env）
+- [x] 配置兼容性：MODEL_NAME=deepseek-v4-flash（无 openai: 前缀）经 ChatOpenAI 直连 DeepSeek API 兼容；
+  planner 的 DeepSeek 分支（thinking disabled + json_object）自动触发；TAVILY_API_KEY 即插即用；
+  WEB_PROVIDER/CATALOG_PROVIDER/MYSQL_* 六键当前代码零消费——干净基线未迁移 MySQL catalog 源，属无害冗余可保留
+- [x] 知识索引：本工作区只有 sources.json 原始抓取数据，分块清单在原仓库
+  .data/knowledge-corpus/beginner-v2/manifest.json（134 chunks）；已用它本地建索引成功
+- [x] 三轮真实对话全通（DeepSeek v4-flash + Tavily + Qdrant 本地索引）：
+  ① 知识题引用编号 [1]-[5] 正常、limitations 具体；② 时效题"截至2026年1月"+Tavily 官方博客权威来源+
+  如实 coverage limitation；③ 追问承接显著（开头直接衔接轮1/轮2 已确立概念）
+- [x] 冒烟暴露缺口并修复 (6a25a40)：SearchHit/EvidenceItem 链路此前不透传 published_date，
+  B4 平局权重与综合器时效判断无输入；现 provider→检索器→证据全程透传（双单测保证）
+- 已知观察项：web 证据按每查询独立衰减打分，多查询同位次合并后分数可能扎堆 1.0，
+  全局区分度退化为插入序；如需改进可在合并后统一重排，属后续调优不阻塞
+
 ### 最终 flag 清单
 | 开关 | 默认 | 说明 |
 |---|---|---|
