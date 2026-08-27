@@ -1142,3 +1142,75 @@ def test_apply_global_rank_decay_skips_knowledge_and_duplicates() -> None:
     assert next(i for i in result if i.evidence_id == "ev-knowledge-1").score == 0.87
     assert next(i for i in result if i.evidence_id == "ev-web-dup").score == 1.0
     assert next(i for i in result if i.evidence_id == "ev-web-x").score == 0.5
+
+
+@pytest.mark.asyncio
+async def test_uncovered_limitation_converges_to_latest_round() -> None:
+    """多轮回环时"未覆盖问题"文案收敛为最新一条，不再逐轮累积。"""
+    gaps = {1: "缺口一", 2: "缺口二", 3: "缺口三"}
+
+    class Reviewer:
+        calls = 0
+
+        async def review(self, turn, plan, evidence_items, limitations):
+            self.calls += 1
+            done = self.calls >= len(gaps)
+            return CoverageDecision(
+                uncovered_questions=() if done else (gaps[self.calls],),
+                knowledge_queries=() if done else (f"followup-{self.calls}",),
+                web_queries=(),
+            )
+
+    knowledge = Retriever((evidence("knowledge", 1),))
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-knowledge-1",)),),
+            limitations=(),
+        )
+    )
+
+    result = await TurnResearchEngine(
+        Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer, Reviewer()
+    ).run(TurnInput("问题", False, (), ()))
+
+    # 第 1、2 次审阅记录了缺口文案；缺口在第 3 轮被补充证据解决，
+    # 陈旧的"未覆盖问题"文案应随之消失而非残留
+    uncovered_items = [
+        item for item in result.limitations if item.startswith("未覆盖问题：")
+    ]
+    assert uncovered_items == []
+
+
+@pytest.mark.asyncio
+async def test_uncovered_limitation_keeps_only_latest_when_budget_exhausted() -> None:
+    """预算耗尽且缺口仍在：多条历史"未覆盖问题"收敛为最新一条。"""
+    class Reviewer:
+        calls = 0
+
+        async def review(self, turn, plan, evidence_items, limitations):
+            self.calls += 1
+            return CoverageDecision(
+                uncovered_questions=(f"阶段缺口{self.calls}",),
+                knowledge_queries=(f"unique-x{self.calls}",),
+                web_queries=(),
+            )
+
+    knowledge = Retriever((evidence("knowledge", 1),))
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-knowledge-1",)),),
+            limitations=(),
+        )
+    )
+
+    result = await TurnResearchEngine(
+        Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer, Reviewer()
+    ).run(TurnInput("问题", False, (), ()))
+
+    uncovered_items = [
+        item for item in result.limitations if item.startswith("未覆盖问题：")
+    ]
+    # 3 轮补充各产出一条，最终只剩第 4 次（路由退出前）审阅记录的最新一条
+    assert uncovered_items == ["未覆盖问题：阶段缺口4"]

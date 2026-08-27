@@ -428,7 +428,10 @@ class TurnResearchEngine:
             web_queries=bounded_web,
         )
         turn = replace(state["turn"], uncovered_questions=bounded.uncovered_questions)
-        limitations = list(state["limitations"])
+        # 多轮回环时逐轮累积会产生数条相似文案，收敛为仅保留最新一轮
+        limitations = [
+            item for item in state["limitations"] if not item.startswith("未覆盖问题：")
+        ]
         if bounded.uncovered_questions:
             limitations.append("未覆盖问题：" + "；".join(bounded.uncovered_questions))
         if state.get("supplemental_rounds", 0) >= _MAX_SUPPLEMENTAL_ROUNDS and (
