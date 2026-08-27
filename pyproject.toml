@@ -43,9 +43,6 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 
-[tool.ruff.lint.per-file-ignores]
-"examples/phase1/0*.py" = ["N999"]
-
 [tool.ruff.format]
 quote-style = "double"
 
