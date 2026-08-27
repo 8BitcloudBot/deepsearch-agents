@@ -11,6 +11,7 @@ import hashlib
 import inspect
 import json
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -58,6 +59,24 @@ def _response_text(response: Any) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError("model response is invalid")
     return value.strip()
+
+
+def _normalize_limitation(item: Any) -> str:
+    """模型可能把 limitation 返回成 {type, detail} 等对象。
+
+    提取常见可读字段而不是让用户看到 Python repr；未知形状退化为
+    ensure_ascii=False 的 JSON 串，仍可读且无转义噪声。
+    """
+    if isinstance(item, Mapping):
+        for key in ("detail", "text", "message", "reason"):
+            value = item.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        try:
+            return json.dumps(item, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(item)
+    return str(item).strip()
 
 
 def _strict_json(response: Any) -> dict[str, Any]:
@@ -329,7 +348,7 @@ class ModelSynthesizerAdapter:
             if not isinstance(raw_limitations, list):
                 raise ValueError
             return SynthesisDraft(
-                sections, claims, tuple(str(item) for item in raw_limitations)
+                sections, claims, tuple(_normalize_limitation(item) for item in raw_limitations)
             )
         except (KeyError, TypeError, ValueError, IndexError) as exc:
             raise ValueError("model response is invalid") from exc

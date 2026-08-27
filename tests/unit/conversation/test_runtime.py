@@ -603,3 +603,36 @@ def test_tavily_provider_parses_published_date_field() -> None:
 
     assert result.hits[0].published_date == "2026-07-30"
     assert result.hits[1].published_date is None
+
+
+@pytest.mark.asyncio
+async def test_synthesizer_normalizes_dict_limitations_to_readable_text() -> None:
+    class Model:
+        async def ainvoke(self, messages):
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"answer_sections":[{"text":"答","claim_indexes":[0]}],'
+                        '"claims":[{"statement":"陈述","evidence_ids":["ev-1"]}],'
+                        '"limitations":['
+                        '{"type": "source_sufficiency", "detail": "证据来源单一。"},'
+                        '{"type": "other"},'
+                        '"普通字符串限制"]}'
+                    )
+                },
+            )()
+
+    draft = await ModelSynthesizerAdapter(Model()).synthesize(
+        TurnInput("问题", False, (), ()),
+        TurnResearchPlan("目标", (), (), ()),
+        (EvidenceItem("ev-1", "knowledge", "文档", "chunk", "a#b", "原文"),),
+        (),
+    )
+
+    assert draft.limitations[0] == "证据来源单一。"
+    # 无已知字段的对象退化为 ensure_ascii=False 的 JSON，而非 Python repr
+    assert "'" not in draft.limitations[1]
+    assert '"type"' in draft.limitations[1]
+    assert draft.limitations[2] == "普通字符串限制"
