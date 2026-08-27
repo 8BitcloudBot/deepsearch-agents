@@ -173,9 +173,12 @@ def read_supported_file(path: Path) -> str:
     from app.knowledge.readers import (
         ALLOWED_EXTENSIONS,
         MAX_FILE_SIZE_BYTES,
+        read_docx_file,
+        read_pdf_file,
+        read_text_file,
+        read_xlsx_file,
         validate_upload_file,
     )
-    from app.knowledge.readers import read_docx_file, read_pdf_file, read_text_file, read_xlsx_file
 
     extension = path.suffix.casefold()
     if extension not in ALLOWED_EXTENSIONS:
