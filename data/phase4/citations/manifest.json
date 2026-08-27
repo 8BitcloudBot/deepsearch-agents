@@ -1,0 +1,27 @@
+{
+  "fixture": {
+    "count": 30,
+    "file": "data/phase4/citations/seed-10.jsonl",
+    "fingerprint": "3e222d1aed75512236eff80a5a4528aa93e047224f3d0033ab389976dc83a090",
+    "fingerprint_algorithm": "sha256",
+    "name": "seed-10"
+  },
+  "schema_version": "2.0.0",
+  "sources": {
+    "catalog-frameworks-v1": {
+      "hash": "aa8005363b8a0dd8e9e118797fca644ac7745edf7456864c7261557dfac7bbcb",
+      "kind": "catalog",
+      "path": "catalog/frameworks.json"
+    },
+    "knowledge-evaluation-notes-v1": {
+      "hash": "fea0ad2368c20d6c1e9e8f1e02759d13b0598d001448d70c991e60626690d6c6",
+      "kind": "knowledge",
+      "path": "knowledge/evaluation-notes.md"
+    },
+    "web-agent-frameworks-v1": {
+      "hash": "794bed8459aca36698d8fe6bb2b749c0ff003d0e36ff629cbae51536f314ddeb",
+      "kind": "web_snapshot",
+      "path": "web/agent-frameworks.json"
+    }
+  }
+}

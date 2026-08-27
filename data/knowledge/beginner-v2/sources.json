@@ -1,0 +1,60 @@
+{
+  "schema_version": "1.0.0",
+  "collection_id": "deepsearch-beginner-v2",
+  "retrieved_at": "2026-08-15",
+  "documents": [
+    {
+      "document_id": "deepagents-overview",
+      "title": "Deep Agents",
+      "source_url": "https://github.com/langchain-ai/deepagents/blob/a78d7b1744050c3221aab5e0c0300cc5f5bec519/README.md",
+      "source_version": "a78d7b1744050c3221aab5e0c0300cc5f5bec519",
+      "retrieved_at": "2026-08-15",
+      "content_sha256": "c404867a799a46fc6b26ac0d3824eb61135007b0e93793b07819621b9405fda1",
+      "intended_questions": ["Agent 和普通聊天机器人有什么区别？", "研究助手应有哪些模块？"]
+    },
+    {
+      "document_id": "langgraph-overview",
+      "title": "LangGraph",
+      "source_url": "https://github.com/langchain-ai/langgraph/blob/644815f9e5bc52ad8f7a5227a456227e9c3e639b/README.md",
+      "source_version": "644815f9e5bc52ad8f7a5227a456227e9c3e639b",
+      "retrieved_at": "2026-08-15",
+      "content_sha256": "3a13e257af1216962d53d72414a7f44ac1fc5cea34d994bdff60ea2a3b045933",
+      "intended_questions": ["一次请求从提问到回答经历哪些步骤？", "Agent 工作流如何编排？"]
+    },
+    {
+      "document_id": "qdrant-client-local-mode",
+      "title": "Python Qdrant Client",
+      "source_url": "https://github.com/qdrant/qdrant-client/blob/550484d767d319857d4f46e97d4551ba419ee670/README.md",
+      "source_version": "550484d767d319857d4f46e97d4551ba419ee670",
+      "retrieved_at": "2026-08-15",
+      "content_sha256": "668410ed85174072122d80788c50ef7f19ea1ac88ebf394c4d9e0b6f8504561e",
+      "intended_questions": ["知识库检索如何工作？", "本地向量索引适合什么场景？"]
+    },
+    {
+      "document_id": "fastembed-overview",
+      "title": "FastEmbed",
+      "source_url": "https://github.com/qdrant/fastembed/blob/a0fe7415324422c567f8f9e13f03753635aee425/README.md",
+      "source_version": "a0fe7415324422c567f8f9e13f03753635aee425",
+      "retrieved_at": "2026-08-15",
+      "content_sha256": "34772dc9c94c1accabf07b6496e38f42934b7a4cf392ad6bc1c82884635257e4",
+      "intended_questions": ["嵌入模型在知识库中负责什么？"]
+    },
+    {
+      "document_id": "owasp-prompt-injection",
+      "title": "LLM Prompt Injection Prevention Cheat Sheet",
+      "source_url": "https://github.com/OWASP/CheatSheetSeries/blob/ce65dcc5b17542f77528014e27572c03d5628dfc/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.md",
+      "source_version": "ce65dcc5b17542f77528014e27572c03d5628dfc",
+      "retrieved_at": "2026-08-15",
+      "content_sha256": "581a9bb96bc934fa277fde7610b6e05fdd485d79ff617851de99fc1262f56f74",
+      "intended_questions": ["如何避免工具调用被恶意提示带偏？", "如何排查提示注入风险？"]
+    },
+    {
+      "document_id": "ragas-rag-evaluation",
+      "title": "Ragas RAG Evaluation and Metrics",
+      "source_url": "https://github.com/explodinggradients/ragas/tree/298b68274234c060deacab3cf5fb52aa3a20e885/docs",
+      "source_version": "298b68274234c060deacab3cf5fb52aa3a20e885",
+      "retrieved_at": "2026-08-15",
+      "intended_questions": ["如何设计最简单的库存问答评估表？", "怎样区分检索和回答质量？"]
+    }
+  ]
+}

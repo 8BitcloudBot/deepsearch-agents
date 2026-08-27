@@ -1,0 +1,6 @@
+{
+  "title": "Research Copilot Framework Catalog",
+  "origin": "internal curated catalog (phase-3)",
+  "captured_at": "2026-08-07",
+  "content": "| framework | orchestration | offline evaluation |\n| --- | --- | --- |\n| DeepAgents | single-agent / orchestrator-workers | yes |\n| LangGraph | graph orchestration | yes |\n| AutoGen | multi-agent conversation | partial |\n| CrewAI | orchestrator-workers (crews) | partial |\n| Semantic Kernel | single-agent planner | yes |\n\n## Notes\n\n- A research copilot attributes content per source family through tool events.\n- Framework choice is an empirical question: run the same seed cases under each strategy and compare measured baselines.\n- Orchestration patterns include single-agent, orchestrator-workers, graph orchestration and multi-agent conversation.\n"
+}

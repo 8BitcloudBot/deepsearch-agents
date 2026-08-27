@@ -1,0 +1,60 @@
+from pathlib import Path
+
+import pytest
+
+from app.conversation.settings import ConversationSettings
+
+
+def test_conversation_settings_only_load_active_provider_configuration():
+    settings = ConversationSettings.from_env(
+        {
+            "MODEL_NAME": "gpt-test",
+            "MODEL_BASE_URL": "https://gateway.example/v1",
+            "MODEL_API_KEY": "model-secret",
+            "TAVILY_API_KEY": "tavily-secret",
+            "MODEL_TIMEOUT_SECONDS": "12.5",
+            "KNOWLEDGE_INDEX_PATH": ".data/index",
+            "KNOWLEDGE_COLLECTION": "research-v2",
+            "KNOWLEDGE_EMBEDDING_MODEL": "model-v2",
+            "KNOWLEDGE_MIN_SCORE": "0.55",
+            "MYSQL_HOST": "ignored.example",
+        }
+    )
+
+    assert settings.model_name == "gpt-test"
+    assert settings.model_base_url == "https://gateway.example/v1"
+    assert settings.model_api_key == "model-secret"
+    assert settings.tavily_api_key == "tavily-secret"
+    assert settings.model_timeout_seconds == 12.5
+    assert settings.knowledge.index_path == ".data/index"
+    assert settings.knowledge.collection == "research-v2"
+    assert settings.knowledge.embedding_model == "model-v2"
+    assert settings.knowledge.min_score == 0.55
+    assert not hasattr(settings, "mysql")
+    assert not hasattr(settings, "budgets")
+
+
+def test_conversation_settings_keep_optional_credentials_lazy():
+    settings = ConversationSettings.from_env({})
+
+    assert settings.model_api_key is None
+    assert settings.tavily_api_key is None
+    assert settings.knowledge.index_path == ".data/knowledge-index-beginner-v2"
+    assert settings.knowledge.collection == "deepsearch-beginner-v2"
+
+
+def test_env_example_only_contains_schema_five_runtime_configuration() -> None:
+    content = Path(".env.example").read_text(encoding="utf-8")
+
+    assert "KNOWLEDGE_INDEX_PATH=.data/knowledge-index-beginner-v2" in content
+    assert "KNOWLEDGE_COLLECTION=deepsearch-beginner-v2" in content
+    assert "MYSQL_" not in content
+    assert "APP_PROFILE" not in content
+    assert "TUTORIAL_RUNTIME" not in content
+    assert "PHASE3_" not in content
+
+
+@pytest.mark.parametrize("value", ["/tmp/index", "../index", "~/index"])
+def test_conversation_settings_reject_unsafe_knowledge_path(value: str):
+    with pytest.raises(ValueError, match="knowledge index path"):
+        ConversationSettings.from_env({"KNOWLEDGE_INDEX_PATH": value})

@@ -1,0 +1,57 @@
+[project]
+name = "deepsearch-agents"
+version = "0.0.0"
+description = "Agent Engineering Research Copilot — multi-agent trustworthy research system"
+requires-python = ">=3.12,<3.13"
+readme = "README.md"
+
+dependencies = [
+    "deepagents>=0.6.12",
+    "fastapi[standard]>=0.115,<1",
+    "httpx>=0.28,<1",
+    "langchain-core>=1.5.1",
+    "langchain-openai>=1.4.1",
+    "langgraph>=1.2.9",
+    "openpyxl>=3.1,<4",
+    "pypdf>=5,<7",
+    "python-docx>=1.1,<2",
+    "python-multipart>=0.0.20,<1",
+    "qdrant-client[fastembed]>=1.17,<2",
+    "tavily-python>=0.7,<1",
+    "uvicorn[standard]>=0.34,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+    "pytest-asyncio>=0.25,<1",
+    "httpx>=0.28,<1",
+    "ruff>=0.11,<1",
+    "pre-commit>=4.6,<5",
+    "detect-secrets>=1.5,<2",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/phase1/0*.py" = ["N999"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[dependency-groups]
+dev = [
+    "httpx-ws>=0.9.0",
+]

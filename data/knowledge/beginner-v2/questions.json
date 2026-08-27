@@ -1,0 +1,116 @@
+{
+  "schema_version": "1.0.0",
+  "collection_id": "deepsearch-beginner-v2",
+  "top_k": 8,
+  "questions": [
+    {
+      "question_id": "beginner-q01-agent-basics",
+      "category": "beginner-concept",
+      "query": "Agent 和普通聊天机器人有什么区别？ What capabilities make an agent different from a basic chatbot?",
+      "expected_document_ids": ["deepagents-overview"],
+      "expected_chunk_ids": ["deepagents-overview-0004"],
+      "expected_sections": ["Deep Agents > FAQ > How is this different from LangGraph or LangChain?"],
+      "expected_no_evidence": false,
+      "rationale": "The Deep Agents comparison section gives a compact beginner explanation of the additional harness capabilities."
+    },
+    {
+      "question_id": "beginner-q02-agent-workflow",
+      "category": "beginner-workflow",
+      "query": "LangGraph stateful agent workflows and controllable orchestration; 一次 Agent 请求如何被 LangGraph 编排？",
+      "expected_document_ids": ["langgraph-overview"],
+      "expected_chunk_ids": ["langgraph-overview-0002"],
+      "expected_sections": ["LangGraph > Why use LangGraph?"],
+      "expected_no_evidence": false,
+      "rationale": "The high-level LangGraph section explains controllable agent workflows without requiring implementation details."
+    },
+    {
+      "question_id": "beginner-q03-rag-retrieval",
+      "category": "beginner-retrieval",
+      "query": "QdrantClient local mode :memory: path-backed local vector database; 知识库本地检索如何工作？",
+      "expected_document_ids": ["qdrant-client-local-mode"],
+      "expected_chunk_ids": ["qdrant-client-local-mode-0004"],
+      "expected_sections": ["Python Qdrant Client > Local mode"],
+      "expected_no_evidence": false,
+      "rationale": "The local-mode section grounds a plain-language RAG explanation in the selected implementation boundary."
+    },
+    {
+      "question_id": "beginner-q04-tool-security",
+      "category": "beginner-security",
+      "query": "RAG Poisoning Retrieval Attacks and Agent-Specific Defenses tools permissions; 如何避免检索内容影响工具调用？",
+      "expected_document_ids": ["owasp-prompt-injection"],
+      "expected_chunk_ids": ["owasp-prompt-injection-0014", "owasp-prompt-injection-0024"],
+      "expected_sections": [
+        "LLM Prompt Injection Prevention Cheat Sheet > Common Attack Types > RAG Poisoning (Retrieval Attacks)",
+        "LLM Prompt Injection Prevention Cheat Sheet > Additional Defenses > Agent-Specific Defenses"
+      ],
+      "expected_no_evidence": false,
+      "rationale": "The threat and agent-defense sections together support a new-user safety checklist."
+    },
+    {
+      "question_id": "beginner-q05-database-knowledge-boundary",
+      "category": "source-boundary",
+      "query": "FastEmbed is a lightweight fast Python library built for embedding generation ONNX Runtime; Qdrant local vector storage; 数据库事实与知识库检索分别负责什么？",
+      "expected_document_ids": ["qdrant-client-local-mode", "fastembed-overview"],
+      "expected_chunk_ids": ["qdrant-client-local-mode-0008", "fastembed-overview-0001"],
+      "expected_sections": [
+        "Python Qdrant Client > Inference API > Local Inference with FastEmbed",
+        "⚡️ What is FastEmbed?"
+      ],
+      "expected_no_evidence": false,
+      "rationale": "The two documents separate vector storage/retrieval from embedding generation, which complements the live database facts."
+    },
+    {
+      "question_id": "beginner-q06-error-diagnosis",
+      "category": "troubleshooting",
+      "query": "如何区分检索缺失和答案不忠实？ How do context precision and context recall diagnose different retrieval failures?",
+      "expected_document_ids": ["ragas-rag-evaluation"],
+      "expected_chunk_ids": ["ragas-rag-evaluation-0026", "ragas-rag-evaluation-0040"],
+      "expected_sections": ["Context Precision", "Context Recall"],
+      "expected_no_evidence": false,
+      "rationale": "The paired metrics support a step-by-step diagnosis of retrieval quality before blaming the model."
+    },
+    {
+      "question_id": "beginner-q07-pilot-evaluation",
+      "category": "pilot-evaluation",
+      "query": "Ragas Why Metrics Matter and end-to-end metrics; 库存问答试点先记录哪些指标？",
+      "expected_document_ids": ["ragas-rag-evaluation"],
+      "expected_chunk_ids": ["ragas-rag-evaluation-0011", "ragas-rag-evaluation-0012"],
+      "expected_sections": [
+        "Overview of Metrics > Why Metrics Matter",
+        "Overview of Metrics > Types of Metrics in AI Applications > 1. End-to-End Metrics"
+      ],
+      "expected_no_evidence": false,
+      "rationale": "These sections give a beginner-safe starting point for a small evaluation table."
+    },
+    {
+      "question_id": "beginner-q08-injection-checklist",
+      "category": "security-checklist",
+      "query": "Structured Prompts Clear Separation SYSTEM_INSTRUCTIONS USER_DATA_TO_PROCESS everything data not instructions; 入门安全检查清单应包含什么？",
+      "expected_document_ids": ["owasp-prompt-injection"],
+      "expected_chunk_ids": ["owasp-prompt-injection-0019"],
+      "expected_sections": ["LLM Prompt Injection Prevention Cheat Sheet > Primary Defenses > Structured Prompts with Clear Separation"],
+      "expected_no_evidence": false,
+      "rationale": "The checklist combines input/data separation with a permission boundary."
+    },
+    {
+      "question_id": "beginner-q09-embedding-role",
+      "category": "beginner-concept",
+      "query": "嵌入模型在知识库中负责什么？ What does FastEmbed provide in a retrieval pipeline?",
+      "expected_document_ids": ["fastembed-overview"],
+      "expected_chunk_ids": ["fastembed-overview-0001"],
+      "expected_sections": ["⚡️ What is FastEmbed?"],
+      "expected_no_evidence": false,
+      "rationale": "The overview anchors the explanation of embedding generation and its boundary with storage."
+    },
+    {
+      "question_id": "beginner-q10-local-index",
+      "category": "beginner-storage",
+      "query": "本地向量索引的内存模式和路径模式有什么区别？ What changes between Qdrant in-memory and path-backed local mode?",
+      "expected_document_ids": ["qdrant-client-local-mode"],
+      "expected_chunk_ids": ["qdrant-client-local-mode-0004"],
+      "expected_sections": ["Python Qdrant Client > Local mode"],
+      "expected_no_evidence": false,
+      "rationale": "The local-mode section gives a concrete answer for a beginner choosing a local knowledge-store layout."
+    }
+  ]
+}

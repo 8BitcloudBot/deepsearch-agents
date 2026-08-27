@@ -1,0 +1,83 @@
+{
+  "collection_id": "deepsearch-beginner-v2",
+  "documents": [
+    {
+      "document_id": "deepagents-overview",
+      "title": "Deep Agents",
+      "source_version": "1.0.0+a78d7b174405",
+      "source_url": "https://github.com/langchain-ai/deepagents/blob/a78d7b1744050c3221aab5e0c0300cc5f5bec519/README.md",
+      "content_sha256": "c404867a799a46fc6b26ac0d3824eb61135007b0e93793b07819621b9405fda1",
+      "local_sources": ["deepagents/README.md"]
+    },
+    {
+      "document_id": "langgraph-overview",
+      "title": "LangGraph",
+      "source_version": "1.0.0+644815f9e5bc",
+      "source_url": "https://github.com/langchain-ai/langgraph/blob/644815f9e5bc52ad8f7a5227a456227e9c3e639b/README.md",
+      "content_sha256": "3a13e257af1216962d53d72414a7f44ac1fc5cea34d994bdff60ea2a3b045933",
+      "local_sources": ["langgraph/README.md"]
+    },
+    {
+      "document_id": "qdrant-client-local-mode",
+      "title": "Python Qdrant Client",
+      "source_version": "1.0.0+550484d767d3",
+      "source_url": "https://github.com/qdrant/qdrant-client/blob/550484d767d319857d4f46e97d4551ba419ee670/README.md",
+      "content_sha256": "668410ed85174072122d80788c50ef7f19ea1ac88ebf394c4d9e0b6f8504561e",
+      "local_sources": ["qdrant-client/README.md"]
+    },
+    {
+      "document_id": "fastembed-overview",
+      "title": "FastEmbed",
+      "source_version": "1.0.0+a0fe74153244",
+      "source_url": "https://github.com/qdrant/fastembed/blob/a0fe7415324422c567f8f9e13f03753635aee425/README.md",
+      "content_sha256": "34772dc9c94c1accabf07b6496e38f42934b7a4cf392ad6bc1c82884635257e4",
+      "local_sources": ["fastembed/README.md"]
+    },
+    {
+      "document_id": "owasp-prompt-injection",
+      "title": "LLM Prompt Injection Prevention Cheat Sheet",
+      "source_version": "1.0.0+ce65dcc5b175",
+      "source_url": "https://github.com/OWASP/CheatSheetSeries/blob/ce65dcc5b17542f77528014e27572c03d5628dfc/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.md",
+      "content_sha256": "581a9bb96bc934fa277fde7610b6e05fdd485d79ff617851de99fc1262f56f74",
+      "local_sources": ["owasp/prompt-injection.md"]
+    },
+    {
+      "document_id": "ragas-rag-evaluation",
+      "title": "Ragas RAG Evaluation and Metrics",
+      "source_version": "1.0.0+298b68274234",
+      "source_url": "https://github.com/explodinggradients/ragas/tree/298b68274234c060deacab3cf5fb52aa3a20e885/docs",
+      "local_sources": [
+        {
+          "path": "ragas/rag_eval.md",
+          "source_url": "https://github.com/explodinggradients/ragas/blob/298b68274234c060deacab3cf5fb52aa3a20e885/docs/getstarted/rag_eval.md",
+          "content_sha256": "ca0b45dc61752d8d00e9ff503e7b0bf649a1ebf712e8d3c113f1a17d0246f2c8"
+        },
+        {
+          "path": "ragas/index.md",
+          "source_url": "https://github.com/explodinggradients/ragas/blob/298b68274234c060deacab3cf5fb52aa3a20e885/docs/concepts/metrics/overview/index.md",
+          "content_sha256": "67c1b8dfe7a093f9bf2863dce02d0ff5b23ac598af37314f2583b3f247908fe4"
+        },
+        {
+          "path": "ragas/context_precision.md",
+          "source_url": "https://github.com/explodinggradients/ragas/blob/298b68274234c060deacab3cf5fb52aa3a20e885/docs/concepts/metrics/available_metrics/context_precision.md",
+          "content_sha256": "b55677bc7f0f4b5633d14780e381124e4d4b5e77ec914b89cec59f6a4ca6ed09"
+        },
+        {
+          "path": "ragas/context_recall.md",
+          "source_url": "https://github.com/explodinggradients/ragas/blob/298b68274234c060deacab3cf5fb52aa3a20e885/docs/concepts/metrics/available_metrics/context_recall.md",
+          "content_sha256": "8f8c830d95d0e462c176507b89b4dc944a32f012bb0604e60e70b68364bc5d79"
+        },
+        {
+          "path": "ragas/faithfulness.md",
+          "source_url": "https://github.com/explodinggradients/ragas/blob/298b68274234c060deacab3cf5fb52aa3a20e885/docs/concepts/metrics/available_metrics/faithfulness.md",
+          "content_sha256": "f764e088128237bec5c117a11e0cc76f68f787831d3efaf640495bd1a62ba196"
+        },
+        {
+          "path": "ragas/answer_relevance.md",
+          "source_url": "https://github.com/explodinggradients/ragas/blob/298b68274234c060deacab3cf5fb52aa3a20e885/docs/concepts/metrics/available_metrics/answer_relevance.md",
+          "content_sha256": "85b4cdc9768ef27510839e78f24a13249b4a1132c9f083aee8c3af39c3e9e907"
+        }
+      ]
+    }
+  ]
+}

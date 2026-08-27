@@ -1,0 +1,379 @@
+from pathlib import Path
+
+import pytest
+
+from app.conversation.contracts import EvidenceItem, TurnResearchPlan
+from app.conversation.runtime import (
+    DeepAgentsPlannerAdapter,
+    KnowledgeEvidenceRetriever,
+    ModelCoverageReviewerAdapter,
+    ModelSynthesizerAdapter,
+    SessionFileEvidenceRetriever,
+    TavilyEvidenceRetriever,
+    build_conversation_application,
+)
+from app.conversation.turn import SynthesisDraft, TurnInput
+from app.knowledge.contracts import KnowledgeChunk
+from app.providers.contracts import SearchHit, SearchResult
+
+
+def test_knowledge_adapter_maps_stable_chunk_identity() -> None:
+    class Index:
+        def search(self, query: str, *, limit: int = 10):
+            return (
+                KnowledgeChunk(
+                    collection_id="guide",
+                    document_id="langgraph",
+                    chunk_id="intro",
+                    title="LangGraph 入门",
+                    content="图状态用于管理回合。",
+                    score=0.91,
+                    version="1.0.0",
+                    section_path="概览",
+                ),
+            )
+
+    result = KnowledgeEvidenceRetriever(Index()).search_sync("状态")
+    assert result == (
+        EvidenceItem(
+            evidence_id="ev-knowledge-guide-langgraph-intro",
+            source_kind="knowledge",
+            title="LangGraph 入门",
+            locator_kind="chunk",
+            locator_value="langgraph#intro",
+            quote="图状态用于管理回合。",
+        ),
+    )
+
+
+def test_knowledge_adapter_extracts_query_relevant_passage() -> None:
+    class Index:
+        def search(self, query: str, *, limit: int = 10):
+            return (
+                KnowledgeChunk(
+                    collection_id="guide",
+                    document_id="langgraph",
+                    chunk_id="long",
+                    title="长文档",
+                    content=(
+                        "开头只介绍背景，与当前问题没有直接关系。\n\n"
+                        "检查点可以持久化图状态，并支持中断后的恢复。\n\n"
+                        "结尾是其他说明。"
+                    ),
+                    score=0.91,
+                    version="1.0.0",
+                    section_path="概览",
+                ),
+            )
+
+    quote = KnowledgeEvidenceRetriever(Index()).search_sync("检查点 状态恢复")[0].quote
+
+    assert quote.startswith("检查点可以持久化图状态")
+    assert len(quote) <= 800
+
+
+def test_default_application_build_is_provider_lazy(tmp_path: Path) -> None:
+    application = build_conversation_application(
+        {},
+        runtime_root=tmp_path,
+        store_path=tmp_path / "state.sqlite3",
+        report_root=tmp_path / "reports",
+    )
+    assert application.store.path == tmp_path / "state.sqlite3"
+    assert application.capabilities["model"]["status"] == "unavailable"
+    assert application.capabilities["web"]["status"] == "unavailable"
+    assert application.capabilities["knowledge"]["status"] == "unavailable"
+    assert application.capabilities["session_file"]["status"] in {
+        "ready",
+        "unavailable",
+    }
+
+
+def test_tavily_adapter_converts_hits_and_caps_delivery() -> None:
+    class Provider:
+        def search(self, query: str, *, max_results: int = 5):
+            return SearchResult(
+                query=query,
+                hits=(SearchHit("官方文档", "https://docs.example.dev/a", "短证据"),),
+            )
+
+    result = TavilyEvidenceRetriever(Provider()).search_sync("langgraph")
+    assert result[0].evidence_id.startswith("ev-live-")
+    assert result[0].source_kind == "web"
+    assert result[0].locator_kind == "url"
+    assert result[0].hostname == "docs.example.dev"
+
+
+def test_tavily_adapter_passes_search_intent_and_candidate_limit() -> None:
+    class Provider:
+        def __init__(self):
+            self.calls = []
+
+        def search(self, query: str, *, max_results: int = 5, **kwargs):
+            self.calls.append((query, max_results, kwargs))
+            return SearchResult(query=query, hits=())
+
+    provider = Provider()
+    TavilyEvidenceRetriever(provider).search_sync("最新 LangGraph 发布", limit=8)
+
+    assert provider.calls == [
+        (
+            "最新 LangGraph 发布",
+            10,
+            {"search_depth": "advanced", "topic": "news", "time_range": "month"},
+        )
+    ]
+
+
+def test_session_file_retriever_uses_scoped_index() -> None:
+    class Index:
+        def __init__(self) -> None:
+            self.calls = []
+
+        def search(self, user_id, conversation_id, ids, query, *, limit=10):
+            self.calls.append((user_id, conversation_id, ids, query, limit))
+            return (
+                KnowledgeChunk(
+                    collection_id="session_files",
+                    document_id="file-1",
+                    chunk_id="section-0001-abc",
+                    title="notes.md",
+                    content="第一段：使用状态图。",
+                    score=0.9,
+                    version="1.0.0",
+                    section_path="section-1",
+                ),
+            )
+
+    user = type("User", (), {"id": "user-1"})()
+    index = Index()
+
+    result = SessionFileEvidenceRetriever(index, user, "conversation").search_sync(
+        ("file-1",), "状态图"
+    )
+    assert index.calls == [("user-1", "conversation", ("file-1",), "状态图", 10)]
+    assert result and result[0].source_kind == "session_file"
+    assert result[0].locator_kind == "file"
+    assert "状态图" in result[0].quote
+
+
+def test_session_file_retriever_extracts_query_relevant_passage() -> None:
+    class Index:
+        def search(self, user_id, conversation_id, ids, query, *, limit=10):
+            return (
+                KnowledgeChunk(
+                    collection_id="session_files",
+                    document_id="file-1",
+                    chunk_id="section-1",
+                    title="notes.md",
+                    content=(
+                        "这是文件开头的背景。\n\n"
+                        "评估集需要记录失败案例，才能持续比较检索质量。\n\n"
+                        "最后是附录。"
+                    ),
+                    score=0.9,
+                    version="1.0.0",
+                    section_path="评估",
+                ),
+            )
+
+    user = type("User", (), {"id": "user-1"})()
+    quote = SessionFileEvidenceRetriever(
+        Index(), user, "conversation"
+    ).search_sync(("file-1",), "评估集 失败案例")[0].quote
+
+    assert quote.startswith("评估集需要记录失败案例")
+    assert len(quote) <= 800
+
+
+@pytest.mark.asyncio
+async def test_deepagents_planner_builds_one_toolless_graph_and_invokes_once_per_turn(
+    monkeypatch,
+) -> None:
+    created: list[dict[str, object]] = []
+
+    class Graph:
+        def __init__(self) -> None:
+            self.calls: list[object] = []
+
+        async def ainvoke(self, payload, config=None):
+            self.calls.append((payload, config))
+            return {
+                "messages": [
+                    type(
+                        "Message",
+                        (),
+                        {
+                            "content": (
+                                '```json\n{"objective":"入门","subquestions":["概念"],'
+                                '"knowledge_queries":["状态图"],'
+                                '"web_queries":["LangGraph 官方"]}\n```'
+                            )
+                        },
+                    )()
+                ]
+            }
+
+    graph = Graph()
+
+    def fake_create_deep_agent(**kwargs):
+        assert kwargs.get("response_format") is None
+        created.append(kwargs)
+        return graph
+
+    monkeypatch.setattr("deepagents.create_deep_agent", fake_create_deep_agent)
+    planner = DeepAgentsPlannerAdapter(object())
+
+    plan = await planner.plan(TurnInput("如何入门", True, (), ()))
+    await planner.plan(TurnInput("怎样继续？", False, (), (("如何入门", "先读文档"),)))
+
+    assert plan.objective == "入门"
+    assert plan.knowledge_queries == ("状态图",)
+    assert len(created) == 1
+    assert created[0]["tools"] == []
+    assert created[0]["subagents"] == []
+    assert created[0].get("response_format") is None
+    assert len(graph.calls) == 2
+
+
+def test_deepagents_planner_disables_thinking_only_for_deepseek_model(
+    monkeypatch,
+) -> None:
+    copied: list[dict[str, object]] = []
+    created: list[dict[str, object]] = []
+
+    class Model:
+        model_name = "deepseek-v4-flash"
+
+        def model_copy(self, *, update):
+            copied.append(update)
+            return "planner-model"
+
+    def fake_create_deep_agent(**kwargs):
+        created.append(kwargs)
+        return object()
+
+    monkeypatch.setattr("deepagents.create_deep_agent", fake_create_deep_agent)
+
+    DeepAgentsPlannerAdapter(Model())
+
+    assert copied == [
+        {
+            "extra_body": {"thinking": {"type": "disabled"}},
+            "model_kwargs": {"response_format": {"type": "json_object"}},
+        }
+    ]
+    assert created[0]["model"] == "planner-model"
+
+
+@pytest.mark.asyncio
+async def test_model_coverage_reviewer_uses_bounded_evidence_summary() -> None:
+    class Model:
+        def __init__(self) -> None:
+            self.messages = None
+
+        async def ainvoke(self, messages):
+            self.messages = messages
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"uncovered_questions":["缺口"],'
+                        '"knowledge_queries":["补充一","补充二"],'
+                        '"web_queries":["网络一","网络二"]}'
+                    )
+                },
+            )()
+
+    model = Model()
+    reviewer = ModelCoverageReviewerAdapter(model)
+    evidence_items = tuple(
+        EvidenceItem(
+            f"ev-{index}",
+            "knowledge",
+            f"文档 {index}",
+            "chunk",
+            f"doc#{index}",
+            "证据" * 1000,
+        )
+        for index in range(10)
+    )
+
+    decision = await reviewer.review(
+        TurnInput("问题", True, (), ()),
+        TurnResearchPlan("目标", ("缺口",), ("原查询",), ("原网络查询",)),
+        evidence_items,
+        (),
+    )
+
+    assert decision.uncovered_questions == ("缺口",)
+    assert decision.knowledge_queries == ("补充一",)
+    assert decision.web_queries == ("网络一",)
+    serialized = model.messages[1]["content"]
+    assert len(serialized) < 5000
+    assert "ev-7" in serialized
+    assert "ev-8" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_model_synthesizer_returns_internal_draft_without_fence() -> None:
+    class Model:
+        messages = None
+
+        async def ainvoke(self, messages):
+            self.messages = messages
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"answer_sections":[{"text":"先理解状态图",'
+                        '"claim_indexes":[0]}],"claims":[{"statement":'
+                        '"状态图管理流程","evidence_ids":["ev-1"]}],'
+                        '"limitations":[]}'
+                    )
+                },
+            )()
+
+    model = Model()
+    draft = await ModelSynthesizerAdapter(model).synthesize(
+        TurnInput("如何入门", False, (), ()),
+        TurnResearchPlan("入门", (), (), ()),
+        (EvidenceItem("ev-1", "knowledge", "文档", "chunk", "a#b", "原文"),),
+        (),
+    )
+    assert isinstance(draft, SynthesisDraft)
+    assert draft.sections[0].text == "先理解状态图"
+    assert "400～800" in model.messages[0]["content"]
+    assert "仅按允许列表执行" in model.messages[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_model_synthesizer_uses_deep_answer_budget() -> None:
+    class Model:
+        messages = None
+
+        async def ainvoke(self, messages):
+            self.messages = messages
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"answer_sections":[{"text":"深入回答",'
+                        '"claim_indexes":[0]}],"claims":[{"statement":'
+                        '"结论","evidence_ids":["ev-1"]}],"limitations":[]}'
+                    )
+                },
+            )()
+
+    model = Model()
+    await ModelSynthesizerAdapter(model).synthesize(
+        TurnInput("请详细深入分析", False, (), ()),
+        TurnResearchPlan("入门", (), (), ()),
+        (EvidenceItem("ev-1", "knowledge", "文档", "chunk", "a#b", "原文"),),
+        (),
+    )
+
+    assert "800～1400" in model.messages[0]["content"]
