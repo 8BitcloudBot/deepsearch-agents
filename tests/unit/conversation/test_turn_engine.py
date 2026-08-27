@@ -455,7 +455,7 @@ async def test_deep_mode_allows_three_web_queries_and_eight_evidence() -> None:
 
 
 @pytest.mark.asyncio
-async def test_complete_initial_coverage_skips_reviewer() -> None:
+async def test_complete_initial_coverage_still_reviews_once() -> None:
     class Reviewer:
         calls = 0
 
@@ -482,7 +482,44 @@ async def test_complete_initial_coverage_skips_reviewer() -> None:
         Planner(), knowledge, FileRetriever(()), web, synthesizer, reviewer
     ).run(TurnInput("问题", True, (), ()))
 
-    assert reviewer.calls == 0
+    # B8：命中数≠真答了问题，审阅不再被跳过；审阅器返回空 → 直接 synthesize
+    assert reviewer.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_pseudo_coverage_with_many_irrelevant_hits_still_reviews() -> None:
+    """伪覆盖场景：证据虽多但与子问题无关时，不得跳过审阅。"""
+    irrelevant = tuple(evidence("knowledge", index) for index in range(1, 6))
+
+    class Reviewer:
+        seen_evidence: tuple[EvidenceItem, ...] = ()
+
+        async def review(self, turn, plan, evidence_items, limitations):
+            Reviewer.seen_evidence = evidence_items
+            return CoverageDecision(
+                uncovered_questions=("未被触及的子问题",),
+                knowledge_queries=("真正相关的查询",),
+                web_queries=(),
+            )
+
+    reviewer = Reviewer()
+    knowledge = Retriever(irrelevant)
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-knowledge-1",)),),
+            limitations=(),
+        )
+    )
+
+    result = await TurnResearchEngine(
+        Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer, reviewer
+    ).run(TurnInput("问题", False, (), ()))
+
+    # 审阅器拿到证据并判定未覆盖，补充查询被执行
+    assert len(Reviewer.seen_evidence) >= 4
+    assert "真正相关的查询" in knowledge.calls
+    assert any("未被触及的子问题" in item for item in result.limitations)
 
 
 @pytest.mark.asyncio

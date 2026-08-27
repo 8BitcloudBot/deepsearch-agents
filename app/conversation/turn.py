@@ -348,8 +348,8 @@ class TurnResearchEngine:
         if self._coverage_reviewer is None:
             return {"coverage": CoverageDecision()}
         plan = self._require_plan(state)
-        if _coverage_is_sufficient(state):
-            return {"coverage": CoverageDecision()}
+        # 命中数≠真答了问题，伪覆盖场景（证据多但无关）由审阅器兜底把关，
+        # 不再走"每来源有命中即跳过审阅"的捷径（B8）。
         plan = self._require_plan(state)
         turn = state["turn"]
         deep = _plan_is_deep(plan, turn.question)
@@ -650,29 +650,6 @@ def _new_queries(values: tuple[str, ...], executed: set[str]) -> tuple[str, ...]
         executed.add(normalized)
         result.append(value)
     return tuple(result)
-
-
-def _coverage_is_sufficient(state: _TurnState) -> bool:
-    outcomes = state["query_outcomes"]
-    if not outcomes or any(outcome.hit_count < 1 for outcome in outcomes):
-        return False
-    enabled = {"knowledge"}
-    if state["turn"].attachment_ids:
-        enabled.add("session_file")
-    if state["turn"].use_web:
-        enabled.add("web")
-    sources_with_hits = {
-        outcome.source_kind for outcome in outcomes if outcome.hit_count > 0
-    }
-    if not enabled.issubset(sources_with_hits):
-        return False
-    evidence = _select_evidence(
-        state["knowledge"],
-        state["session_files"],
-        state["web"],
-        limit=4,
-    )
-    return len(evidence) >= 4
 
 
 def _limit_quotes(
