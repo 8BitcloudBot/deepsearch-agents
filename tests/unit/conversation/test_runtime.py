@@ -555,3 +555,51 @@ def test_web_search_options_prefer_plan_hints() -> None:
     # 无 hints 时回退关键词启发
     fallback_options = _web_search_options("最新进展是什么", None)
     assert fallback_options["topic"] == "news"
+
+
+def test_tavily_retriever_passes_published_date_to_evidence() -> None:
+    class Provider:
+        def search(self, query, max_results=10, **kwargs):
+            return SearchResult(
+                query=query,
+                hits=(
+                    SearchHit(
+                        "标题",
+                        "https://docs.example.dev/x",
+                        "正文内容。",
+                        published_date="2026-08-01",
+                    ),
+                ),
+            )
+
+    items = TavilyEvidenceRetriever(Provider()).search_sync("查询")
+
+    assert items[0].published_at == "2026-08-01"
+
+
+def test_tavily_provider_parses_published_date_field() -> None:
+    from unittest.mock import patch
+
+    from app.providers.tavily import TavilyWebProvider
+
+    provider = TavilyWebProvider("test-key")
+
+    class FakeClient:
+        def search(self, query, **kwargs):
+            return {
+                "results": [
+                    {
+                        "title": "t",
+                        "url": "https://a.example/1",
+                        "content": "c",
+                        "published_date": "2026-07-30",
+                    },
+                    {"title": "t2", "url": "https://a.example/2", "content": "c2"},
+                ]
+            }
+
+    with patch.object(provider, "_get_client", return_value=FakeClient()):
+        result = provider.search("q")
+
+    assert result.hits[0].published_date == "2026-07-30"
+    assert result.hits[1].published_date is None

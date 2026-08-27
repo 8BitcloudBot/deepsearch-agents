@@ -54,6 +54,12 @@ class TavilyWebProvider:
                     and not isinstance(r.get("score"), bool)
                     else None
                 ),
+                published_date=(
+                    r.get("published_date")[:64]
+                    if isinstance(r.get("published_date"), str)
+                    and r.get("published_date").strip()
+                    else None
+                ),
             )
             for r in results[:candidate_limit]
         ]

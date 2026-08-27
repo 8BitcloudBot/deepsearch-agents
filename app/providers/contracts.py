@@ -10,6 +10,7 @@ class SearchHit:
     url: str
     content: str
     score: float | None = None
+    published_date: str | None = None
 
 
 @dataclass(frozen=True)

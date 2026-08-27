@@ -413,10 +413,11 @@ class TavilyEvidenceRetriever:
                     title=hit.title or hostname or "Web 来源",
                     locator_kind="url",
                     locator_value=hit.url,
-                    quote=_relevant_excerpt(hit.content, query),
-                    hostname=hostname,
-                    score=score,
-                )
+                quote=_relevant_excerpt(hit.content, query),
+                hostname=hostname,
+                score=score,
+                published_at=getattr(hit, "published_date", None),
+            )
             )
         return tuple(items)
 
