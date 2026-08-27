@@ -307,7 +307,9 @@ def test_library_document_lifecycle(tmp_path: Path) -> None:
         login(http)
         uploaded = http.post(
             "/api/library/documents",
-            files={"files": ("notes.md", "# 标题\n\n内容段落。".encode("utf-8"), "text/markdown")},
+            files={
+                "files": ("notes.md", "# 标题\n\n内容段落。".encode(), "text/markdown")
+            },
         )
         assert uploaded.status_code == 201
         assert uploaded.json()[0]["name"] == "notes.md"
@@ -325,7 +327,8 @@ def test_library_document_lifecycle(tmp_path: Path) -> None:
 def test_library_unavailable_returns_503(tmp_path: Path) -> None:
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
     report = ConversationReport(tmp_path / "reports", store)
-    with TestClient(create_app(store=store, conversation_application=NoopApplication(store, report))) as http:
+    app_stub = NoopApplication(store, report)
+    with TestClient(create_app(store=store, conversation_application=app_stub)) as http:
         login(http)
         response = http.get("/api/library/documents")
     assert response.status_code == 503
