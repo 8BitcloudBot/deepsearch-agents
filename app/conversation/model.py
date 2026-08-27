@@ -66,6 +66,11 @@ def build_agent_model(
     if settings.model_base_url is not None:
         kwargs["base_url"] = settings.model_base_url
     model = ChatOpenAI(**kwargs)
+    if settings.model_structured_output:
+        # B2 的"优先结构化通道"落地形态：provider 无关的 json_object 强约束，
+        # 兼容性远好于各家参差的 json_schema strict mode；DeepSeek 规划器
+        # 分支已有等价注入，两者共存幂等。解析端仍有噪声剥离兜底。
+        model = model.bind(response_format={"type": "json_object"})
     return model, ModelDescriptor(
         provider="openai-compatible",
         model=settings.model_name,
@@ -74,9 +79,40 @@ def build_agent_model(
 
 
 def classify_model_error(exc: Exception) -> ModelUnavailable:
+    # 类型/status_code 级判断优先（B2 第3点），字符串匹配仅作最后兜底。
+    try:
+        from openai import (
+            APIConnectionError,
+            APIStatusError,
+            APITimeoutError,
+            AuthenticationError,
+            RateLimitError,
+        )
+
+        if isinstance(exc, (TimeoutError, APITimeoutError)):
+            code: ModelErrorCode = "model-timeout"
+        elif isinstance(exc, AuthenticationError):
+            code = "model-authentication"
+        elif isinstance(exc, RateLimitError):
+            code = "model-rate-limit"
+        elif isinstance(exc, APIConnectionError):
+            code = "model-unavailable"
+        elif isinstance(exc, APIStatusError):
+            if exc.status_code in (401, 403):
+                code = "model-authentication"
+            elif exc.status_code == 429:
+                code = "model-rate-limit"
+            elif 500 <= exc.status_code <= 599:
+                code = "model-unavailable"
+            else:
+                code = "model-failed"
+            return ModelUnavailable(code)
+    except ImportError:  # pragma: no cover - openai 恒为传递依赖
+        pass
+
     text = str(exc).lower()
     if isinstance(exc, TimeoutError) or "timeout" in text or "timed out" in text:
-        code: ModelErrorCode = "model-timeout"
+        code = "model-timeout"
     elif isinstance(exc, PermissionError) or "401" in text or "unauthorized" in text:
         code = "model-authentication"
     elif "429" in text or "rate limit" in text or "rate_limit" in text:

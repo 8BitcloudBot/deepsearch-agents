@@ -18,6 +18,11 @@ from urllib.parse import urlsplit
 
 from app.conversation.contracts import EvidenceItem, TurnResearchPlan
 from app.conversation.heuristics import is_deep_request as _is_deep_request
+from app.conversation.output_schemas import (
+    coerce_plan_output,
+    coerce_review_output,
+    coerce_synthesis_output,
+)
 from app.conversation.turn import (
     CoverageDecision,
     SynthesisClaim,
@@ -87,8 +92,16 @@ def _strict_json(response: Any) -> dict[str, Any]:
         raw = match.group("body").strip()
     try:
         payload = json.loads(raw)
-    except (TypeError, json.JSONDecodeError) as exc:
-        raise ValueError("model response is invalid") from exc
+    except (TypeError, json.JSONDecodeError):
+        # 围栏之外的说明性前后缀噪声：取首个 { 到最后一个 } 的窗口再试一次，
+        # 避免"模型夹带了句解释文字"导致整轮失败。
+        start, end = raw.find("{"), raw.rfind("}")
+        if not 0 <= start < end:
+            raise ValueError("model response is invalid") from None
+        try:
+            payload = json.loads(raw[start : end + 1])
+        except (json.JSONDecodeError, ValueError) as exc:
+            raise ValueError("model response is invalid") from exc
     if not isinstance(payload, dict):
         raise ValueError("model response is invalid")
     return payload
@@ -162,6 +175,7 @@ class ModelPlannerAdapter:
             ]
         )
         payload = _strict_json(response)
+        payload = coerce_plan_output(payload)
         try:
             intensity = payload.get("research_intensity")
             hints = payload.get("search_hints")
@@ -241,6 +255,7 @@ class ModelCoverageReviewerAdapter:
             ]
         )
         payload = _strict_json(response)
+        payload = coerce_review_output(payload)
         try:
             uncovered = tuple(payload.get("uncovered_questions", ()))[:3]
             maximum = len(uncovered)
@@ -322,6 +337,7 @@ class ModelSynthesizerAdapter:
             ]
         )
         payload = _strict_json(response)
+        payload = coerce_synthesis_output(payload)
         try:
             raw_sections = payload["answer_sections"]
             raw_claims = payload["claims"]

@@ -91,6 +91,7 @@ class ConversationSettings:
     model_top_p: float | None = None
     model_max_retries: int = 2
     enable_citation_validation: bool = False
+    model_structured_output: bool = False
     knowledge: KnowledgeSettings = KnowledgeSettings()
 
     @classmethod
@@ -117,6 +118,9 @@ class ConversationSettings:
             ),
             enable_citation_validation=_truthy(
                 environ.get("ENABLE_CITATION_VALIDATION", "")
+            ),
+            model_structured_output=_truthy(
+                environ.get("MODEL_STRUCTURED_OUTPUT", "")
             ),
             knowledge=KnowledgeSettings(
                 index_path=_safe_relative_path(
