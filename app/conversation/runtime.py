@@ -31,6 +31,7 @@ _FENCE_RE = re.compile(
 )
 _MAX_QUOTE = 2000
 _EXCERPT_PARAGRAPHS = 2  # 每次摘录取查询词密度最高的前 N 个段落
+_MAX_WEB_HITS_PER_QUERY = 5  # 每条 web 查询交付证据数上限（providers 层有同值兜底）
 _MAX_COVERAGE_QUOTE = 300
 
 
@@ -420,7 +421,7 @@ class TavilyEvidenceRetriever:
             **(options if supports_options else {}),
         )
         items: list[EvidenceItem] = []
-        hits = result.hits[:5]
+        hits = result.hits[:_MAX_WEB_HITS_PER_QUERY]
         scores = _rank_decay_scores(len(hits))
         for hit, score in zip(hits, scores):
             digest = hashlib.sha1(

@@ -27,6 +27,8 @@ class TavilyWebProvider:
         time_range: str | None = None,
     ) -> SearchResult:
         client = self._get_client()
+        # delivery_limit 是 provider 层交付上限；runtime._MAX_WEB_HITS_PER_QUERY
+        # 与此保持同值语义，调大需两处同步（此处再做一次 min 兜底）。
         delivery_limit = max(0, min(5, max_results))
         candidate_limit = min(10, max(1, delivery_limit * 2))
         try:
