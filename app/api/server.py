@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import os
+import secrets
 from pathlib import Path
 from typing import Any
 
 from fastapi import (
     Depends,
     FastAPI,
+    File,
     HTTPException,
     Request,
+    Response,
+    UploadFile,
     WebSocket,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +30,7 @@ from app.api.schemas import (
     ConversationRenameRequest,
     ConversationResponse,
     HealthResponse,
+    LibraryDocument,
     LoginRequest,
     LoginResponse,
     TurnResponse,
@@ -44,6 +49,7 @@ from app.conversation.store import (
 )
 
 _COOKIE = "deepsearch_session"
+_LIBRARY_MAX_FILE_SIZE = 10 * 1024 * 1024  # 与 readers.MAX_FILE_SIZE_BYTES 一致
 
 
 def create_app(
@@ -344,6 +350,84 @@ def create_app(
         return FileResponse(
             path, media_type="text/markdown", filename="research-report.md"
         )
+
+    # ---- 个人知识库（RAG 入库，T3）----
+
+    def _library_store():
+        library = getattr(conversation_application, "upload_store", None)
+        if library is None:
+            raise HTTPException(
+                status_code=503, detail="personal knowledge base unavailable"
+            )
+        return library
+
+    @app.get("/api/library/documents", response_model=list[LibraryDocument])
+    async def list_library_documents(
+        user: User = Depends(current_user),
+    ) -> list[LibraryDocument]:
+        return [
+            LibraryDocument(
+                document_id=item["document_id"],
+                name=item["name"],
+                chunks=int(item.get("chunks", "0") or 0),
+            )
+            for item in _library_store().list_documents(user.id)
+        ]
+
+    @app.post(
+        "/api/library/documents",
+        response_model=list[LibraryDocument],
+        status_code=201,
+    )
+    async def ingest_library_documents(
+        files: list[UploadFile] = File(...),
+        user: User = Depends(current_user),
+    ) -> list[LibraryDocument]:
+        import tempfile
+
+        library = _library_store()
+        created: list[LibraryDocument] = []
+        with tempfile.TemporaryDirectory(prefix="library-ingest-") as workdir:
+            for upload in files:
+                original = Path(upload.filename or "").name
+                if not original or Path(original).suffix.lower() not in {
+                    ".txt",
+                    ".md",
+                    ".pdf",
+                    ".docx",
+                    ".xlsx",
+                }:
+                    raise HTTPException(422, detail="unsupported document type")
+                payload = await upload.read(_LIBRARY_MAX_FILE_SIZE + 1)
+                if len(payload) > _LIBRARY_MAX_FILE_SIZE:
+                    raise HTTPException(413, detail="document too large")
+                destination = Path(workdir) / f"{secrets.token_hex(8)}-{original}"
+                destination.write_bytes(payload)
+                try:
+                    entry = library.ingest_path(user.id, original, destination)
+                except ValueError as exc:
+                    raise HTTPException(422, detail=str(exc)) from exc
+                except Exception as exc:
+                    raise HTTPException(
+                        422, detail="document could not be ingested"
+                    ) from exc
+                created.append(
+                    LibraryDocument(
+                        document_id=entry["document_id"],
+                        name=entry["name"],
+                        chunks=int(entry.get("chunks", "0") or 0),
+                    )
+                )
+        return created
+
+    @app.delete("/api/library/documents/{document_id}", status_code=204)
+    async def delete_library_document(
+        document_id: str, user: User = Depends(current_user)
+    ) -> Response:
+        removed = _library_store().remove(user.id, document_id)
+        if not removed:
+            raise HTTPException(status_code=404, detail="document not found")
+        return Response(status_code=204)
 
     @app.websocket("/api/conversations/{conversation_id}/events")
     async def conversation_events(websocket: WebSocket, conversation_id: str) -> None:

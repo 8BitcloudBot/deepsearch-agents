@@ -89,3 +89,9 @@ class HealthResponse(BaseModel):
     service: str = "deepsearch-conversation"
     schema_version: Literal["5.0.0"] = "5.0.0"
     capabilities: dict[str, dict[str, str]]
+
+
+class LibraryDocument(BaseModel):
+    document_id: str
+    name: str
+    chunks: int

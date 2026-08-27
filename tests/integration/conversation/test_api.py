@@ -263,3 +263,69 @@ def test_websocket_success_has_one_terminal_event_and_aggregated_stages(
     assert "web" not in {event.get("stage") for event in events}
     assert [event["type"] for event in events].count("turn.completed") == 1
     assert [event["type"] for event in events].count("turn.failed") == 0
+
+
+def test_library_document_lifecycle(tmp_path: Path) -> None:
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    report = ConversationReport(tmp_path / "reports", store)
+
+    class StubUploadStore:
+        def __init__(self) -> None:
+            self.ingested = []
+            self.docs: list[dict[str, str]] = []
+
+        def ingest_path(self, user_id, name, path):
+            content = Path(path).read_text(encoding="utf-8")
+            entry = {
+                "document_id": f"upload-{name}",
+                "name": name,
+                "chunks": "2" if len(content) > 10 else "1",
+            }
+            self.ingested.append((user_id, name))
+            self.docs.insert(0, entry)
+            return entry
+
+        def list_documents(self, user_id):
+            return tuple(self.docs)
+
+        def remove(self, user_id, document_id):
+            before = len(self.docs)
+            self.docs = [d for d in self.docs if d["document_id"] != document_id]
+            return len(self.docs) < before
+
+    class Application(NoopApplication):
+        def __init__(self):
+            super().__init__(store, report)
+            self.upload_store = StubUploadStore()
+
+    with TestClient(
+        create_app(
+            store=store,
+            conversation_application=Application(),
+        )
+    ) as http:
+        login(http)
+        uploaded = http.post(
+            "/api/library/documents",
+            files={"files": ("notes.md", "# 标题\n\n内容段落。".encode("utf-8"), "text/markdown")},
+        )
+        assert uploaded.status_code == 201
+        assert uploaded.json()[0]["name"] == "notes.md"
+
+        listing = http.get("/api/library/documents").json()
+        assert [item["document_id"] for item in listing] == ["upload-notes.md"]
+
+        removed = http.delete("/api/library/documents/upload-notes.md")
+        assert removed.status_code == 204
+        assert http.get("/api/library/documents").json() == []
+        missing = http.delete("/api/library/documents/upload-nothing.md")
+        assert missing.status_code == 404
+
+
+def test_library_unavailable_returns_503(tmp_path: Path) -> None:
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    report = ConversationReport(tmp_path / "reports", store)
+    with TestClient(create_app(store=store, conversation_application=NoopApplication(store, report))) as http:
+        login(http)
+        response = http.get("/api/library/documents")
+    assert response.status_code == 503
