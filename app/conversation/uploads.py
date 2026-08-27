@@ -111,6 +111,10 @@ class UploadKnowledgeStore:
 
     # -- 公开接口 --------------------------------------------------------
 
+    def ingest_path(self, user_id: str, name: str, path: Path) -> dict[str, str]:
+        content = read_supported_file(path)
+        return self.ingest(user_id, name, content)
+
     def ingest(self, user_id: str, name: str, content: str) -> dict[str, str]:
         if not name.strip() or not content.strip():
             raise ValueError("uploaded document is empty")
@@ -162,3 +166,28 @@ class UploadKnowledgeStore:
         from app.conversation.runtime import UserKnowledgeRetriever
 
         return UserKnowledgeRetriever(self._index_for(user_id))
+
+
+def read_supported_file(path: Path) -> str:
+    """把上传文件提取为纯文本（pdf/docx/xlsx/md/txt），越界即拒绝。"""
+    from app.knowledge.readers import (
+        ALLOWED_EXTENSIONS,
+        MAX_FILE_SIZE_BYTES,
+        validate_upload_file,
+    )
+    from app.knowledge.readers import read_docx_file, read_pdf_file, read_text_file, read_xlsx_file
+
+    extension = path.suffix.casefold()
+    if extension not in ALLOWED_EXTENSIONS:
+        raise ValueError("unsupported document type")
+    if path.stat().st_size > MAX_FILE_SIZE_BYTES:
+        raise ValueError("document too large")
+    validate_upload_file(path)
+    readers = {
+        ".txt": read_text_file,
+        ".md": read_text_file,
+        ".pdf": read_pdf_file,
+        ".docx": read_docx_file,
+        ".xlsx": read_xlsx_file,
+    }
+    return readers[extension](path)
