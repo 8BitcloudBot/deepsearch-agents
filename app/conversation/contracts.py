@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Literal
 
@@ -58,6 +59,7 @@ class EvidenceItem:
     quote: str
     hostname: str | None = None
     published_at: str | None = None
+    score: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -72,6 +74,14 @@ class EvidenceItem:
             self, "locator_value", _text(self.locator_value, "locator_value", 2048)
         )
         object.__setattr__(self, "quote", _text(self.quote, "quote", 2000))
+        if self.score is not None:
+            if (
+                isinstance(self.score, bool)
+                or not isinstance(self.score, int | float)
+                or not math.isfinite(self.score)
+            ):
+                raise ValueError("score must be a finite number when present")
+            object.__setattr__(self, "score", float(self.score))
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -83,6 +93,7 @@ class EvidenceItem:
             "quote": self.quote,
             "hostname": self.hostname,
             "published_at": self.published_at,
+            "score": self.score,
         }
 
     @classmethod
@@ -98,6 +109,7 @@ class EvidenceItem:
             quote=payload.get("quote"),
             hostname=payload.get("hostname"),
             published_at=payload.get("published_at"),
+            score=payload.get("score"),
         )
 
 

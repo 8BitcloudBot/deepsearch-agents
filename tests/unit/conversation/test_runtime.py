@@ -43,6 +43,7 @@ def test_knowledge_adapter_maps_stable_chunk_identity() -> None:
             locator_kind="chunk",
             locator_value="langgraph#intro",
             quote="图状态用于管理回合。",
+            score=0.91,
         ),
     )
 

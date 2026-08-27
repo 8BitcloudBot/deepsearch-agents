@@ -664,3 +664,144 @@ async def test_local_knowledge_queries_are_serialized_but_web_queries_are_concur
 
     assert "本地知识库部分检索未完成。" not in result.limitations
     assert web_overlap.is_set()
+
+
+def _item(
+    kind: str,
+    number: int,
+    *,
+    score: float | None = None,
+    published_at: str | None = None,
+    quote: str | None = None,
+    locator_value: str | None = None,
+) -> EvidenceItem:
+    locator_kind = (
+        "url" if kind == "web" else "file" if kind == "session_file" else "chunk"
+    )
+    return EvidenceItem(
+        evidence_id=f"ev-{kind}-{number}",
+        source_kind=kind,
+        title=f"{kind} {number}",
+        locator_kind=locator_kind,
+        locator_value=locator_value or f"{kind}-locator-{number}",
+        quote=quote or f"{kind} 证据 {number}",
+        published_at=published_at,
+        score=score,
+    )
+
+
+def test_select_evidence_orders_globally_by_score_with_source_floor() -> None:
+    from app.conversation.turn import _select_evidence
+
+    knowledge = (
+        _item("knowledge", 1, score=0.9),
+        _item("knowledge", 2, score=0.8),
+    )
+    files = (_item("session_file", 1, score=0.95),)
+    web = (
+        _item("web", 1, score=0.85),
+        _item("web", 2, score=0.2),
+        _item("web", 3, score=0.1),
+    )
+
+    selected = _select_evidence(knowledge, files, web, limit=4)
+
+    # 全局分数序：0.95(file) > 0.9(kb1) > 0.85(web1) > 0.8(kb2)
+    assert [item.evidence_id for item in selected] == [
+        "ev-session_file-1",
+        "ev-knowledge-1",
+        "ev-web-1",
+        "ev-knowledge-2",
+    ]
+
+
+def test_select_evidence_guarantees_one_item_per_nonempty_source() -> None:
+    from app.conversation.turn import _select_evidence
+
+    knowledge = (_item("knowledge", 1, score=1.0),)
+    files = (_item("session_file", 1, score=0.05),)
+    web = tuple(_item("web", index, score=0.9 - index * 0.01) for index in range(1, 6))
+
+    selected = _select_evidence(knowledge, files, web, limit=4)
+
+    kinds = [item.source_kind for item in selected]
+    # 低分 session_file 靠保底入选，其余按分数取 web
+    assert kinds.count("session_file") == 1
+    assert kinds.count("knowledge") == 1
+    assert "ev-knowledge-1" in [item.evidence_id for item in selected]
+    assert "ev-session_file-1" in [item.evidence_id for item in selected]
+
+
+def test_select_evidence_aggregates_quotes_by_locator() -> None:
+    from dataclasses import replace
+
+    from app.conversation.turn import _aggregate_by_locator
+
+    base = _item("web", 1, score=0.5, locator_value="https://a.example/x")
+    second_query_hit = replace(
+        base,
+        evidence_id="ev-web-dup",
+        quote="第二段补充内容。",
+    )
+    other = _item("web", 2, score=0.4, locator_value="https://a.example/y")
+
+    aggregated = _aggregate_by_locator((base, second_query_hit, other))
+
+    assert len(aggregated) == 2
+    merged = next(item for item in aggregated if item.locator_value.endswith("/x"))
+    assert "web 证据 1" in merged.quote
+    assert "第二段补充内容。" in merged.quote
+
+
+def test_published_at_breaks_score_ties_for_web_items() -> None:
+    from datetime import datetime
+
+    from app.conversation.turn import _evidence_rank
+
+    older = _item("web", 1, score=0.5, published_at="2024-01-01T00:00:00+00:00")
+    newer = _item("web", 2, score=0.5, published_at="2025-06-01T00:00:00+00:00")
+
+    ranked = sorted([older, newer], key=_evidence_rank)
+
+    assert ranked[0].evidence_id == "ev-web-2"
+    assert datetime.fromisoformat(older.published_at).year == 2024
+
+
+def test_normalized_scores_handles_rank_scale_and_clamps_unit_scale() -> None:
+    from app.conversation.runtime import _normalized_scores, _rank_decay_scores
+
+    # rank 型（>1）按本批最大值归一（批级判断）
+    assert _normalized_scores([10.0, 5.0, 1.0]) == [1.0, 0.5, 0.1]
+    assert _normalized_scores([1.2, 0.6]) == [1.0, 0.5]
+    # 已是 [0,1] 型则截断到界内
+    assert _normalized_scores([0.7, -0.3]) == [0.7, 0.0]
+    assert _rank_decay_scores(3) == [1.0, 0.5, 1 / 3]
+
+
+@pytest.mark.asyncio
+async def test_tavily_retriever_assigns_rank_decay_scores() -> None:
+    from app.conversation.runtime import TavilyEvidenceRetriever
+
+    class Provider:
+        def search(self, query, max_results=10, **kwargs):
+            return type(
+                "Result",
+                (),
+                {
+                    "hits": [
+                        type(
+                            "Hit",
+                            (),
+                            {
+                                "url": f"https://h.example/{i}",
+                                "title": f"t{i}",
+                                "content": f"内容 {i}。",
+                            },
+                        )()
+                        for i in range(3)
+                    ]
+                },
+            )()
+
+    items = TavilyEvidenceRetriever(Provider()).search_sync("查询")
+    assert [item.score for item in items] == [1.0, 0.5, 1 / 3]

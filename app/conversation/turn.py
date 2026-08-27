@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections import deque
+import dataclasses
 from dataclasses import dataclass, replace
 from typing import Protocol, TypedDict
 
@@ -463,6 +463,57 @@ class TurnResearchEngine:
         return plan
 
 
+_SOURCE_ORDER = ("knowledge", "session_file", "web")
+
+
+def _published_timestamp(value: str | None) -> float:
+    if not value:
+        return 0.0
+    try:
+        from datetime import datetime
+
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0.0
+
+
+def _evidence_rank(item: EvidenceItem) -> tuple[float, float]:
+    score = item.score if item.score is not None else 0.0
+    return (-score, -_published_timestamp(item.published_at))
+
+
+def _aggregate_by_locator(items: tuple[EvidenceItem, ...]) -> tuple[EvidenceItem, ...]:
+    """Merge quotes that share one locator into a single longer evidence item."""
+    buckets: dict[str, list[EvidenceItem]] = {}
+    order: list[str] = []
+    seen_ids: set[str] = set()
+    for item in items:
+        if item.evidence_id in seen_ids:
+            continue
+        seen_ids.add(item.evidence_id)
+        key = f"{item.locator_kind}|{item.locator_value.casefold()}"
+        if key not in buckets:
+            buckets[key] = []
+            order.append(key)
+        buckets[key].append(item)
+    result: list[EvidenceItem] = []
+    for key in order:
+        members = buckets[key]
+        best = max(members, key=_evidence_rank)
+        if len(members) == 1:
+            result.append(best)
+            continue
+        quotes: list[str] = []
+        for member in sorted(members, key=_evidence_rank):
+            for part in member.quote.split("\n"):
+                cleaned = part.strip()
+                if cleaned and cleaned not in quotes:
+                    quotes.append(cleaned)
+        merged = dataclasses.replace(best, quote="\n".join(quotes))
+        result.append(merged)
+    return tuple(result)
+
+
 def _select_evidence(
     knowledge: tuple[EvidenceItem, ...],
     session_files: tuple[EvidenceItem, ...],
@@ -470,30 +521,38 @@ def _select_evidence(
     *,
     limit: int,
 ) -> tuple[EvidenceItem, ...]:
-    queues = {
-        "knowledge": deque(_deduplicate(knowledge)),
-        "session_file": deque(_deduplicate(session_files)),
-        "web": deque(_deduplicate(web)),
+    """Globally rank by score with a >=1 quota per non-empty source."""
+    pools = {
+        "knowledge": _aggregate_by_locator(_deduplicate(knowledge)),
+        "session_file": _aggregate_by_locator(_deduplicate(session_files)),
+        "web": _aggregate_by_locator(_deduplicate(web)),
     }
+    ranked = {key: sorted(pool, key=_evidence_rank) for key, pool in pools.items()}
     selected: list[EvidenceItem] = []
-    seen: set[str] = set()
-    while len(selected) < limit and any(queues.values()):
-        for source_kind in ("knowledge", "session_file", "web"):
-            queue = queues[source_kind]
-            while queue:
-                item = queue.popleft()
-                identity = (
-                    f"{item.locator_kind}|{item.locator_value.casefold()}|"
-                    f"{item.quote.casefold()}"
-                )
-                if identity in seen:
-                    continue
-                seen.add(identity)
-                selected.append(item)
-                break
-            if len(selected) == limit:
-                break
-    return tuple(selected)
+    taken: set[str] = set()
+
+    def take(item: EvidenceItem) -> None:
+        taken.add(item.evidence_id)
+        selected.append(item)
+
+    # 每来源保底：只要来源非空且尚未入选，为其保留至少 1 条最高分证据
+    for source_kind in _SOURCE_ORDER:
+        if len(selected) == limit:
+            break
+        for item in ranked[source_kind]:
+            take(item)
+            break
+
+    candidates = [item for pool in ranked.values() for item in pool]
+    for item in sorted(candidates, key=_evidence_rank):
+        if len(selected) == limit:
+            break
+        if item.evidence_id in taken:
+            continue
+        take(item)
+
+    # 保底只保证名额；输出顺序仍按全局分数
+    return tuple(sorted(selected[:limit], key=_evidence_rank))
 
 
 def _deduplicate(items: tuple[EvidenceItem, ...]) -> tuple[EvidenceItem, ...]:

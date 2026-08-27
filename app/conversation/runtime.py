@@ -216,6 +216,7 @@ class ModelSynthesizerAdapter:
                 "title": item.title,
                 "quote": item.quote[:_MAX_QUOTE],
                 "locator": item.locator_value,
+                "published_at": item.published_at,
             }
             for item in evidence_items
         ]
@@ -289,14 +290,29 @@ class ModelSynthesizerAdapter:
             raise ValueError("model response is invalid") from exc
 
 
+def _normalized_scores(values: list[float]) -> list[float]:
+    """Clamp provider scores into [0, 1]; rank-style scales (>1) use batch max."""
+    if not values:
+        return []
+    maximum = max(values)
+    if maximum > 1:
+        return [max(value, 0.0) / maximum for value in values]
+    return [min(max(value, 0.0), 1.0) for value in values]
+
+
+def _rank_decay_scores(count: int) -> list[float]:
+    return [1 / (index + 1) for index in range(count)]
+
+
 class KnowledgeEvidenceRetriever:
     def __init__(self, index: Any):
         self._index = index
 
     def search_sync(self, query: str, *, limit: int = 10) -> tuple[EvidenceItem, ...]:
         chunks = self._index.search(query, limit=min(10, limit))
+        scores = _normalized_scores([chunk.score for chunk in chunks])
         result: list[EvidenceItem] = []
-        for chunk in chunks:
+        for chunk, score in zip(chunks, scores):
             key = f"{chunk.collection_id}-{chunk.document_id}-{chunk.chunk_id}"
             safe_key = re.sub(r"[^A-Za-z0-9_.:-]+", "-", key)
             result.append(
@@ -307,6 +323,7 @@ class KnowledgeEvidenceRetriever:
                     locator_kind="chunk",
                     locator_value=f"{chunk.document_id}#{chunk.chunk_id}",
                     quote=_relevant_excerpt(chunk.content, query),
+                    score=score,
                 )
             )
         return tuple(result)
@@ -334,7 +351,9 @@ class TavilyEvidenceRetriever:
             **(options if supports_options else {}),
         )
         items: list[EvidenceItem] = []
-        for hit in result.hits[:5]:
+        hits = result.hits[:5]
+        scores = _rank_decay_scores(len(hits))
+        for hit, score in zip(hits, scores):
             digest = hashlib.sha1(
                 hit.url.encode("utf-8"), usedforsecurity=False
             ).hexdigest()[:16]
@@ -348,6 +367,7 @@ class TavilyEvidenceRetriever:
                     locator_value=hit.url,
                     quote=_relevant_excerpt(hit.content, query),
                     hostname=hostname,
+                    score=score,
                 )
             )
         return tuple(items)
@@ -423,6 +443,7 @@ class SessionFileEvidenceRetriever:
             query,
             limit=limit,
         )
+        scores = _rank_decay_scores(len(chunks))
         return tuple(
             EvidenceItem(
                 evidence_id=f"ev-file-{chunk.document_id}-{chunk.chunk_id}",
@@ -431,8 +452,9 @@ class SessionFileEvidenceRetriever:
                 locator_kind="file",
                 locator_value=f"{chunk.title}:{chunk.section_path or chunk.chunk_id}",
                 quote=_relevant_excerpt(chunk.content, query),
+                score=score,
             )
-            for chunk in chunks
+            for chunk, score in zip(chunks, scores)
         )
 
     async def search(
