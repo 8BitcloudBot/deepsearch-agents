@@ -16,6 +16,8 @@
 - [x] A3 _is_deep_request 收敛到 app/conversation/heuristics.py 单一定义
 - [x] A1 移除 deepagents 外壳：ModelPlannerAdapter 直连 ainvoke（system prompt/payload/DeepSeek 分支原样保留）；删除 deepagents 依赖；经用户确认删除纯 DeepAgents 演示代码 examples/ 与 tests/examples/
   - 备注：app/citations/fixtures.py 及 phase4 测试中的 "DeepAgents" 样本文案保留——它们是引用规则引擎的语料内容，改写将连带修改 20+ 处既有断言且触碰 citations 红线，非 A1 本意
+- [x] B4+B6 评分贯通与材料放开 (9a3043c, a0439ab)；B6 第3点（答案压缩+句子边界硬切）未实施——核实无现存 answer 硬切（计划书 application.py:214 实为历史裁剪），待用户决策
+- [x] B5 补充检索多轮循环 (700be85)：回边 supplemental→review、轮次/总预算记账、recursion_limit 兜底
 ## 进行中
 
 ## 待办队列
