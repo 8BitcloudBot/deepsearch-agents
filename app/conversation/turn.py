@@ -338,7 +338,12 @@ class TurnResearchEngine:
             limit=evidence_limit,
         )
         evidence_items = _limit_quotes(
-            evidence_items, limit=800 if evidence_limit == 8 else 480
+            evidence_items,
+            limit=(
+                _EVIDENCE_QUOTE_DEEP_LIMIT
+                if evidence_limit == 8
+                else _EVIDENCE_QUOTE_STANDARD_LIMIT
+            ),
         )
         try:
             decision = await self._coverage_reviewer.review(
@@ -436,7 +441,12 @@ class TurnResearchEngine:
             limit=evidence_limit,
         )
         evidence_items = _limit_quotes(
-            evidence_items, limit=800 if evidence_limit == 8 else 480
+            evidence_items,
+            limit=(
+                _EVIDENCE_QUOTE_DEEP_LIMIT
+                if evidence_limit == 8
+                else _EVIDENCE_QUOTE_STANDARD_LIMIT
+            ),
         )
         last_error: Exception | None = None
         for _attempt in range(2):
@@ -464,6 +474,26 @@ class TurnResearchEngine:
 
 
 _SOURCE_ORDER = ("knowledge", "session_file", "web")
+
+# ---- 规模常量区（B5/B6 调参入口）----
+_EVIDENCE_QUOTE_STANDARD_LIMIT = 1500  # 普通轮单条证据 quote 上限
+_EVIDENCE_QUOTE_DEEP_LIMIT = 2000  # 深入轮单条证据 quote 上限
+_EVIDENCE_TOTAL_CHAR_BUDGET = 24000  # 单轮证据总字符预算，超出按分数整条剔除
+
+
+def _enforce_total_budget(
+    items: tuple[EvidenceItem, ...], *, budget: int = _EVIDENCE_TOTAL_CHAR_BUDGET
+) -> tuple[EvidenceItem, ...]:
+    """Drop whole lowest-score evidence items over the shared character budget."""
+    used = 0
+    result: list[EvidenceItem] = []
+    for item in items:
+        length = len(item.quote)
+        if used + length > budget:
+            continue
+        result.append(item)
+        used += length
+    return tuple(result)
 
 
 def _published_timestamp(value: str | None) -> float:
@@ -520,6 +550,7 @@ def _select_evidence(
     web: tuple[EvidenceItem, ...],
     *,
     limit: int,
+    char_budget: int = _EVIDENCE_TOTAL_CHAR_BUDGET,
 ) -> tuple[EvidenceItem, ...]:
     """Globally rank by score with a >=1 quota per non-empty source."""
     pools = {
@@ -552,7 +583,8 @@ def _select_evidence(
         take(item)
 
     # 保底只保证名额；输出顺序仍按全局分数
-    return tuple(sorted(selected[:limit], key=_evidence_rank))
+    ordered = tuple(sorted(selected[:limit], key=_evidence_rank))
+    return _enforce_total_budget(ordered, budget=char_budget)
 
 
 def _deduplicate(items: tuple[EvidenceItem, ...]) -> tuple[EvidenceItem, ...]:

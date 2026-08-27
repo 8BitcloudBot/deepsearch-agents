@@ -28,7 +28,8 @@ from app.conversation.turn import (
 _FENCE_RE = re.compile(
     r"^```(?:json)?\s*\n(?P<body>.*?)\n```$", re.DOTALL | re.IGNORECASE
 )
-_MAX_QUOTE = 800
+_MAX_QUOTE = 2000
+_EXCERPT_PARAGRAPHS = 2  # 每次摘录取查询词密度最高的前 N 个段落
 _MAX_COVERAGE_QUOTE = 300
 
 
@@ -422,7 +423,10 @@ def _relevant_excerpt(content: str, query: str) -> str:
             pair[0],
         ),
     )
-    return ranked[0][1][:_MAX_QUOTE]
+    chosen = [
+        ranked[index][1] for index in range(min(_EXCERPT_PARAGRAPHS, len(ranked)))
+    ]
+    return "\n".join(chosen)[:_MAX_QUOTE]
 
 
 class SessionFileEvidenceRetriever:

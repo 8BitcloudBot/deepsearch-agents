@@ -47,7 +47,7 @@ class TavilyWebProvider:
             SearchHit(
                 title=(r.get("title") or "")[:200],
                 url=r.get("url", ""),
-                content=(r.get("content") or "")[:2048],
+                content=(r.get("content") or "")[:8000],
                 score=(
                     float(r["score"])
                     if isinstance(r.get("score"), int | float)

@@ -544,7 +544,7 @@ async def test_final_result_prunes_uncited_evidence_and_renumbers_citations() ->
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("question", "maximum"),
-    (("普通问题", 480), ("请深入分析这个问题", 800)),
+    (("普通问题", 1500), ("请深入分析这个问题", 2000)),
 )
 async def test_quote_limit_follows_answer_depth(question: str, maximum: int) -> None:
     item = EvidenceItem(
@@ -553,7 +553,7 @@ async def test_quote_limit_follows_answer_depth(question: str, maximum: int) -> 
         title="长文档",
         locator_kind="chunk",
         locator_value="doc#section",
-        quote="证" * 1200,
+        quote="证" * 2000,  # 合同层 quote 上限即 2000，深入轮不再额外截断
     )
     synthesizer = Synthesizer(
         SynthesisDraft(
@@ -805,3 +805,36 @@ async def test_tavily_retriever_assigns_rank_decay_scores() -> None:
 
     items = TavilyEvidenceRetriever(Provider()).search_sync("查询")
     assert [item.score for item in items] == [1.0, 0.5, 1 / 3]
+
+
+def test_evidence_total_char_budget_drops_lowest_score_items() -> None:
+    from app.conversation.turn import _enforce_total_budget
+
+    items = tuple(
+        _item("web", index, score=1.0 - index * 0.1, quote="字" * 10)
+        for index in range(1, 6)
+    )
+    kept = _enforce_total_budget(items, budget=45)
+    # 50 字符总量只保留高分的整条证据，低分整体剔除而非截断
+    assert [item.evidence_id for item in kept] == [
+        "ev-web-1",
+        "ev-web-2",
+        "ev-web-3",
+        "ev-web-4",
+    ]
+
+
+def test_select_evidence_applies_total_character_budget_after_ranking() -> None:
+    from app.conversation.turn import _select_evidence
+
+    knowledge = (_item("knowledge", 1, score=0.9, quote="甲" * 100),)
+    files = ()
+    web = (
+        _item("web", 1, score=0.8, quote="乙" * 5),
+        _item("web", 2, score=0.7, quote="丙" * 900),
+    )
+
+    selected = _select_evidence(knowledge, files, web, limit=3, char_budget=150)
+
+    # web2 整条被预算剔除，knowledge/web1 保留
+    assert [item.evidence_id for item in selected] == ["ev-knowledge-1", "ev-web-1"]
