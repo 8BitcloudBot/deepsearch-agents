@@ -44,6 +44,12 @@ function state(): ConversationWorkspaceState {
     renameConversation: vi.fn(),
     resetUserData: vi.fn(),
     submitTurn: vi.fn(),
+    view: "research",
+    setView: vi.fn(),
+    libraryDocs: [],
+    libraryBusy: false,
+    uploadLibraryDocuments: vi.fn(),
+    deleteLibraryDocument: vi.fn(),
     logout: vi.fn(),
     reportUrl: () => "http://test/api/conversations/c1/report",
   };

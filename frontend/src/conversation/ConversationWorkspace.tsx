@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { AdminUserSummary, Conversation, EvidenceItem, Turn } from "./contracts";
 
 export interface ConversationWorkspaceState {
@@ -18,6 +18,12 @@ export interface ConversationWorkspaceState {
   renameConversation: (id: string, title: string) => void | Promise<void>;
   resetUserData: (id: string) => void | Promise<void>;
   submitTurn: () => void | Promise<void>;
+  view: "research" | "library";
+  setView: (view: "research" | "library") => void;
+  libraryDocs: { document_id: string; name: string; chunks: number }[];
+  libraryBusy: boolean;
+  uploadLibraryDocuments: (files: File[]) => void | Promise<void>;
+  deleteLibraryDocument: (id: string) => void | Promise<void>;
   logout: () => void | Promise<void>;
   reportUrl: (id: string) => string;
 }
@@ -136,6 +142,10 @@ function Sidebar({ state, active }: { state: ConversationWorkspaceState; active:
         <button className="icon-button" type="button" aria-label="新建会话" title="新建会话" onClick={() => void state.createConversation()}>+</button>
       </div>
       <div className="sidebar-user"><span className="connection-dot connection-open" />{state.user?.username}<button type="button" onClick={() => void state.logout()}>退出</button></div>
+      <div className="library-nav" role="tablist" aria-label="工作区视图">
+        <button type="button" className={state.view === "research" ? "active" : ""} onClick={() => state.setView("research")}>研究</button>
+        <button type="button" className={state.view === "library" ? "active" : ""} onClick={() => state.setView("library")}>知识库</button>
+      </div>
       <nav className="conversation-list" aria-label="会话列表">
         {state.conversations.map((item) => (
           <div className={`conversation-item ${item.id === active?.id ? "conversation-item-active" : ""}`} key={item.id}>
@@ -166,6 +176,41 @@ function Sidebar({ state, active }: { state: ConversationWorkspaceState; active:
   );
 }
 
+function LibraryPage({ state }: { state: ConversationWorkspaceState }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <section className="library-page" aria-label="个人知识库">
+      <header className="library-header">
+        <span className="section-kicker">PERSONAL KNOWLEDGE</span>
+        <h2>个人知识库</h2>
+        <p>上传 PDF / Markdown / Word / Excel 文档，入库后会在后续研究回合中作为知识来源参与检索。</p>
+      </header>
+      <div className="library-actions">
+        <button className="attachment-add" type="button" disabled={state.libraryBusy} onClick={() => inputRef.current?.click()}>
+          {state.libraryBusy ? "正在入库…" : "+ 上传文档"}
+        </button>
+        <input ref={inputRef} className="visually-hidden" type="file" multiple accept=".txt,.md,.pdf,.docx,.xlsx" onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          event.target.value = "";
+          void state.uploadLibraryDocuments(files);
+        }} />
+      </div>
+      <div className="library-list">
+        {state.libraryDocs.length === 0 && <p className="sidebar-empty">还没有入库文档。上传后即可被所有后续提问引用。</p>}
+        {state.libraryDocs.map((doc) => (
+          <div className="library-row" key={doc.document_id}>
+            <strong>{doc.name}</strong>
+            <small>{doc.chunks} 个分段</small>
+            <button type="button" aria-label={`删除${doc.name}`} onClick={() => {
+              if (window.confirm(`确定删除 ${doc.name} 吗？`)) void state.deleteLibraryDocument(doc.document_id);
+            }}>×</button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function ConversationWorkspace({ state }: { state: ConversationWorkspaceState }) {
   const active = state.conversations.find((item) => item.id === state.activeConversationId) ?? null;
   const [editingTitle, setEditingTitle] = useState(false);
@@ -173,6 +218,7 @@ export function ConversationWorkspace({ state }: { state: ConversationWorkspaceS
   return (
     <main className="conversation-shell">
       <Sidebar state={state} active={active} />
+      {state.view === "library" ? <LibraryPage state={state} /> : (
       <section className="conversation-main">
         <header className="conversation-header">
           <div className="conversation-title"><span className="section-kicker">MULTI-TURN RESEARCH</span>
@@ -207,6 +253,7 @@ export function ConversationWorkspace({ state }: { state: ConversationWorkspaceS
           </div>
         </div>
       </section>
+      )}
     </main>
   );
 }

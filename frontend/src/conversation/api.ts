@@ -1,4 +1,4 @@
-import type { AdminUserSummary, Conversation, ConversationEvent, User } from "./contracts";
+import type { AdminUserSummary, Conversation, ConversationEvent, LibraryDocument, User } from "./contracts";
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -62,6 +62,20 @@ export const conversationApi = {
     }),
   conversation: (baseUrl: string, id: string) =>
     request<Conversation>(baseUrl, `/api/conversations/${id}`),
+  libraryDocuments: (baseUrl: string) =>
+    request<LibraryDocument[]>(baseUrl, "/api/library/documents"),
+  uploadLibraryDocuments: (baseUrl: string, files: File[]) => {
+    const body = new FormData();
+    files.forEach((file) => body.append("files", file));
+    return request<LibraryDocument[]>(baseUrl, "/api/library/documents", {
+      method: "POST",
+      body,
+    });
+  },
+  deleteLibraryDocument: (baseUrl: string, documentId: string) =>
+    request<void>(baseUrl, `/api/library/documents/${documentId}`, {
+      method: "DELETE",
+    }),
 };
 
 export function eventSocketUrl(baseUrl: string, conversationId: string): string {

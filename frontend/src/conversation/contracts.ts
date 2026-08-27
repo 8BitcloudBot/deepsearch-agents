@@ -87,3 +87,9 @@ export interface ConversationEvent {
   data: Record<string, unknown>;
   timestamp: string;
 }
+
+export interface LibraryDocument {
+  document_id: string;
+  name: string;
+  chunks: number;
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, conversationApi, eventSocketUrl, parseConversationEvent } from "./api";
-import type { AdminUserSummary, Conversation, User } from "./contracts";
+import type { AdminUserSummary, Conversation, LibraryDocument, User } from "./contracts";
 import type { ConversationWorkspaceState } from "./ConversationWorkspace";
 
 export interface ConversationAppState extends ConversationWorkspaceState {
@@ -20,6 +20,10 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [useWeb, setUseWeb] = useState(true);
+
+  const [view, setView] = useState<"research" | "library">("research");
+  const [libraryDocs, setLibraryDocs] = useState<LibraryDocument[]>([]);
+  const [libraryBusy, setLibraryBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -145,6 +149,50 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
     }
   }, [activeConversationId, baseUrl, loadConversations, question, stage, useWeb]);
 
+
+  const loadLibrary = useCallback(async () => {
+    try {
+      setLibraryDocs(await conversationApi.libraryDocuments(baseUrl));
+    } catch {
+      /* 个人知识库不可用时静默降级为空列表 */
+      setLibraryDocs([]);
+    }
+  }, [baseUrl]);
+
+  useEffect(() => {
+    if (user) void loadLibrary();
+  }, [user, loadLibrary]);
+
+  const uploadLibraryDocuments = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0 || libraryBusy) return;
+      setLibraryBusy(true);
+      try {
+        await conversationApi.uploadLibraryDocuments(baseUrl, files);
+        await loadLibrary();
+      } catch (error_) {
+        setError(error_ instanceof ApiError ? error_.message : "入库失败，请稍后重试");
+      } finally {
+        setLibraryBusy(false);
+      }
+    },
+    [baseUrl, libraryBusy, loadLibrary],
+  );
+
+  const deleteLibraryDocument = useCallback(
+    async (documentId: string) => {
+      try {
+        await conversationApi.deleteLibraryDocument(baseUrl, documentId);
+        await loadLibrary();
+      } catch (error_) {
+        setError(error_ instanceof ApiError ? error_.message : "删除失败，请稍后重试");
+      } finally {
+        void loadLibrary();
+      }
+    },
+    [baseUrl, loadLibrary],
+  );
+
   return {
     user,
     conversations,
@@ -164,6 +212,12 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
     renameConversation,
     resetUserData,
     submitTurn,
+    view,
+    setView,
+    libraryDocs,
+    libraryBusy,
+    uploadLibraryDocuments,
+    deleteLibraryDocument,
     logout,
     login,
     reportUrl: (id) => `${baseUrl}/api/conversations/${id}/report`,
