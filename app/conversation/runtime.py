@@ -631,6 +631,7 @@ def build_conversation_application(
         web,
         synthesizer,
         coverage_reviewer,
+        citation_validation=settings.enable_citation_validation,
     )
     return ConversationApplication(
         store,

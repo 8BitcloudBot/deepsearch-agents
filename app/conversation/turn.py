@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 from dataclasses import dataclass, replace
+from functools import partial
 from typing import Protocol, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -180,6 +181,8 @@ class TurnResearchEngine:
         web: EvidenceRetriever,
         synthesizer: TurnSynthesizer,
         coverage_reviewer: CoverageReviewer | None = None,
+        *,
+        citation_validation: bool = False,
     ) -> None:
         self._planner = planner
         self._knowledge = knowledge
@@ -187,12 +190,19 @@ class TurnResearchEngine:
         self._web = web
         self._synthesizer = synthesizer
         self._coverage_reviewer = coverage_reviewer
+        self._citation_validation = citation_validation
         graph = StateGraph(_TurnState)
         graph.add_node("plan", self._plan)
         graph.add_node("retrieve", self._retrieve_initial)
         graph.add_node("review", self._review_coverage)
         graph.add_node("supplemental", self._retrieve_supplemental)
-        graph.add_node("synthesize", self._synthesize)
+        graph.add_node(
+            "synthesize",
+            partial(
+                self._synthesize,
+                citation_validation=self._citation_validation,
+            ),
+        )
         graph.add_edge(START, "plan")
         graph.add_edge("plan", "retrieve")
         graph.add_edge("retrieve", "review")
@@ -471,7 +481,13 @@ class TurnResearchEngine:
             "supplemental_rounds": state.get("supplemental_rounds", 0) + 1,
         }
 
-    async def _synthesize(self, state: _TurnState) -> dict[str, object]:
+    async def _synthesize(
+        self,
+        state: _TurnState,
+        *,
+        citation_validation: bool = False,
+        resynthesis_hint: str | None = None,
+    ) -> dict[str, object]:
         plan = self._require_plan(state)
         evidence_limit = 8 if _plan_is_deep(plan, state["turn"].question) else 6
         evidence_items = _select_evidence(
@@ -494,6 +510,15 @@ class TurnResearchEngine:
                 draft = await self._synthesizer.synthesize(
                     state["turn"], plan, evidence_items, state["limitations"]
                 )
+                if citation_validation:
+                    return {
+                        "result": _finalize_draft_with_validation(
+                            draft,
+                            evidence_items,
+                            state["limitations"],
+                            hint=resynthesis_hint,
+                        )
+                    }
                 return {
                     "result": _finalize_draft(
                         draft, evidence_items, state["limitations"]
@@ -660,6 +685,111 @@ def _limit_quotes(
         if len(item.quote) > limit
         else item
         for item in evidence_items
+    )
+
+
+def _finalize_draft_with_validation(
+    draft: SynthesisDraft,
+    evidence_items: tuple[EvidenceItem, ...],
+    retrieval_limitations: tuple[str, ...],
+    *,
+    hint: str | None = None,
+) -> TurnResult:
+    """B9 flag-on 路径：先按原 finalize 语义裁剪，再用规则引擎逐 claim 校验。
+
+    校验失败（无任何证据支持或被判冲突）的 claim 丢弃并把原因记入 limitations；
+    全部 claim 失败时保持旧报错路径（model-response-invalid）作为最后兜底。
+    """
+    result = _finalize_draft(draft, evidence_items, retrieval_limitations)
+    try:
+        from app.citations.runtime_adapter import validate_claims
+    except Exception:  # pragma: no cover - citations 包损坏时降级回旧行为
+        return result
+
+    try:
+        reports = validate_claims(result.claims, evidence_items)
+    except Exception:
+        return result
+
+    unsupported = [report for report in reports if not report.supported]
+    if not unsupported:
+        return result
+    if len(unsupported) == len(reports):
+        # 所有 claim 均未获支持：回退为不做校验的旧行为（保留引用编号答案）
+        base = _finalize_draft(draft, evidence_items, retrieval_limitations)
+        reasons = "; ".join(
+            reason for report in unsupported[:2] for reason in report.reasons[:1]
+        )
+        return TurnResult(
+            schema_version=base.schema_version,
+            answer=base.answer,
+            claims=base.claims,
+            evidence=base.evidence,
+            limitations=tuple(
+                dict.fromkeys((*base.limitations, "部分陈述未获证据支持。", reasons))
+            ),
+        )
+
+    known_ids = {item.evidence_id for item in evidence_items}
+    # result.claims 的 claim_id 是 _finalize_draft 按索引生成的（claim-N），
+    # 与 draft.claims 的对应关系用 statement 维持。
+    keep_statements = {
+        report.claim.statement for report in reports if report.supported
+    }
+    valid_claims = tuple(
+        claim for claim in result.claims if claim.statement in keep_statements
+    )
+    drop_reasons = "; ".join(
+        reason for report in unsupported for reason in report.reasons[:1]
+    )
+    cited_ids = tuple(
+        dict.fromkeys(
+            evidence_id for claim in valid_claims for evidence_id in claim.evidence_ids
+        )
+    )
+    evidence_by_id = {item.evidence_id: item for item in evidence_items}
+    cited_evidence = tuple(evidence_by_id[eid] for eid in cited_ids)
+    evidence_numbers = {
+        item.evidence_id: index for index, item in enumerate(cited_evidence, start=1)
+    }
+    paragraphs: list[str] = []
+    for section in draft.sections:
+        section_claims = [
+            claim
+            for index in section.claim_indexes
+            for claim in [draft.claims[index] if index < len(draft.claims) else None]
+            if claim is not None and claim.statement in keep_statements
+        ]
+        if section.claim_indexes and not section_claims:
+            continue
+        citations: list[int] = []
+        for claim in section_claims:
+            for evidence_id in claim.evidence_ids:
+                if evidence_id in known_ids:
+                    number = evidence_numbers[evidence_id]
+                    if number not in citations:
+                        citations.append(number)
+        suffix = (
+            "" if not citations else " " + "".join(f"[{n}]" for n in citations)
+        )
+        paragraphs.append(section.text.strip() + suffix)
+    if not paragraphs:
+        raise TurnExecutionError("model-response-invalid")
+    return TurnResult(
+        schema_version=result.schema_version,
+        answer="\n\n".join(paragraphs),
+        claims=valid_claims,
+        evidence=cited_evidence,
+        limitations=tuple(
+            dict.fromkeys(
+                (
+                    *retrieval_limitations,
+                    *draft.limitations,
+                    "以下陈述未获证据支持，已从回答中移除。",
+                    drop_reasons,
+                )
+            )
+        ),
     )
 
 

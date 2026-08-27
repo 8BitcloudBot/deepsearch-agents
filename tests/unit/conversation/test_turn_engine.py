@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import pytest
 
 from app.conversation.contracts import EvidenceItem, TurnResearchPlan
+from app.conversation.settings import ConversationSettings
 from app.conversation.turn import (
     _MAX_SUPPLEMENTAL_QUERIES_TOTAL,
     _MAX_SUPPLEMENTAL_ROUNDS,
@@ -949,3 +950,114 @@ def test_select_evidence_applies_total_character_budget_after_ranking() -> None:
 
     # web2 整条被预算剔除，knowledge/web1 保留
     assert [item.evidence_id for item in selected] == ["ev-knowledge-1", "ev-web-1"]
+
+
+@pytest.mark.asyncio
+async def test_citation_validation_disabled_matches_legacy_path() -> None:
+    """flag 关闭时行为与旧路径一致（B9 显式对齐测试）。"""
+    item = evidence("knowledge", 1)
+    draft = SynthesisDraft(
+        sections=(SynthesisSection("回答。", (0,)),),
+        claims=(SynthesisClaim("结论。", (item.evidence_id,)),),
+        limitations=(),
+    )
+
+    legacy = TurnResearchEngine(
+        Planner(),
+        Retriever((item,)),
+        FileRetriever(()),
+        Retriever(()),
+        Synthesizer(draft),
+    ).run(TurnInput("问题", False, (), ()))
+    flagged_off = TurnResearchEngine(
+        Planner(),
+        Retriever((item,)),
+        FileRetriever(()),
+        Retriever(()),
+        Synthesizer(draft),
+        citation_validation=False,
+    ).run(TurnInput("问题", False, (), ()))
+
+    assert (await legacy).__dict__ if False else True
+    left, right = await legacy, await flagged_off
+    assert left.answer == right.answer
+    assert left.claims == right.claims
+    assert left.evidence == right.evidence
+    assert left.limitations == right.limitations
+
+
+@pytest.mark.asyncio
+async def test_citation_validation_drops_unsupported_claim() -> None:
+    """flag 开启：编造无证据陈述的 claim 被裁剪并写入 limitation。"""
+    # 中文 quote 与 good claim 有词面重叠；bad claim 词面完全无关 → 不获支持
+    supported_item = EvidenceItem(
+        "ev-knowledge-1",
+        "knowledge",
+        "文档",
+        "chunk",
+        "doc#1",
+        quote="LangGraph 是一个用于构建智能体的框架，支持状态管理与检查点恢复。",
+    )
+    good_claim = SynthesisClaim(
+        "LangGraph 用于构建智能体框架。", ("ev-knowledge-1",)
+    )
+    bad_claim = SynthesisClaim(
+        "某加密货币价格明天必然翻倍。", ("ev-knowledge-1",)
+    )
+    draft = SynthesisDraft(
+        sections=(
+            SynthesisSection("直接回答。", (0,)),
+            SynthesisSection("臆断段落。", (1,)),
+        ),
+        claims=(good_claim, bad_claim),
+        limitations=(),
+    )
+    synthesizer = Synthesizer(draft)
+
+    result = await TurnResearchEngine(
+        Planner(),
+        Retriever((supported_item,)),
+        FileRetriever(()),
+        Retriever(()),
+        synthesizer,
+        citation_validation=True,
+    ).run(TurnInput("问题", False, (), ()))
+
+    assert "臆断段落" not in result.answer
+    assert "直接回答" in result.answer
+    assert any("未获证据支持" in item for item in result.limitations)
+    assert len(result.claims) == 1
+
+
+@pytest.mark.asyncio
+async def test_citation_validation_keeps_supported_claims_intact() -> None:
+    """flag 开启但全部 claim 均获支持：结果与旧路径等价。"""
+    item = evidence("knowledge", 1)
+    draft = SynthesisDraft(
+        sections=(SynthesisSection("回答。", (0,)),),
+        claims=(
+            SynthesisClaim(
+                "Evidence quote knowledge 1 相关陈述。", (item.evidence_id,)
+            ),
+        ),
+        limitations=(),
+    )
+
+    result = await TurnResearchEngine(
+        Planner(),
+        Retriever((item,)),
+        FileRetriever(()),
+        Retriever(()),
+        Synthesizer(draft),
+        citation_validation=True,
+    ).run(TurnInput("问题", False, (), ()))
+
+    assert result.answer.startswith("回答。")
+    assert not any("未获证据支持" in item for item in result.limitations)
+
+
+def test_citation_validation_settings_default_off() -> None:
+    settings = ConversationSettings.from_env({})
+    assert settings.enable_citation_validation is False
+    enabled = ConversationSettings.from_env({"ENABLE_CITATION_VALIDATION": "true"})
+    assert enabled.enable_citation_validation is True

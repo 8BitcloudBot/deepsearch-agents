@@ -45,6 +45,10 @@ def _non_negative_int(env: Mapping[str, str], key: str, default: int) -> int:
     return value
 
 
+def _truthy(raw: str) -> bool:
+    return raw.strip().casefold() in {"1", "true", "yes", "on"}
+
+
 def _minimum_score(env: Mapping[str, str]) -> float:
     try:
         value = float(env.get("KNOWLEDGE_MIN_SCORE", "0.40"))
@@ -86,6 +90,7 @@ class ConversationSettings:
     model_temperature: float | None = 0.2
     model_top_p: float | None = None
     model_max_retries: int = 2
+    enable_citation_validation: bool = False
     knowledge: KnowledgeSettings = KnowledgeSettings()
 
     @classmethod
@@ -109,6 +114,9 @@ class ConversationSettings:
             model_top_p=_unit_interval_optional(environ, "MODEL_TOP_P"),
             model_max_retries=_non_negative_int(
                 environ, "MODEL_MAX_RETRIES", cls.model_max_retries
+            ),
+            enable_citation_validation=_truthy(
+                environ.get("ENABLE_CITATION_VALIDATION", "")
             ),
             knowledge=KnowledgeSettings(
                 index_path=_safe_relative_path(
