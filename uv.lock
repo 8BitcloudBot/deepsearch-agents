@@ -206,7 +206,6 @@ source = { virtual = "." }
 dependencies = [
     { name = "deepagents" },
     { name = "fastapi", extra = ["standard"] },
-    { name = "httpx" },
     { name = "langchain-core" },
     { name = "langchain-openai" },
     { name = "langgraph" },
@@ -239,7 +238,6 @@ requires-dist = [
     { name = "deepagents", specifier = ">=0.6.12" },
     { name = "detect-secrets", marker = "extra == 'dev'", specifier = ">=1.5,<2" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115,<1" },
-    { name = "httpx", specifier = ">=0.28,<1" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28,<1" },
     { name = "langchain-core", specifier = ">=1.5.1" },
     { name = "langchain-openai", specifier = ">=1.4.1" },
