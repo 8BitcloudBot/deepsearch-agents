@@ -33,7 +33,8 @@ python scripts/index_knowledge.py  # 从 data/knowledge 重建 Qdrant 本地索�
 | `app/conversation/output_schemas.py` | B2 模型输出 Pydantic 合同桥（校验失败原样透传旧行为） |
 | `app/conversation/heuristics.py` | 共享轻量助手（is_deep_request 回退 / rank_decay_scores） |
 | `app/conversation/application.py`、`store.py`、`settings.py`、`model.py` | 编排入口 / SQLite 状态机 / 配置 / 模型构造与错误分类 |
-| `app/knowledge/`、`app/providers/tavily.py`、`app/tools/files.py` | 知识库混合检索 / Web 检索 / 附件解析 |
+| `app/knowledge/`、`app/providers/tavily.py` | 知识库混合检索（含 readers.py 文档解析器）/ Web 检索 |
+| `app/conversation/uploads.py` | 个人知识库入库服务：per-user Qdrant collection、增量 upsert、同名覆盖 |
 | `app/citations/runtime_adapter.py` | 引用校验运行时适配层（ENABLE_CITATION_VALIDATION 控制，默认关；rules 为英文词法设计，中文语料系统性误杀——见 EXECUTION_LOG 验证结论） |
 | `benchmarks/evaluation/` | 评测框架 s0/s1 策略与数据集（独立于运行链路），入口 scripts/evaluate.py |
 

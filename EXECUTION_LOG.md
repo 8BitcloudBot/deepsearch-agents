@@ -1,5 +1,7 @@
 # 执行日志
 
+> **阶段封版：2026-08-27（freeze/post-rag）** —— 本文件自此为只读快照。封版时点 main 与 opt/deepsearch 同点，测试 608 passed / 4 skipped / ruff 全绿 / 前端 vite build + vitest 通过；后续工作从新周期开始。
+
 ## 基线：2026-08-27
 - 测试入口：`uv run --extra dev python -m pytest -q`（pytest 在 `[project.optional-dependencies].dev`，需 `--extra dev`；另有 `[dependency-groups].dev` 仅含 httpx-ws）
 - 单测（-m "not integration"）：735 passed / 1 skipped / 9 deselected
