@@ -9,7 +9,8 @@
 - 备注：基线中 pyproject 主依赖仍含 deepagents / httpx（对应 A1/A4 待办）
 
 ## 已完成任务
-- [x] B1 模型参数治理：ConversationSettings 新增 model_temperature=0.2 / model_top_p=None / model_max_retries=2（MODEL_TEMPERATURE/MODEL_TOP_P/MODEL_MAX_RETRIES 可覆盖），build_agent_model 消费；.env.example 同步
+- [x] B1 模型参数治理：ConversationSettings 新增 model_temperature=0.2 / model_top_p=None / model_max_retries=2（MODEL_TEMPERATURE/MODEL_TOP_P/MODEL_MAX_RETRIES 可覆盖），build_agent_model 消费；.env.example 同步 (671a7fd)
+- [x] B3 历史接线：审阅器/综合器 payload 增加 recent_history（复用 _history_records，与 planner 同构），system prompt 各加使用说明；无历史传空列表
 - [x] 阶段1：A4 httpx 移入 dev (6d6502b)；A3 _is_deep_request 收敛 heuristics.py (db4f405)；A1 deepagents 外壳移除+examples 删除（用户确认）(185715e)；A2 evaluation→benchmarks (b3b6067)；文档清扫+ruff 死配置清理 (6895dae)
 - [x] A4 httpx 移入 dev 依赖，uv.lock 刷新 (6d6502b)
 - [x] A3 _is_deep_request 收敛到 app/conversation/heuristics.py 单一定义

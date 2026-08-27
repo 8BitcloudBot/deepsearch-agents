@@ -309,6 +309,68 @@ async def test_model_coverage_reviewer_uses_bounded_evidence_summary() -> None:
     assert len(serialized) < 5000
     assert "ev-7" in serialized
     assert "ev-8" not in serialized
+    assert "recent_history" in json.loads(serialized)
+
+
+@pytest.mark.asyncio
+async def test_reviewer_and_synthesizer_payloads_carry_recent_history() -> None:
+    empty_review = (
+        '{"uncovered_questions":[],"knowledge_queries":[],"web_queries":[]}'
+    )
+    draft_json = (
+        '{"answer_sections":[{"text":"答","claim_indexes":[0]}],'
+        '"claims":[{"statement":"陈述","evidence_ids":["ev-1"]}],"limitations":[]}'
+    )
+
+    class Model:
+        def __init__(self, content: str) -> None:
+            self._content = content
+            self.system = ""
+            self.payload: dict[str, object] | None = None
+
+        async def ainvoke(self, messages):
+            self.system = messages[0]["content"]
+            self.payload = json.loads(messages[1]["content"])
+            return type("Response", (), {"content": self._content})()
+
+    history = (("上一问", "上一答"), ("前前问", "前前答"))
+
+    reviewer = Model(empty_review)
+    await ModelCoverageReviewerAdapter(reviewer).review(
+        TurnInput("新问题", True, (), history),
+        TurnResearchPlan("目标", (), (), ()),
+        (),
+        (),
+    )
+    synthesizer = Model(draft_json)
+    await ModelSynthesizerAdapter(synthesizer).synthesize(
+        TurnInput("新问题", False, (), history),
+        TurnResearchPlan("目标", (), (), ()),
+        (EvidenceItem("ev-1", "knowledge", "文档", "chunk", "a#b", "原文"),),
+        (),
+    )
+
+    expected = [
+        {"question": "上一问", "answer": "上一答"},
+        {"question": "前前问", "answer": "前前答"},
+    ]
+    # 无历史时字段为空列表也合法
+    empty_history_review = Model(empty_review)
+    await ModelCoverageReviewerAdapter(empty_history_review).review(
+        TurnInput("首问", True, (), ()),
+        TurnResearchPlan("目标", (), (), ()),
+        (),
+        (),
+    )
+
+    assert reviewer.payload["recent_history"] == expected
+    assert synthesizer.payload["recent_history"] == expected
+    assert empty_history_review.payload["recent_history"] == []
+    # 系统提示词告知两个角色如何使用 recent_history
+    assert "recent_history" in reviewer.system
+    assert "确立" in reviewer.system
+    assert "recent_history" in synthesizer.system
+    assert "重复解释" in synthesizer.system
 
 
 @pytest.mark.asyncio

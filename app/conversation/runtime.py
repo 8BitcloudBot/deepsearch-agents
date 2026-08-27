@@ -73,6 +73,13 @@ def _strict_json(response: Any) -> dict[str, Any]:
     return payload
 
 
+def _history_records(turn: TurnInput) -> list[dict[str, str]]:
+    return [
+        {"question": question, "answer": answer}
+        for question, answer in turn.recent_history
+    ]
+
+
 class ModelPlannerAdapter:
     _SYSTEM_PROMPT = (
         "你是有界研究规划器。只返回 JSON 对象，不调用任何工具，不委派任务。"
@@ -95,10 +102,6 @@ class ModelPlannerAdapter:
         self._model = planner_model
 
     async def plan(self, turn: TurnInput) -> TurnResearchPlan:
-        history = [
-            {"question": question, "answer": answer}
-            for question, answer in turn.recent_history
-        ]
         response = await self._model.ainvoke(
             [
                 {"role": "system", "content": self._SYSTEM_PROMPT},
@@ -108,7 +111,7 @@ class ModelPlannerAdapter:
                         {
                             "question": turn.question,
                             "use_web": turn.use_web,
-                            "recent_history": history,
+                            "recent_history": _history_records(turn),
                         },
                         ensure_ascii=False,
                     ),
@@ -158,6 +161,8 @@ class ModelCoverageReviewerAdapter:
                         "uncovered_questions、"
                         "knowledge_queries、web_queries。只针对未覆盖问题生成补充查询；"
                         "每个未覆盖问题对每个来源最多一个查询，不重复已有查询。"
+                        "recent_history 为此前数轮问答摘录；已在其中确立的事实"
+                        "不要再当作未覆盖问题。"
                     ),
                 },
                 {
@@ -166,6 +171,7 @@ class ModelCoverageReviewerAdapter:
                         {
                             "question": turn.question,
                             "use_web": turn.use_web,
+                            "recent_history": _history_records(turn),
                             "plan": plan.as_dict(),
                             "evidence": evidence,
                             "limitations": list(limitations),
@@ -227,7 +233,9 @@ class ModelSynthesizerAdapter:
                         "answer_sections、claims、"
                         "limitations。每个 answer_sections 项含 text 和 claim_indexes；"
                         "claims 项含 statement 和 evidence_ids。只使用给出的证据 ID。"
-                        "用自然中文段落直接回答问题，不复述内部结构，回答控制在约 "
+                        "用自然中文段落直接回答问题，不复述内部结构。"
+                        "recent_history 为此前数轮问答摘录；回答需自然衔接其中"
+                        "已确立的概念与结论，避免重复解释。回答控制在约 "
                         f"{answer_budget} 个中文字符。涉及权限或安全限制时统一表述为"
                         "‘仅按允许列表执行’，不使用其他同义措辞。"
                     ),
@@ -237,6 +245,7 @@ class ModelSynthesizerAdapter:
                     "content": json.dumps(
                         {
                             "question": turn.question,
+                            "recent_history": _history_records(turn),
                             "plan": plan.as_dict(),
                             "evidence": evidence,
                             "limitations": list(limitations),
