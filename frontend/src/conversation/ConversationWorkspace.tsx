@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import type { AdminUserSummary, Attachment, Conversation, EvidenceItem, Turn } from "./contracts";
+import { useState } from "react";
+import type { AdminUserSummary, Conversation, EvidenceItem, Turn } from "./contracts";
 
 export interface ConversationWorkspaceState {
   user: { id: string; username: string; role: "admin" | "user" } | null;
@@ -18,8 +18,6 @@ export interface ConversationWorkspaceState {
   renameConversation: (id: string, title: string) => void | Promise<void>;
   resetUserData: (id: string) => void | Promise<void>;
   submitTurn: () => void | Promise<void>;
-  uploadFiles: (files: File[]) => void | Promise<void>;
-  removeFile: (id: string) => void | Promise<void>;
   logout: () => void | Promise<void>;
   reportUrl: (id: string) => string;
 }
@@ -29,12 +27,6 @@ const sourceLabels: Record<EvidenceItem["source_kind"], string> = {
   session_file: "会话文件",
   web: "实时网络",
 };
-
-function formatSize(size: number): string {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
-}
 
 function EvidenceCard({ evidence, anchorId }: { evidence: EvidenceItem; anchorId: string }) {
   const isLink = evidence.locator_kind === "url";
@@ -174,24 +166,6 @@ function Sidebar({ state, active }: { state: ConversationWorkspaceState; active:
   );
 }
 
-function AttachmentBar({ attachments, state }: { attachments: Attachment[]; state: ConversationWorkspaceState }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  return (
-    <div className="attachment-bar">
-      <div className="attachment-heading"><span>会话文件</span><small>仅在本会话后续回合使用</small></div>
-      <div className="attachment-list">
-        {attachments.map((file) => <span className="attachment-chip" key={file.id}>{file.name}<small>{formatSize(file.size)}</small><button type="button" aria-label={`移除${file.name}`} title="移除文件" onClick={() => void state.removeFile(file.id)}>×</button></span>)}
-        <button className="attachment-add" type="button" onClick={() => inputRef.current?.click()}>+ 添加文件</button>
-      </div>
-      <input ref={inputRef} className="visually-hidden" type="file" multiple accept=".txt,.md,.pdf,.docx,.xlsx" onChange={(event) => {
-        const files = Array.from(event.target.files ?? []);
-        event.target.value = "";
-        void state.uploadFiles(files);
-      }} />
-    </div>
-  );
-}
-
 export function ConversationWorkspace({ state }: { state: ConversationWorkspaceState }) {
   const active = state.conversations.find((item) => item.id === state.activeConversationId) ?? null;
   const [editingTitle, setEditingTitle] = useState(false);
@@ -222,7 +196,6 @@ export function ConversationWorkspace({ state }: { state: ConversationWorkspaceS
         </div>
         <div className="composer-dock">
           {state.stage && <div className="stage-line" role="status"><span className="stage-pulse" />{state.stage}</div>}
-          {active && <AttachmentBar attachments={active.attachments} state={state} />}
           <div className="composer-row">
             <textarea aria-label="研究问题" value={state.question} onChange={(event) => state.setQuestion(event.target.value)} onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void state.submitTurn(); }

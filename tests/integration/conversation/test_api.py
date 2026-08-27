@@ -19,7 +19,7 @@ class NoopApplication:
             "model": {"status": "unavailable"},
             "knowledge": {"status": "ready"},
             "web": {"status": "unavailable"},
-            "session_file": {"status": "ready"},
+            "session_file": {"status": "unavailable"},
         }
 
     async def submit(self, user, conversation_id, *, question, use_web):
@@ -38,7 +38,6 @@ def client(tmp_path: Path) -> TestClient:
         create_app(
             store=store,
             conversation_application=NoopApplication(store, report),
-            upload_root=tmp_path / "uploads",
         )
     )
 
@@ -75,7 +74,7 @@ def test_health_uses_runtime_capability_snapshot(tmp_path: Path) -> None:
         "model": {"status": "unavailable"},
         "knowledge": {"status": "ready"},
         "web": {"status": "unavailable"},
-        "session_file": {"status": "ready"},
+        "session_file": {"status": "unavailable"},
     }
 
 
@@ -152,7 +151,6 @@ def test_report_download_regenerates_completed_turns_from_sqlite(
         create_app(
             store=store,
             conversation_application=application,
-            upload_root=tmp_path / "uploads",
         )
     ) as http:
         login(http)
@@ -162,60 +160,6 @@ def test_report_download_regenerates_completed_turns_from_sqlite(
     assert "旧格式报告" not in response.text
     assert "## 证据附录（累计来源索引）" in response.text
 
-
-def test_upload_and_remove_notify_session_file_index(tmp_path: Path) -> None:
-    store = ConversationStore(tmp_path / "reasonix.sqlite3")
-    report = ConversationReport(tmp_path / "reports", store)
-
-    class Application(NoopApplication):
-        def __init__(self):
-            super().__init__(store, report)
-            self.indexed = []
-            self.removed = []
-
-        def index_attachment(self, user, conversation_id, attachment):
-            self.indexed.append((user.id, conversation_id, attachment.id))
-
-        def remove_attachment(self, user, conversation_id, attachment_id):
-            self.removed.append((user.id, conversation_id, attachment_id))
-
-    application = Application()
-    with TestClient(
-        create_app(
-            store=store,
-            conversation_application=application,
-            upload_root=tmp_path / "uploads",
-        )
-    ) as http:
-        login(http)
-        conversation = http.post("/api/conversations", json={}).json()
-        uploaded = http.post(
-            f"/api/conversations/{conversation['id']}/files",
-            files={
-                "files": ("notes.md", b"# Notes\n\nLangGraph state", "text/markdown")
-            },
-        )
-        assert uploaded.status_code == 201
-        attachment_id = uploaded.json()[0]["id"]
-        assert application.indexed == [
-            (
-                application.store.authenticate("user", "0000").id,
-                conversation["id"],
-                attachment_id,
-            )
-        ]
-
-        removed = http.delete(
-            f"/api/conversations/{conversation['id']}/files/{attachment_id}"
-        )
-        assert removed.status_code == 200
-        assert application.removed == [
-            (
-                application.store.authenticate("user", "0000").id,
-                conversation["id"],
-                attachment_id,
-            )
-        ]
 
 
 def test_user_cannot_access_admin_conversation(tmp_path: Path) -> None:
@@ -295,7 +239,6 @@ def test_websocket_success_has_one_terminal_event_and_aggregated_stages(
         create_app(
             store=store,
             conversation_application=application,
-            upload_root=tmp_path / "uploads",
         )
     )
     with http:

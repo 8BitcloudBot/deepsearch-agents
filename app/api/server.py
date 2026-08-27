@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-import mimetypes
 import os
-import secrets
 from pathlib import Path
 from typing import Any
 
 from fastapi import (
     Depends,
     FastAPI,
-    File,
     HTTPException,
     Request,
-    UploadFile,
     WebSocket,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,15 +44,12 @@ from app.conversation.store import (
 )
 
 _COOKIE = "deepsearch_session"
-_MAX_FILE_SIZE = 25 * 1024 * 1024
-_ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx"}
 
 
 def create_app(
     *,
     store: ConversationStore | None = None,
     conversation_application: ConversationApplication | Any | None = None,
-    upload_root: str | Path | None = None,
     events: ConversationEventBus | None = None,
 ) -> FastAPI:
     """Build an isolated application; dependencies are injectable for tests."""
@@ -65,9 +58,6 @@ def create_app(
         store = ConversationStore(
             Path(os.getenv("DEEPSEARCH_SQLITE", ".data/conversations.sqlite3"))
         )
-    if upload_root is None:
-        upload_root = Path(os.getenv("DEEPSEARCH_UPLOAD_ROOT", ".data/uploads"))
-    upload_root = Path(upload_root)
     report = getattr(conversation_application, "report", None)
     if report is None:
         report = ConversationReport(
@@ -336,84 +326,9 @@ def create_app(
         except LookupError as exc:
             raise HTTPException(status_code=404, detail="turn not found") from exc
 
-    @app.post(
-        "/api/conversations/{conversation_id}/files",
-        response_model=list[AttachmentResponse],
-        status_code=201,
-    )
-    async def upload_files(
-        conversation_id: str,
-        files: list[UploadFile] = File(...),
-        user: User = Depends(current_user),
-    ) -> list[AttachmentResponse]:
-        require_conversation(user, conversation_id)
-        destination = upload_root / user.id / conversation_id
-        destination.mkdir(parents=True, exist_ok=True)
-        created: list[AttachmentResponse] = []
-        for upload in files:
-            name = Path(upload.filename or "").name
-            if not name or Path(name).suffix.lower() not in _ALLOWED_EXTENSIONS:
-                raise HTTPException(status_code=422, detail="unsupported attachment")
-            data = await upload.read(_MAX_FILE_SIZE + 1)
-            if len(data) > _MAX_FILE_SIZE:
-                raise HTTPException(status_code=413, detail="attachment too large")
-            stored = destination / f"{secrets.token_hex(8)}-{name}"
-            stored.write_bytes(data)
-            item = store.add_attachment(
-                user,
-                conversation_id,
-                name=name,
-                stored_path=str(stored),
-                size=len(data),
-                media_type=upload.content_type
-                or mimetypes.guess_type(name)[0]
-                or "application/octet-stream",
-            )
-            indexer = getattr(conversation_application, "index_attachment", None)
-            if callable(indexer):
-                try:
-                    indexer(user, conversation_id, item)
-                except Exception as exc:
-                    store.remove_attachment(user, conversation_id, item.id)
-                    stored.unlink(missing_ok=True)
-                    raise HTTPException(
-                        status_code=422, detail="attachment could not be indexed"
-                    ) from exc
-            created.append(attachment_response(item))
-        return created
-
-    @app.get(
-        "/api/conversations/{conversation_id}/files",
-        response_model=list[AttachmentResponse],
-    )
-    async def list_files(
-        conversation_id: str, user: User = Depends(current_user)
-    ) -> list[AttachmentResponse]:
-        require_conversation(user, conversation_id)
-        return [
-            attachment_response(item)
-            for item in store.list_attachments(user, conversation_id)
-        ]
-
-    @app.delete(
-        "/api/conversations/{conversation_id}/files/{attachment_id}",
-        response_model=AttachmentResponse,
-    )
-    async def remove_file(
-        conversation_id: str,
-        attachment_id: str,
-        user: User = Depends(current_user),
-    ) -> AttachmentResponse:
-        require_conversation(user, conversation_id)
-        try:
-            remover = getattr(conversation_application, "remove_attachment", None)
-            if callable(remover):
-                remover(user, conversation_id, attachment_id)
-            return attachment_response(
-                store.remove_attachment(user, conversation_id, attachment_id)
-            )
-        except LookupError as exc:
-            raise HTTPException(status_code=404, detail="attachment not found") from exc
+    # 会话附件上传/列表/删除端点已随 T1 移除：附件功能由知识库入库
+    # （个人知识库 collection）取代；历史 AttachmentResponse 字段与
+    # store.attachments 表保留以维持读取兼容。
 
     @app.get("/api/conversations/{conversation_id}/report")
     async def download_report(

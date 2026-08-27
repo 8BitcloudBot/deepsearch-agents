@@ -1,4 +1,4 @@
-import type { AdminUserSummary, Attachment, Conversation, ConversationEvent, User } from "./contracts";
+import type { AdminUserSummary, Conversation, ConversationEvent, User } from "./contracts";
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -62,18 +62,6 @@ export const conversationApi = {
     }),
   conversation: (baseUrl: string, id: string) =>
     request<Conversation>(baseUrl, `/api/conversations/${id}`),
-  uploadFiles: (baseUrl: string, id: string, files: File[]) => {
-    const body = new FormData();
-    files.forEach((file) => body.append("files", file));
-    return request<Attachment[]>(baseUrl, `/api/conversations/${id}/files`, {
-      method: "POST",
-      body,
-    });
-  },
-  removeFile: (baseUrl: string, id: string, fileId: string) =>
-    request<Attachment>(baseUrl, `/api/conversations/${id}/files/${fileId}`, {
-      method: "DELETE",
-    }),
 };
 
 export function eventSocketUrl(baseUrl: string, conversationId: string): string {

@@ -21,5 +21,4 @@ def create_app() -> FastAPI:
     return create_server(
         store=application.store,
         conversation_application=application,
-        upload_root=Path(os.getenv("DEEPSEARCH_UPLOAD_ROOT", ".data/uploads")),
     )

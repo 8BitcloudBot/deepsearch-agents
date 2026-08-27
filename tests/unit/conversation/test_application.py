@@ -107,40 +107,6 @@ async def test_application_marks_safe_failure_and_does_not_publish_report(
     assert "provider details" not in events[-1]["message"]
 
 
-@pytest.mark.asyncio
-async def test_application_injects_a_per_conversation_file_retriever(
-    tmp_path: Path,
-) -> None:
-    class ScopedEngine(Engine):
-        retriever = None
-
-        async def run(self, turn, *, session_files=None):
-            self.retriever = session_files
-            return await super().run(turn)
-
-    store = ConversationStore(tmp_path / "reasonix.sqlite3")
-    user = store.authenticate("user", "0000")
-    assert user is not None
-    conversation = store.create_conversation(user, "文件作用域")
-    engine = ScopedEngine([])
-    scopes = []
-    application = ConversationApplication(
-        store,
-        engine,
-        ConversationReport(tmp_path / "reports", store),
-        session_file_factory=lambda actor, conversation_id: (
-            scopes.append((actor.id, conversation_id)) or object()
-        ),
-    )
-    turn = await application.submit(
-        user, conversation.id, question="问题", use_web=False
-    )
-
-    await application.execute(user, conversation.id, turn.id)
-
-    assert scopes == [(user.id, conversation.id)]
-    assert engine.retriever is not None
-
 
 @pytest.mark.asyncio
 async def test_application_bounds_recent_history_before_model_input(

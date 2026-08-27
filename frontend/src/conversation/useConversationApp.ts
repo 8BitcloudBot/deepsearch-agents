@@ -145,18 +145,6 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
     }
   }, [activeConversationId, baseUrl, loadConversations, question, stage, useWeb]);
 
-  const uploadFiles = useCallback(async (files: File[]) => {
-    if (!activeConversationId || files.length === 0) return;
-    await conversationApi.uploadFiles(baseUrl, activeConversationId, files);
-    await loadConversations(activeConversationId);
-  }, [activeConversationId, baseUrl, loadConversations]);
-
-  const removeFile = useCallback(async (fileId: string) => {
-    if (!activeConversationId) return;
-    await conversationApi.removeFile(baseUrl, activeConversationId, fileId);
-    await loadConversations(activeConversationId);
-  }, [activeConversationId, baseUrl, loadConversations]);
-
   return {
     user,
     conversations,
@@ -176,8 +164,6 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
     renameConversation,
     resetUserData,
     submitTurn,
-    uploadFiles,
-    removeFile,
     logout,
     login,
     reportUrl: (id) => `${baseUrl}/api/conversations/${id}/report`,

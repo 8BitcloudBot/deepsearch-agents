@@ -108,16 +108,6 @@ class EvidenceRetriever(Protocol):
     ) -> tuple[EvidenceItem, ...]: ...
 
 
-class SessionFileRetriever(Protocol):
-    async def search(
-        self,
-        attachment_ids: tuple[str, ...],
-        query: str,
-        *,
-        limit: int = 10,
-    ) -> tuple[EvidenceItem, ...]: ...
-
-
 class TurnSynthesizer(Protocol):
     async def synthesize(
         self,
@@ -142,12 +132,10 @@ class _TurnState(TypedDict):
     turn: TurnInput
     plan: TurnResearchPlan | None
     knowledge: tuple[EvidenceItem, ...]
-    session_files: tuple[EvidenceItem, ...]
     web: tuple[EvidenceItem, ...]
     query_outcomes: tuple[QueryOutcome, ...]
     limitations: tuple[str, ...]
     coverage: CoverageDecision | None
-    session_file_retriever: SessionFileRetriever | None
     result: TurnResult | None
     supplemental_rounds: int
     supplemental_used: int
@@ -177,7 +165,6 @@ class TurnResearchEngine:
         self,
         planner: TurnPlanner,
         knowledge: EvidenceRetriever,
-        session_files: SessionFileRetriever,
         web: EvidenceRetriever,
         synthesizer: TurnSynthesizer,
         coverage_reviewer: CoverageReviewer | None = None,
@@ -186,7 +173,6 @@ class TurnResearchEngine:
     ) -> None:
         self._planner = planner
         self._knowledge = knowledge
-        self._session_files = session_files
         self._web = web
         self._synthesizer = synthesizer
         self._coverage_reviewer = coverage_reviewer
@@ -221,28 +207,19 @@ class TurnResearchEngine:
     async def run(
         self,
         turn: TurnInput,
-        *,
-        session_files: SessionFileRetriever | None = None,
     ) -> TurnResult:
-        return await self._run(turn, session_files=session_files)
+        return await self._run(turn)
 
-    async def _run(
-        self,
-        turn: TurnInput,
-        *,
-        session_files: SessionFileRetriever | None = None,
-    ) -> TurnResult:
+    async def _run(self, turn: TurnInput) -> TurnResult:
         state = await self._graph.ainvoke(
             {
                 "turn": turn,
                 "plan": None,
                 "knowledge": (),
-                "session_files": (),
                 "web": (),
                 "query_outcomes": (),
                 "limitations": (),
                 "coverage": None,
-                "session_file_retriever": session_files,
                 "result": None,
                 "supplemental_rounds": 0,
                 "supplemental_used": 0,
@@ -274,8 +251,6 @@ class TurnResearchEngine:
             if turn.use_web
             else ()
         )
-        retriever = state.get("session_file_retriever") or self._session_files
-
         async def retrieve_knowledge() -> list[tuple[str, int, object]]:
             records: list[tuple[str, int, object]] = []
             for index, query in enumerate(knowledge_queries):
@@ -286,17 +261,6 @@ class TurnResearchEngine:
                 records.append(("knowledge", index, result))
             return records
 
-        async def retrieve_session_files() -> list[tuple[str, int, object]]:
-            if not turn.attachment_ids:
-                return []
-            try:
-                result: object = await retriever.search(
-                    turn.attachment_ids, knowledge_queries[0], limit=10
-                )
-            except Exception as exc:
-                result = exc
-            return [("session_file", 0, result)]
-
         async def retrieve_web() -> list[tuple[str, int, object]]:
             results = await asyncio.gather(
                 *(self._web.search(query, limit=10) for query in web_queries),
@@ -306,13 +270,10 @@ class TurnResearchEngine:
                 ("web", index, result) for index, result in enumerate(results)
             ]
 
-        batches = await asyncio.gather(
-            retrieve_knowledge(), retrieve_session_files(), retrieve_web()
-        )
+        batches = await asyncio.gather(retrieve_knowledge(), retrieve_web())
         records = [record for batch in batches for record in batch]
         grouped: dict[str, list[EvidenceItem]] = {
             "knowledge": [],
-            "session_file": [],
             "web": [],
         }
         outcomes: list[QueryOutcome] = []
@@ -321,7 +282,6 @@ class TurnResearchEngine:
         successful_sources: set[str] = set()
         limitation_labels = {
             "knowledge": "本地知识库检索暂不可用。",
-            "session_file": "会话文件检索暂不可用。",
             "web": "实时网络检索暂不可用。",
         }
         for source_kind, query_index, result in records:
@@ -335,10 +295,9 @@ class TurnResearchEngine:
             outcomes.append(QueryOutcome(source_kind, query_index, len(items)))
         partial_labels = {
             "knowledge": "本地知识库部分检索未完成。",
-            "session_file": "会话文件部分检索未完成。",
             "web": "实时网络部分检索未完成。",
         }
-        for source in ("knowledge", "session_file", "web"):
+        for source in ("knowledge", "web"):
             if source not in failed_sources:
                 continue
             limitations.append(
@@ -348,7 +307,6 @@ class TurnResearchEngine:
             )
         return {
             "knowledge": tuple(grouped["knowledge"]),
-            "session_files": tuple(grouped["session_file"]),
             "web": _apply_global_rank_decay(tuple(grouped["web"])),
             "query_outcomes": tuple(outcomes),
             "limitations": tuple(dict.fromkeys(limitations)),
@@ -366,7 +324,7 @@ class TurnResearchEngine:
         evidence_limit = 8 if deep else 6
         evidence_items = _select_evidence(
             state["knowledge"],
-            state["session_files"],
+            (),  # session_file 源已由知识库入库方案取代；形参保留兼容历史签名
             state["web"],
             limit=evidence_limit,
         )
@@ -498,7 +456,7 @@ class TurnResearchEngine:
         evidence_limit = 8 if _plan_is_deep(plan, state["turn"].question) else 6
         evidence_items = _select_evidence(
             state["knowledge"],
-            state["session_files"],
+            (),  # session_file 源已由知识库入库方案取代；形参保留兼容历史签名
             state["web"],
             limit=evidence_limit,
         )

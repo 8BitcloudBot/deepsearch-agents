@@ -12,7 +12,6 @@ from app.conversation.store import ConversationStore, Turn, User
 from app.conversation.turn import TurnInput, TurnResearchEngine
 
 EventEmitter = Callable[[dict[str, Any]], None]
-SessionFileFactory = Callable[[User, str], Any]
 _HISTORY_CHAR_BUDGET = 12000
 
 
@@ -22,39 +21,18 @@ class ConversationApplication:
         store: ConversationStore,
         engine: TurnResearchEngine,
         report: ConversationReport,
-        session_file_factory: SessionFileFactory | None = None,
-        file_index: Any | None = None,
         capabilities: dict[str, dict[str, str]] | None = None,
     ) -> None:
         self.store = store
         self.engine = engine
         self.report = report
+        # session_file 能力键保留以维持 WS capabilities 合同稳定；
+        # 会话附件路径已由知识库入库方案取代（T1），恒为 unavailable。
         self.capabilities = capabilities or {
             source: {"status": "unavailable"}
             for source in ("model", "knowledge", "web", "session_file")
         }
-        self._session_file_factory = session_file_factory
-        self._file_index = file_index
         self._turn_locks: dict[tuple[str, str], asyncio.Lock] = {}
-
-    def index_attachment(
-        self, user: User, conversation_id: str, attachment: Any
-    ) -> None:
-        if self._file_index is None:
-            raise RuntimeError("session file index unavailable")
-        self._file_index.index_attachment_path(
-            user.id,
-            conversation_id,
-            attachment.id,
-            attachment.name,
-            attachment.stored_path,
-        )
-
-    def remove_attachment(
-        self, user: User, conversation_id: str, attachment_id: str
-    ) -> None:
-        if self._file_index is not None:
-            self._file_index.remove_attachment(user.id, conversation_id, attachment_id)
 
     async def submit(
         self,
@@ -107,8 +85,6 @@ class ConversationApplication:
         )
         emit({"type": "stage.changed", "stage": "planning", "message": "正在分析问题"})
         source_kinds = ["knowledge"]
-        if turn.attachment_ids:
-            source_kinds.append("session_file")
         if turn.use_web:
             source_kinds.append("web")
         emit(
@@ -120,13 +96,7 @@ class ConversationApplication:
             }
         )
         try:
-            if self._session_file_factory is not None:
-                result = await self.engine.run(
-                    input_value,
-                    session_files=self._session_file_factory(user, conversation_id),
-                )
-            else:
-                result = await self.engine.run(input_value)
+            result = await self.engine.run(input_value)
             emit(
                 {
                     "type": "stage.changed",

@@ -58,6 +58,23 @@ class Retriever:
         return self.results[:limit]
 
 
+def build_engine(
+    planner,
+    knowledge,
+    _files=None,
+    web=None,
+    synthesizer=None,
+    coverage_reviewer=None,
+    **kwargs,
+):
+    """T1 后引擎不再有 session_file 检索器参数；垫片保持既有测试可读，
+    会话文件维度已由知识库入库方案取代，恒为空。"""
+    _ = _files
+    return TurnResearchEngine(
+        planner, knowledge, web, synthesizer, coverage_reviewer, **kwargs
+    )
+
+
 class FileRetriever:
     def __init__(self, results: tuple[EvidenceItem, ...]):
         self.results = results
@@ -102,7 +119,7 @@ async def test_turn_graph_uses_only_enabled_and_available_sources() -> None:
             limitations=(),
         )
     )
-    engine = TurnResearchEngine(Planner(), knowledge, files, web, synthesizer)
+    engine = build_engine(Planner(), knowledge, files, web, synthesizer)
 
     result = await engine.run(
         TurnInput(
@@ -121,9 +138,8 @@ async def test_turn_graph_uses_only_enabled_and_available_sources() -> None:
 
 
 @pytest.mark.asyncio
-async def test_turn_graph_uses_session_files_and_web_when_requested() -> None:
+async def test_turn_graph_uses_web_when_requested() -> None:
     knowledge = Retriever((evidence("knowledge", 1),))
-    files = FileRetriever((evidence("session_file", 1),))
     web = Retriever((evidence("web", 1, "docs.example.com"),))
     synthesizer = Synthesizer(
         SynthesisDraft(
@@ -131,28 +147,26 @@ async def test_turn_graph_uses_session_files_and_web_when_requested() -> None:
             claims=(
                 SynthesisClaim(
                     "组合证据结论。",
-                    ("ev-knowledge-1", "ev-session_file-1", "ev-web-1"),
+                    ("ev-knowledge-1", "ev-web-1"),
                 ),
             ),
             limitations=(),
         )
     )
-    engine = TurnResearchEngine(Planner(), knowledge, files, web, synthesizer)
+    engine = build_engine(Planner(), knowledge, None, web, synthesizer)
 
     await engine.run(
         TurnInput(
-            question="结合文件和网络说明",
+            question="结合知识库和网络说明",
             use_web=True,
-            attachment_ids=("file-1",),
+            attachment_ids=(),
             recent_history=(("上一问", "上一答"),),
         )
     )
 
-    assert files.calls == [(("file-1",), "knowledge query")]
     assert web.calls == ["web query"]
     assert {item.source_kind for item in synthesizer.seen_evidence} == {
         "knowledge",
-        "session_file",
         "web",
     }
 
@@ -160,9 +174,6 @@ async def test_turn_graph_uses_session_files_and_web_when_requested() -> None:
 @pytest.mark.asyncio
 async def test_evidence_delivery_is_bounded_with_per_source_floor() -> None:
     knowledge = Retriever(tuple(evidence("knowledge", index) for index in range(1, 8)))
-    files = FileRetriever(
-        tuple(evidence("session_file", index) for index in range(1, 8))
-    )
     web = Retriever(
         tuple(evidence("web", index, f"host{index}.example") for index in range(1, 8))
     )
@@ -171,29 +182,29 @@ async def test_evidence_delivery_is_bounded_with_per_source_floor() -> None:
         for index, item in enumerate(
             (
                 evidence("knowledge", 1),
-                evidence("session_file", 1),
                 evidence("web", 1, "host1.example"),
             )
         )
     )
     synthesizer = Synthesizer(
         SynthesisDraft(
-            sections=(SynthesisSection("回答。", (0, 1, 2)),),
+            sections=(SynthesisSection("回答。", (0, 1)),),
             claims=claims,
             limitations=(),
         )
     )
-    engine = TurnResearchEngine(Planner(), knowledge, files, web, synthesizer)
+    engine = build_engine(Planner(), knowledge, None, web, synthesizer)
 
     await engine.run(
-        TurnInput("问题", True, ("file-1",), ()),
+        TurnInput("问题", True, (), ()),
     )
 
     seen = synthesizer.seen_evidence
     assert len(seen) == 6
-    # 每非空来源保底入选（round-robin 已被全局分数序取代）
+    # 每非空来源保底入选（round-robin 已被全局分数序取代；
+    # session_file 维度已由知识库入库方案取代，恒为空）
     kinds = {item.source_kind for item in seen}
-    assert {"knowledge", "session_file", "web"} <= kinds
+    assert {"knowledge", "web"} <= kinds
     # web 批次获得引擎统一重编的衰减分，输出按分数降序
     web_scores = [item.score for item in seen if item.source_kind == "web"]
     assert web_scores == sorted(web_scores, reverse=True)
@@ -217,7 +228,7 @@ async def test_unknown_evidence_only_removes_its_claim_and_section() -> None:
             limitations=(),
         )
     )
-    engine = TurnResearchEngine(
+    engine = build_engine(
         Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer
     )
 
@@ -238,7 +249,7 @@ async def test_external_evidence_with_zero_valid_claims_fails_explicitly() -> No
             limitations=(),
         )
     )
-    engine = TurnResearchEngine(
+    engine = build_engine(
         Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer
     )
 
@@ -266,7 +277,7 @@ async def test_invalid_external_synthesis_is_retried_once_before_failure() -> No
             )
 
     synthesizer = RetryingSynthesizer(SynthesisDraft((), (), ()))
-    engine = TurnResearchEngine(
+    engine = build_engine(
         Planner(),
         Retriever((evidence("knowledge", 1),)),
         FileRetriever(()),
@@ -301,7 +312,7 @@ async def test_bounded_coverage_review_runs_only_new_supplemental_queries() -> N
             limitations=(),
         )
     )
-    engine = TurnResearchEngine(
+    engine = build_engine(
         Planner(), knowledge, FileRetriever(()), web, synthesizer, Reviewer()
     )
 
@@ -338,7 +349,7 @@ async def test_coverage_does_not_repeat_question_fallback_when_plan_has_no_queri
             limitations=(),
         )
     )
-    engine = TurnResearchEngine(
+    engine = build_engine(
         EmptyPlanner(),
         knowledge,
         FileRetriever(()),
@@ -365,22 +376,12 @@ async def test_enabled_sources_begin_retrieval_concurrently() -> None:
         async def search(self, query: str, *, limit: int = 10):
             self.calls.append(query)
             started.add(self.name)
-            if len(started) == 3:
-                all_started.set()
-            await asyncio.wait_for(all_started.wait(), timeout=0.2)
-            return self.results[:limit]
-
-    class BlockingFiles(FileRetriever):
-        async def search(self, attachment_ids, query, *, limit=10):
-            self.calls.append((attachment_ids, query))
-            started.add("session_file")
-            if len(started) == 3:
+            if len(started) == 2:
                 all_started.set()
             await asyncio.wait_for(all_started.wait(), timeout=0.2)
             return self.results[:limit]
 
     knowledge = BlockingRetriever("knowledge", (evidence("knowledge", 1),))
-    files = BlockingFiles((evidence("session_file", 1),))
     web = BlockingRetriever("web", (evidence("web", 1, "docs.example.com"),))
     synthesizer = Synthesizer(
         SynthesisDraft(
@@ -390,11 +391,11 @@ async def test_enabled_sources_begin_retrieval_concurrently() -> None:
         )
     )
 
-    await TurnResearchEngine(
-        Planner(), knowledge, files, web, synthesizer
-    ).run(TurnInput("问题", True, ("file-1",), ()))
+    await build_engine(
+        Planner(), knowledge, None, web, synthesizer
+    ).run(TurnInput("问题", True, (), ()))
 
-    assert started == {"knowledge", "session_file", "web"}
+    assert started == {"knowledge", "web"}
 
 
 @pytest.mark.asyncio
@@ -420,7 +421,7 @@ async def test_standard_mode_bounds_web_queries_and_evidence() -> None:
         )
     )
 
-    await TurnResearchEngine(
+    await build_engine(
         ManyQueryPlanner(), knowledge, FileRetriever(()), web, synthesizer
     ).run(TurnInput("普通问题", True, (), ()))
 
@@ -451,7 +452,7 @@ async def test_deep_mode_allows_three_web_queries_and_eight_evidence() -> None:
         )
     )
 
-    await TurnResearchEngine(
+    await build_engine(
         ManyQueryPlanner(), knowledge, FileRetriever(()), web, synthesizer
     ).run(TurnInput("请做深入全面分析", True, (), ()))
 
@@ -483,7 +484,7 @@ async def test_complete_initial_coverage_still_reviews_once() -> None:
         )
     )
 
-    await TurnResearchEngine(
+    await build_engine(
         Planner(), knowledge, FileRetriever(()), web, synthesizer, reviewer
     ).run(TurnInput("问题", True, (), ()))
 
@@ -517,7 +518,7 @@ async def test_pseudo_coverage_with_many_irrelevant_hits_still_reviews() -> None
         )
     )
 
-    result = await TurnResearchEngine(
+    result = await build_engine(
         Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer, reviewer
     ).run(TurnInput("问题", False, (), ()))
 
@@ -553,7 +554,7 @@ async def test_sparse_initial_coverage_bounds_supplemental_queries_within_budget
         )
     )
 
-    await TurnResearchEngine(
+    await build_engine(
         Planner(), knowledge, FileRetriever(()), web, synthesizer, reviewer
     ).run(TurnInput("问题", True, (), ()))
 
@@ -590,7 +591,7 @@ async def test_supplemental_loop_runs_multiple_rounds_until_reviewer_converges()
         )
     )
 
-    await TurnResearchEngine(
+    await build_engine(
         Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer, reviewer
     ).run(TurnInput("问题", False, (), ()))
 
@@ -621,7 +622,7 @@ async def test_supplemental_round_budget_exhaustion_records_limitation_without_l
         )
     )
 
-    result = await TurnResearchEngine(
+    result = await build_engine(
         Planner(), knowledge, FileRetriever(()), web, synthesizer, Reviewer()
     ).run(TurnInput("问题", True, (), ()))
 
@@ -649,7 +650,7 @@ async def test_final_result_prunes_uncited_evidence_and_renumbers_citations() ->
         )
     )
 
-    result = await TurnResearchEngine(
+    result = await build_engine(
         Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer
     ).run(TurnInput("问题", False, (), ()))
 
@@ -679,7 +680,7 @@ async def test_quote_limit_follows_answer_depth(question: str, maximum: int) -> 
         )
     )
 
-    result = await TurnResearchEngine(
+    result = await build_engine(
         Planner(), Retriever((item,)), FileRetriever(()), Retriever(()), synthesizer
     ).run(TurnInput(question, False, (), ()))
 
@@ -712,7 +713,7 @@ async def test_partial_query_failure_does_not_mark_source_unavailable() -> None:
             limitations=(),
         )
     )
-    result = await TurnResearchEngine(
+    result = await build_engine(
         TwoQueryPlanner(),
         PartialRetriever((evidence("knowledge", 1),)),
         FileRetriever(()),
@@ -770,7 +771,7 @@ async def test_local_knowledge_queries_are_serialized_but_web_queries_are_concur
             limitations=(),
         )
     )
-    result = await TurnResearchEngine(
+    result = await build_engine(
         TwoQueryPlanner(),
         SingleFlightKnowledge((evidence("knowledge", 1),)),
         FileRetriever(()),
@@ -966,14 +967,14 @@ async def test_citation_validation_disabled_matches_legacy_path() -> None:
         limitations=(),
     )
 
-    legacy = TurnResearchEngine(
+    legacy = build_engine(
         Planner(),
         Retriever((item,)),
         FileRetriever(()),
         Retriever(()),
         Synthesizer(draft),
     ).run(TurnInput("问题", False, (), ()))
-    flagged_off = TurnResearchEngine(
+    flagged_off = build_engine(
         Planner(),
         Retriever((item,)),
         FileRetriever(()),
@@ -1018,7 +1019,7 @@ async def test_citation_validation_drops_unsupported_claim() -> None:
     )
     synthesizer = Synthesizer(draft)
 
-    result = await TurnResearchEngine(
+    result = await build_engine(
         Planner(),
         Retriever((supported_item,)),
         FileRetriever(()),
@@ -1047,7 +1048,7 @@ async def test_citation_validation_keeps_supported_claims_intact() -> None:
         limitations=(),
     )
 
-    result = await TurnResearchEngine(
+    result = await build_engine(
         Planner(),
         Retriever((item,)),
         FileRetriever(()),
@@ -1104,7 +1105,7 @@ async def test_web_scores_are_renumbered_globally_across_queries() -> None:
         )
     )
 
-    await TurnResearchEngine(
+    await build_engine(
         MultiWebPlanner(),
         Retriever(()),
         FileRetriever(()),
@@ -1170,7 +1171,7 @@ async def test_uncovered_limitation_converges_to_latest_round() -> None:
         )
     )
 
-    result = await TurnResearchEngine(
+    result = await build_engine(
         Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer, Reviewer()
     ).run(TurnInput("问题", False, (), ()))
 
@@ -1205,7 +1206,7 @@ async def test_uncovered_limitation_keeps_only_latest_when_budget_exhausted() ->
         )
     )
 
-    result = await TurnResearchEngine(
+    result = await build_engine(
         Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer, Reviewer()
     ).run(TurnInput("问题", False, (), ()))
 

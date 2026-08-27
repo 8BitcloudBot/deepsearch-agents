@@ -526,48 +526,6 @@ def _relevant_excerpt(content: str, query: str) -> str:
     return "\n".join(chosen)[:_MAX_QUOTE]
 
 
-class SessionFileEvidenceRetriever:
-    def __init__(self, index: Any, user: Any, conversation_id: str):
-        self._index = index
-        self._user = user
-        self._conversation_id = conversation_id
-
-    def search_sync(
-        self, attachment_ids: tuple[str, ...], query: str, *, limit: int = 10
-    ) -> tuple[EvidenceItem, ...]:
-        if self._user is None or not self._conversation_id:
-            return ()
-        chunks = self._index.search(
-            self._user.id,
-            self._conversation_id,
-            attachment_ids,
-            query,
-            limit=limit,
-        )
-        scores = _rank_decay_scores(len(chunks))
-        return tuple(
-            EvidenceItem(
-                evidence_id=f"ev-file-{chunk.document_id}-{chunk.chunk_id}",
-                source_kind="session_file",
-                title=chunk.title,
-                locator_kind="file",
-                locator_value=f"{chunk.title}:{chunk.section_path or chunk.chunk_id}",
-                quote=_relevant_excerpt(chunk.content, query),
-                score=score,
-            )
-            for chunk, score in zip(chunks, scores)
-        )
-
-    async def search(
-        self, attachment_ids: tuple[str, ...], query: str, *, limit: int = 10
-    ) -> tuple[EvidenceItem, ...]:
-        import asyncio
-
-        return await asyncio.to_thread(
-            self.search_sync, attachment_ids, query, limit=limit
-        )
-
-
 def build_conversation_application(
     environ: Any,
     *,
@@ -606,9 +564,7 @@ def build_conversation_application(
         coverage_reviewer = None
 
     knowledge: Any = _UnavailableRetriever()
-    file_index: Any = None
     knowledge_ready = False
-    session_file_ready = False
     try:
         from app.knowledge.contracts import (
             KnowledgeIndexSpec,
@@ -640,12 +596,6 @@ def build_conversation_application(
                 )
             )
             knowledge_ready = True
-        from app.conversation.file_index import SessionFileIndex
-
-        file_index = SessionFileIndex(
-            runtime_root / ".data" / "session-file-index", embedder
-        )
-        session_file_ready = True
     except Exception:
         knowledge = _UnavailableRetriever()
 
@@ -662,11 +612,9 @@ def build_conversation_application(
         except Exception:
             web = _UnavailableRetriever()
 
-    files = SessionFileEvidenceRetriever(file_index, None, "")
     engine = TurnResearchEngine(
         planner,
         knowledge,
-        files,
         web,
         synthesizer,
         coverage_reviewer,
@@ -676,18 +624,13 @@ def build_conversation_application(
         store,
         engine,
         report,
-        file_index=file_index,
-        session_file_factory=lambda user, conversation_id: SessionFileEvidenceRetriever(
-            file_index, user, conversation_id
-        ),
         capabilities={
             "model": {"status": "ready" if model_ready else "unavailable"},
             "knowledge": {
                 "status": "ready" if knowledge_ready else "unavailable"
             },
             "web": {"status": "ready" if web_ready else "unavailable"},
-            "session_file": {
-                "status": "ready" if session_file_ready else "unavailable"
-            },
+            # 会话附件路径已由知识库入库方案取代（T1）；键保留维持 WS 合同稳定
+            "session_file": {"status": "unavailable"},
         },
     )

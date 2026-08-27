@@ -9,7 +9,6 @@ from app.conversation.runtime import (
     ModelCoverageReviewerAdapter,
     ModelPlannerAdapter,
     ModelSynthesizerAdapter,
-    SessionFileEvidenceRetriever,
     TavilyEvidenceRetriever,
     build_conversation_application,
 )
@@ -85,10 +84,8 @@ def test_default_application_build_is_provider_lazy(tmp_path: Path) -> None:
     assert application.capabilities["model"]["status"] == "unavailable"
     assert application.capabilities["web"]["status"] == "unavailable"
     assert application.capabilities["knowledge"]["status"] == "unavailable"
-    assert application.capabilities["session_file"]["status"] in {
-        "ready",
-        "unavailable",
-    }
+    # 会话附件路径已由知识库入库方案取代；键恒为 unavailable（T1）
+    assert application.capabilities["session_file"]["status"] == "unavailable"
 
 
 def test_tavily_adapter_converts_hits_and_caps_delivery() -> None:
@@ -125,67 +122,6 @@ def test_tavily_adapter_passes_search_intent_and_candidate_limit() -> None:
             {"search_depth": "advanced", "topic": "news", "time_range": "month"},
         )
     ]
-
-
-def test_session_file_retriever_uses_scoped_index() -> None:
-    class Index:
-        def __init__(self) -> None:
-            self.calls = []
-
-        def search(self, user_id, conversation_id, ids, query, *, limit=10):
-            self.calls.append((user_id, conversation_id, ids, query, limit))
-            return (
-                KnowledgeChunk(
-                    collection_id="session_files",
-                    document_id="file-1",
-                    chunk_id="section-0001-abc",
-                    title="notes.md",
-                    content="第一段：使用状态图。",
-                    score=0.9,
-                    version="1.0.0",
-                    section_path="section-1",
-                ),
-            )
-
-    user = type("User", (), {"id": "user-1"})()
-    index = Index()
-
-    result = SessionFileEvidenceRetriever(index, user, "conversation").search_sync(
-        ("file-1",), "状态图"
-    )
-    assert index.calls == [("user-1", "conversation", ("file-1",), "状态图", 10)]
-    assert result and result[0].source_kind == "session_file"
-    assert result[0].locator_kind == "file"
-    assert "状态图" in result[0].quote
-
-
-def test_session_file_retriever_extracts_query_relevant_passage() -> None:
-    class Index:
-        def search(self, user_id, conversation_id, ids, query, *, limit=10):
-            return (
-                KnowledgeChunk(
-                    collection_id="session_files",
-                    document_id="file-1",
-                    chunk_id="section-1",
-                    title="notes.md",
-                    content=(
-                        "这是文件开头的背景。\n\n"
-                        "评估集需要记录失败案例，才能持续比较检索质量。\n\n"
-                        "最后是附录。"
-                    ),
-                    score=0.9,
-                    version="1.0.0",
-                    section_path="评估",
-                ),
-            )
-
-    user = type("User", (), {"id": "user-1"})()
-    quote = SessionFileEvidenceRetriever(
-        Index(), user, "conversation"
-    ).search_sync(("file-1",), "评估集 失败案例")[0].quote
-
-    assert quote.startswith("评估集需要记录失败案例")
-    assert len(quote) <= 800
 
 
 @pytest.mark.asyncio

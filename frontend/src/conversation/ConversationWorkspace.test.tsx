@@ -44,8 +44,6 @@ function state(): ConversationWorkspaceState {
     renameConversation: vi.fn(),
     resetUserData: vi.fn(),
     submitTurn: vi.fn(),
-    uploadFiles: vi.fn(),
-    removeFile: vi.fn(),
     logout: vi.fn(),
     reportUrl: () => "http://test/api/conversations/c1/report",
   };
