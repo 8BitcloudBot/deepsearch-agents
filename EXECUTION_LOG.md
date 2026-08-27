@@ -11,6 +11,8 @@
 ## 已完成任务
 - [x] A4 httpx 移入 dev 依赖，uv.lock 刷新 (6d6502b)
 - [x] A3 _is_deep_request 收敛到 app/conversation/heuristics.py 单一定义
+- [x] A1 移除 deepagents 外壳：ModelPlannerAdapter 直连 ainvoke（system prompt/payload/DeepSeek 分支原样保留）；删除 deepagents 依赖；经用户确认删除纯 DeepAgents 演示代码 examples/ 与 tests/examples/
+  - 备注：app/citations/fixtures.py 及 phase4 测试中的 "DeepAgents" 样本文案保留——它们是引用规则引擎的语料内容，改写将连带修改 20+ 处既有断言且触碰 citations 红线，非 A1 本意
 ## 进行中
 
 ## 待办队列

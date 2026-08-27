@@ -73,32 +73,15 @@ def _strict_json(response: Any) -> dict[str, Any]:
     return payload
 
 
-class DeepAgentsPlannerAdapter:
-    def __init__(self, model: Any):
-        from deepagents import (
-            GeneralPurposeSubagentProfile,
-            HarnessProfile,
-            create_deep_agent,
-            register_harness_profile,
-        )
+class ModelPlannerAdapter:
+    _SYSTEM_PROMPT = (
+        "你是有界研究规划器。只返回 JSON 对象，不调用任何工具，不委派任务。"
+        "字段必须为 objective、subquestions、knowledge_queries、web_queries。"
+        "最多生成 3 个子问题、2 个知识库查询和 3 个网络查询。"
+        "当本轮关闭 Web 时，web_queries 必须为空。"
+    )
 
-        register_harness_profile(
-            "openai",
-            HarnessProfile(
-                excluded_tools=frozenset(
-                    {
-                        "edit_file",
-                        "glob",
-                        "grep",
-                        "ls",
-                        "read_file",
-                        "write_file",
-                        "write_todos",
-                    }
-                ),
-                general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False),
-            ),
-        )
+    def __init__(self, model: Any):
         planner_model = model
         model_name = str(getattr(model, "model_name", "")).casefold()
         if "deepseek" in model_name and callable(getattr(model, "model_copy", None)):
@@ -109,46 +92,30 @@ class DeepAgentsPlannerAdapter:
             planner_model = model.model_copy(
                 update={"extra_body": extra_body, "model_kwargs": model_kwargs}
             )
-        self._graph = create_deep_agent(
-            model=planner_model,
-            tools=[],
-            subagents=[],
-            system_prompt=(
-                "你是有界研究规划器。只返回 JSON 对象，不调用任何工具，不委派任务。"
-                "字段必须为 objective、subquestions、knowledge_queries、web_queries。"
-                "最多生成 3 个子问题、2 个知识库查询和 3 个网络查询。"
-                "当本轮关闭 Web 时，web_queries 必须为空。"
-            ),
-            name="turn-research-planner",
-        )
+        self._model = planner_model
 
     async def plan(self, turn: TurnInput) -> TurnResearchPlan:
         history = [
             {"question": question, "answer": answer}
             for question, answer in turn.recent_history
         ]
-        response = await self._graph.ainvoke(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": json.dumps(
-                            {
-                                "question": turn.question,
-                                "use_web": turn.use_web,
-                                "recent_history": history,
-                            },
-                            ensure_ascii=False,
-                        ),
-                    }
-                ]
-            },
-            config={"recursion_limit": 6},
+        response = await self._model.ainvoke(
+            [
+                {"role": "system", "content": self._SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "question": turn.question,
+                            "use_web": turn.use_web,
+                            "recent_history": history,
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ]
         )
-        messages = response.get("messages") if isinstance(response, dict) else None
-        if not isinstance(messages, list) or not messages:
-            raise ValueError("model response is invalid")
-        payload = _strict_json(messages[-1])
+        payload = _strict_json(response)
         try:
             return TurnResearchPlan(
                 objective=payload["objective"],
@@ -495,7 +462,7 @@ def build_conversation_application(
             from app.conversation.model import build_agent_model
 
             model, _ = build_agent_model(settings)
-            planner = DeepAgentsPlannerAdapter(model)
+            planner = ModelPlannerAdapter(model)
             synthesizer = ModelSynthesizerAdapter(model)
             coverage_reviewer = ModelCoverageReviewerAdapter(model)
             model_ready = True

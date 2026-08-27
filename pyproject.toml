@@ -6,7 +6,6 @@ requires-python = ">=3.12,<3.13"
 readme = "README.md"
 
 dependencies = [
-    "deepagents>=0.6.12",
     "fastapi[standard]>=0.115,<1",
     "langchain-core>=1.5.1",
     "langchain-openai>=1.4.1",

@@ -1,12 +1,13 @@
+import json
 from pathlib import Path
 
 import pytest
 
 from app.conversation.contracts import EvidenceItem, TurnResearchPlan
 from app.conversation.runtime import (
-    DeepAgentsPlannerAdapter,
     KnowledgeEvidenceRetriever,
     ModelCoverageReviewerAdapter,
+    ModelPlannerAdapter,
     ModelSynthesizerAdapter,
     SessionFileEvidenceRetriever,
     TavilyEvidenceRetriever,
@@ -187,83 +188,77 @@ def test_session_file_retriever_extracts_query_relevant_passage() -> None:
 
 
 @pytest.mark.asyncio
-async def test_deepagents_planner_builds_one_toolless_graph_and_invokes_once_per_turn(
-    monkeypatch,
-) -> None:
-    created: list[dict[str, object]] = []
-
-    class Graph:
+async def test_planner_invokes_model_once_per_turn_with_stable_payload() -> None:
+    class Model:
         def __init__(self) -> None:
             self.calls: list[object] = []
 
-        async def ainvoke(self, payload, config=None):
-            self.calls.append((payload, config))
-            return {
-                "messages": [
-                    type(
-                        "Message",
-                        (),
-                        {
-                            "content": (
-                                '```json\n{"objective":"入门","subquestions":["概念"],'
-                                '"knowledge_queries":["状态图"],'
-                                '"web_queries":["LangGraph 官方"]}\n```'
-                            )
-                        },
-                    )()
-                ]
-            }
+        async def ainvoke(self, messages):
+            self.calls.append(messages)
+            return type(
+                "Message",
+                (),
+                {
+                    "content": (
+                        '```json\n{"objective":"入门","subquestions":["概念"],'
+                        '"knowledge_queries":["状态图"],'
+                        '"web_queries":["LangGraph 官方"]}\n```'
+                    )
+                },
+            )()
 
-    graph = Graph()
-
-    def fake_create_deep_agent(**kwargs):
-        assert kwargs.get("response_format") is None
-        created.append(kwargs)
-        return graph
-
-    monkeypatch.setattr("deepagents.create_deep_agent", fake_create_deep_agent)
-    planner = DeepAgentsPlannerAdapter(object())
+    model = Model()
+    planner = ModelPlannerAdapter(model)
 
     plan = await planner.plan(TurnInput("如何入门", True, (), ()))
     await planner.plan(TurnInput("怎样继续？", False, (), (("如何入门", "先读文档"),)))
 
     assert plan.objective == "入门"
     assert plan.knowledge_queries == ("状态图",)
-    assert len(created) == 1
-    assert created[0]["tools"] == []
-    assert created[0]["subagents"] == []
-    assert created[0].get("response_format") is None
-    assert len(graph.calls) == 2
+    assert len(model.calls) == 2
+    system_prompt = model.calls[0][0]["content"]
+    user_payload = json.loads(model.calls[0][1]["content"])
+    assert "web_queries 必须为空" in system_prompt
+    assert user_payload["question"] == "如何入门"
+    assert user_payload["use_web"] is True
+    assert user_payload["recent_history"] == []
+    second_payload = json.loads(model.calls[1][1]["content"])
+    assert second_payload["recent_history"] == [
+        {"question": "如何入门", "answer": "先读文档"}
+    ]
+    # use_web=True 时透传模型给出的 web 查询；关闭态清空由 fail-closed 契约测试覆盖
+    assert plan.knowledge_queries == ("状态图",)
 
 
-def test_deepagents_planner_disables_thinking_only_for_deepseek_model(
-    monkeypatch,
-) -> None:
+def test_planner_disables_thinking_only_for_deepseek_model() -> None:
     copied: list[dict[str, object]] = []
-    created: list[dict[str, object]] = []
 
     class Model:
         model_name = "deepseek-v4-flash"
 
         def model_copy(self, *, update):
             copied.append(update)
-            return "planner-model"
+            return object()
 
-    def fake_create_deep_agent(**kwargs):
-        created.append(kwargs)
-        return object()
+    planner = ModelPlannerAdapter(Model())
 
-    monkeypatch.setattr("deepagents.create_deep_agent", fake_create_deep_agent)
-
-    DeepAgentsPlannerAdapter(Model())
-
+    assert planner._model is not None
     assert copied == [
         {
             "extra_body": {"thinking": {"type": "disabled"}},
             "model_kwargs": {"response_format": {"type": "json_object"}},
         }
     ]
-    assert created[0]["model"] == "planner-model"
+
+
+def test_planner_keeps_original_model_for_non_deepseek() -> None:
+    class Model:
+        model_name = "gpt-4.1-mini"
+
+    model = Model()
+    planner = ModelPlannerAdapter(model)
+
+    assert planner._model is model
 
 
 @pytest.mark.asyncio
