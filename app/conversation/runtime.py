@@ -81,12 +81,31 @@ def _history_records(turn: TurnInput) -> list[dict[str, str]]:
     ]
 
 
+def _current_date_line(now: Any = None) -> str:
+    """组装期注入当前日期（ISO + 星期），供所有角色 system prompt 头部使用。"""
+    import datetime as dt
+
+    moment = now or dt.datetime.now(dt.UTC)
+    weekdays = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
+    iso = moment.astimezone(dt.UTC).date().isoformat()
+    weekday = weekdays[moment.weekday()]
+    return f"今天是{iso}（{weekday}）。"
+
+
 class ModelPlannerAdapter:
     _SYSTEM_PROMPT = (
-        "你是有界研究规划器。只返回 JSON 对象，不调用任何工具，不委派任务。"
-        "字段必须为 objective、subquestions、knowledge_queries、web_queries。"
-        "最多生成 3 个子问题、2 个知识库查询和 3 个网络查询。"
-        "当本轮关闭 Web 时，web_queries 必须为空。"
+        "你是一名严谨的研究规划器。给定用户问题与近几轮对话，输出一份研究计划。\n"
+        "\n"
+        "方法要求：\n"
+        "1. 先判断问题的类型（事实查证 / 定义解释 / 多实体对比 / 时效动态 / 步骤教程），据此决定搜索侧重；\n"
+        "2. 将问题拆解为回答所必需的子问题，去掉可有可无的枝节；每轮至多 3 个子问题、2 个知识库查询、3 个网络查询；\n"
+        "3. 网络查询要具体、可命中（避免过宽的单词查询），时效类信息加年份或“最新”；权威事实类优先官方文档/规范；\n"
+        "4. 注意 recent_history：已经确立的事实不要再列入子问题；\n"
+        "5. 当本轮关闭 Web 时，web_queries 必须为空；research_intensity 取 standard 或 deep——"
+        "涉及多步论证、比较多个主体或用户明示要深入分析时取 deep。\n"
+        "\n"
+        "只返回 JSON 对象，字段：objective、subquestions、knowledge_queries、web_queries、"
+        "research_intensity、search_hints（可选）。不调用任何工具，不委派任务，不输出 JSON 以外的内容。"
     )
 
     def __init__(self, model: Any):
@@ -105,7 +124,10 @@ class ModelPlannerAdapter:
     async def plan(self, turn: TurnInput) -> TurnResearchPlan:
         response = await self._model.ainvoke(
             [
-                {"role": "system", "content": self._SYSTEM_PROMPT},
+                {
+                    "role": "system",
+                    "content": _current_date_line() + "\n" + self._SYSTEM_PROMPT,
+                },
                 {
                     "role": "user",
                     "content": json.dumps(
@@ -121,12 +143,20 @@ class ModelPlannerAdapter:
         )
         payload = _strict_json(response)
         try:
+            intensity = payload.get("research_intensity")
+            hints = payload.get("search_hints")
             return TurnResearchPlan(
                 objective=payload["objective"],
                 subquestions=tuple(payload.get("subquestions", ())),
                 knowledge_queries=tuple(payload.get("knowledge_queries", ())),
                 web_queries=(
                     tuple(payload.get("web_queries", ())) if turn.use_web else ()
+                ),
+                research_intensity=(
+                    intensity if intensity in ("standard", "deep") else None
+                ),
+                search_hints=(
+                    tuple(hints.items()) if isinstance(hints, dict) else ()
                 ),
             )
         except (KeyError, TypeError, ValueError) as exc:
@@ -157,13 +187,21 @@ class ModelCoverageReviewerAdapter:
             [
                 {
                     "role": "system",
-                    "content": (
-                        "你是一次性覆盖审阅器。仅返回 JSON，字段为 "
-                        "uncovered_questions、"
-                        "knowledge_queries、web_queries。只针对未覆盖问题生成补充查询；"
-                        "每个未覆盖问题对每个来源最多一个查询，不重复已有查询。"
-                        "recent_history 为此前数轮问答摘录；已在其中确立的事实"
-                        "不要再当作未覆盖问题。"
+                    "content": _current_date_line()
+                    + "\n"
+                    + (
+                        "你是证据覆盖审阅器。对照研究计划的子问题和已有证据，"
+                        "判断哪些部分仍未被证据支撑，并生成少量补充查询。\n"
+                        "\n"
+                        "规则：\n"
+                        "1. 逐一核对每个子问题：covered（有直接支撑）/ partial（只有间接或片面支撑）/"
+                        "uncovered（没有证据触及）；\n"
+                        "2. uncovered_questions 只收录 partial 与 uncovered 的子问题，至多 3 个，按重要性排序；\n"  # noqa: E501
+                        "3. 每个未覆盖子问题对每类来源至多生成一条查询，查询不得与研究计划和已有记录重复；\n"
+                        "4. 如果证据总体充分（关键主张均有出处），uncovered_questions 返回空数组。\n"
+                        "\n"
+                        "仅返回 JSON：uncovered_questions、knowledge_queries、web_queries。"
+                        "recent_history 为此前数轮问答摘录；已在其中确立的事实不要再当作未覆盖问题。"
                     ),
                 },
                 {
@@ -230,16 +268,22 @@ class ModelSynthesizerAdapter:
             [
                 {
                     "role": "system",
-                    "content": (
-                        "你是引用式回答综合器。仅返回 JSON，字段为 "
-                        "answer_sections、claims、"
-                        "limitations。每个 answer_sections 项含 text 和 claim_indexes；"
-                        "claims 项含 statement 和 evidence_ids。只使用给出的证据 ID。"
-                        "用自然中文段落直接回答问题，不复述内部结构。"
-                        "recent_history 为此前数轮问答摘录；回答需自然衔接其中"
-                        "已确立的概念与结论，避免重复解释。回答控制在约 "
-                        f"{answer_budget} 个中文字符。涉及权限或安全限制时统一表述为"
-                        "‘仅按允许列表执行’，不使用其他同义措辞。"
+                    "content": _current_date_line()
+                    + "\n"
+                    + (
+                        "你是研究综合撰写人。根据证据集与既定计划撰写回答。\n"
+                        "\n"
+                        "要求：\n"
+                        "1. 用自然、连贯的中文段落直接回答用户的问题；开头给出结论，再展开论据；不复述内部结构；\n"
+                        "2. 每个事实性陈述都必须挂接 claims，claims.statement 对应答案中的一句话要点，"
+                        "evidence_ids 只能来自给出的证据 ID；一段 text 通过 claim_indexes 关联若干 claim；\n"  # noqa: E501
+                        "3. 结合 recent_history 自然承接前文，不重复解释已确立的概念；\n"
+                        "4. 证据之间冲突时如实呈现分歧而不是擅自裁决，并把冲突写入 limitations；\n"
+                        "5. 信息可能因时间而变化的部分，利用证据中的时间信息谨慎表述（“截至…”）；\n"
+                        "6. 涉及权限或安全限制的话题统一表述为“仅按允许列表执行”，不使用其他同义措辞；\n"
+                        f"7. 回答长度控制在约 {answer_budget} 个中文字符。\n"
+                        "\n"
+                        "仅返回 JSON：answer_sections、claims、limitations。"
                     ),
                 },
                 {
@@ -336,11 +380,14 @@ class KnowledgeEvidenceRetriever:
 
 
 class TavilyEvidenceRetriever:
-    def __init__(self, provider: Any):
+    def __init__(self, provider: Any, plan_provider: Any = None):
         self._provider = provider
+        self._plan_provider = plan_provider
 
     def search_sync(self, query: str, *, limit: int = 10) -> tuple[EvidenceItem, ...]:
-        options = _web_search_options(query)
+        options = _web_search_options(
+            query, self._plan_provider() if self._plan_provider else None
+        )
         parameters = inspect.signature(self._provider.search).parameters
         supports_options = any(
             parameter.kind is inspect.Parameter.VAR_KEYWORD
@@ -379,7 +426,18 @@ class TavilyEvidenceRetriever:
         return await asyncio.to_thread(self.search_sync, query, limit=limit)
 
 
-def _web_search_options(query: str) -> dict[str, str]:
+def _web_search_options(query: str, plan: Any = None) -> dict[str, str]:
+    """规划器 search_hints 优先；缺失/非法时回退关键词启发。"""
+    if plan is not None and getattr(plan, "search_hints", None):
+        options: dict[str, str] = {}
+        for key in ("search_depth", "topic", "time_range"):
+            value = plan.hint(key)
+            if isinstance(value, str) and value.strip():
+                options[key] = value.strip()
+        if options:
+            if "search_depth" not in options:
+                options["search_depth"] = "basic"
+            return options
     folded = query.casefold()
     current_terms = (
         "最新",
@@ -558,7 +616,9 @@ def build_conversation_application(
         try:
             from app.providers.tavily import TavilyWebProvider
 
-            web = TavilyEvidenceRetriever(TavilyWebProvider(settings.tavily_api_key))
+            web = TavilyEvidenceRetriever(
+                TavilyWebProvider(settings.tavily_api_key)
+            )
             web_ready = True
         except Exception:
             web = _UnavailableRetriever()

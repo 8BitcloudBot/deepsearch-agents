@@ -23,9 +23,18 @@ class TurnResearchPlan:
     subquestions: tuple[str, ...]
     knowledge_queries: tuple[str, ...]
     web_queries: tuple[str, ...]
+    research_intensity: Literal["standard", "deep"] | None = None
+    search_hints: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "objective", _text(self.objective, "objective"))
+        if self.research_intensity not in (None, "standard", "deep"):
+            raise ValueError("research_intensity is invalid")
+        if self.search_hints:
+            hints = tuple(
+                (str(key), str(value)) for key, value in dict(self.search_hints).items()
+            )
+            object.__setattr__(self, "search_hints", hints)
         for field, maximum in (
             ("subquestions", 3),
             ("knowledge_queries", 2),
@@ -40,12 +49,20 @@ class TurnResearchPlan:
                 raise ValueError(f"{field} contain duplicates")
             object.__setattr__(self, field, cleaned)
 
+    def hint(self, key: str) -> str | None:
+        for name, value in self.search_hints:
+            if name == key:
+                return value
+        return None
+
     def as_dict(self) -> dict[str, object]:
         return {
             "objective": self.objective,
             "subquestions": list(self.subquestions),
             "knowledge_queries": list(self.knowledge_queries),
             "web_queries": list(self.web_queries),
+            "research_intensity": self.research_intensity,
+            "search_hints": dict(self.search_hints) if self.search_hints else {},
         }
 
 

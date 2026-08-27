@@ -43,6 +43,10 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# 提示词原文按计划书草案整句保留（中文长句），不为 lint 缩写
+"app/conversation/runtime.py" = ["E501"]
+
 [tool.ruff.format]
 quote-style = "double"
 

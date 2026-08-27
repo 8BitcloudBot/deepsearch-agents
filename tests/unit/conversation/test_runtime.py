@@ -435,3 +435,123 @@ async def test_model_synthesizer_uses_deep_answer_budget() -> None:
     )
 
     assert "800～1400" in model.messages[0]["content"]
+
+
+def test_current_date_line_formats_iso_and_weekday() -> None:
+    import datetime as dt
+
+    from app.conversation.runtime import _current_date_line
+
+    moment = dt.datetime(2026, 8, 27, tzinfo=dt.UTC)  # 周四
+    line = _current_date_line(moment)
+    assert line.startswith("今天是2026-08-27")
+    assert "星期四" in line
+
+
+@pytest.mark.asyncio
+async def test_planner_prompt_injects_current_date() -> None:
+    class Model:
+        system = ""
+
+        async def ainvoke(self, messages):
+            self.system = messages[0]["content"]
+            return type(
+                "Response",
+                (),
+                {"content": '{"objective":"目标"}'},
+            )()
+
+    model = Model()
+    await ModelPlannerAdapter(model).plan(TurnInput("问题", True, (), ()))
+    assert model.system.startswith("今天是")
+
+
+@pytest.mark.asyncio
+async def test_planner_parses_research_intensity_and_hints() -> None:
+    class Model:
+        async def ainvoke(self, messages):
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"objective":"目标","research_intensity":"deep",'
+                        '"search_hints":{"search_depth":"advanced","topic":"news"}}'
+                    )
+                },
+            )()
+
+    plan = await ModelPlannerAdapter(Model()).plan(TurnInput("问题", True, (), ()))
+
+    assert plan.research_intensity == "deep"
+    assert plan.hint("search_depth") == "advanced"
+    assert plan.hint("topic") == "news"
+
+
+@pytest.mark.asyncio
+async def test_planner_drops_invalid_intensity_and_non_dict_hints() -> None:
+    class Model:
+        async def ainvoke(self, messages):
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"objective":"目标","research_intensity":"extreme",'
+                        '"search_hints":"not-a-dict"}'
+                    )
+                },
+            )()
+
+    plan = await ModelPlannerAdapter(Model()).plan(TurnInput("问题", True, (), ()))
+
+    assert plan.research_intensity is None
+    assert plan.search_hints == ()
+
+
+def test_plan_is_deep_prefers_planner_field_over_keywords() -> None:
+    from app.conversation.turn import _plan_is_deep
+
+    deep_plan = TurnResearchPlan(
+        "目标",
+        (),
+        (),
+        (),
+        research_intensity="deep",
+    )
+    standard_plan = TurnResearchPlan(
+        "目标",
+        (),
+        (),
+        (),
+        research_intensity="standard",
+    )
+
+    # 规划器字段生效时不再看关键词
+    assert _plan_is_deep(deep_plan, "普通问题") is True
+    assert _plan_is_deep(standard_plan, "请深入分析") is False
+    # 字段缺失时回退关键词启发
+    fallback = TurnResearchPlan("目标", (), (), ())
+    assert _plan_is_deep(fallback, "请深入分析") is True
+    assert _plan_is_deep(fallback, "普通问题") is False
+
+
+def test_web_search_options_prefer_plan_hints() -> None:
+    from app.conversation.runtime import _web_search_options
+
+    hinted = TurnResearchPlan(
+        "目标",
+        (),
+        (),
+        (),
+        search_hints=(("search_depth", "advanced"), ("topic", "news")),
+    )
+
+    options = _web_search_options("任意问题", hinted)
+
+    assert options["search_depth"] == "advanced"
+    assert options["topic"] == "news"
+
+    # 无 hints 时回退关键词启发
+    fallback_options = _web_search_options("最新进展是什么", None)
+    assert fallback_options["topic"] == "news"

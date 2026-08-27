@@ -153,6 +153,13 @@ class _TurnState(TypedDict):
     executed_queries: tuple[str, ...]
 
 
+def _plan_is_deep(plan: TurnResearchPlan | None, question: str) -> bool:
+    """规划器 research_intensity 字段优先，缺失/解析失败时回退关键词启发。"""
+    if plan is not None and plan.research_intensity is not None:
+        return plan.research_intensity == "deep"
+    return _is_deep_request(question)
+
+
 def _route_after_review(state: _TurnState) -> str:
     coverage = state.get("coverage")
     if not coverage or not (coverage.knowledge_queries or coverage.web_queries):
@@ -250,7 +257,7 @@ class TurnResearchEngine:
     async def _retrieve_initial(self, state: _TurnState) -> dict[str, object]:
         plan = self._require_plan(state)
         turn = state["turn"]
-        deep = _is_deep_request(turn.question)
+        deep = _plan_is_deep(plan, turn.question)
         knowledge_queries = (plan.knowledge_queries or (turn.question,))[:2]
         web_queries = (
             (plan.web_queries or (turn.question,))[: 3 if deep else 2]
@@ -343,7 +350,10 @@ class TurnResearchEngine:
         plan = self._require_plan(state)
         if _coverage_is_sufficient(state):
             return {"coverage": CoverageDecision()}
-        evidence_limit = 8 if _is_deep_request(state["turn"].question) else 6
+        plan = self._require_plan(state)
+        turn = state["turn"]
+        deep = _plan_is_deep(plan, turn.question)
+        evidence_limit = 8 if deep else 6
         evidence_items = _select_evidence(
             state["knowledge"],
             state["session_files"],
@@ -463,7 +473,7 @@ class TurnResearchEngine:
 
     async def _synthesize(self, state: _TurnState) -> dict[str, object]:
         plan = self._require_plan(state)
-        evidence_limit = 8 if _is_deep_request(state["turn"].question) else 6
+        evidence_limit = 8 if _plan_is_deep(plan, state["turn"].question) else 6
         evidence_items = _select_evidence(
             state["knowledge"],
             state["session_files"],
