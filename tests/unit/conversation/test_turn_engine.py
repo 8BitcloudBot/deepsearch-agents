@@ -5,6 +5,8 @@ import pytest
 
 from app.conversation.contracts import EvidenceItem, TurnResearchPlan
 from app.conversation.turn import (
+    _MAX_SUPPLEMENTAL_QUERIES_TOTAL,
+    _MAX_SUPPLEMENTAL_ROUNDS,
     CoverageDecision,
     SynthesisClaim,
     SynthesisDraft,
@@ -484,13 +486,15 @@ async def test_complete_initial_coverage_skips_reviewer() -> None:
 
 
 @pytest.mark.asyncio
-async def test_sparse_initial_coverage_reviews_once_and_bounds_supplemental_queries():
+async def test_sparse_initial_coverage_bounds_supplemental_queries_within_budget():
     class Reviewer:
         calls = 0
 
         async def review(self, turn, plan, evidence_items, limitations):
             self.calls += 1
-            return CoverageDecision(
+            # 每轮重复给出同样的候选：第 1 轮发出每来源第一条（2 条），
+    # 第 2 轮从余下候选取新的（又 2 条），第 3 轮全部去重 → 空查询退出
+    return CoverageDecision(
                 uncovered_questions=("缺口一", "缺口二"),
                 knowledge_queries=("knowledge supplement", "knowledge extra"),
                 web_queries=("web supplement", "web extra"),
@@ -511,9 +515,79 @@ async def test_sparse_initial_coverage_reviews_once_and_bounds_supplemental_quer
         Planner(), knowledge, FileRetriever(()), web, synthesizer, reviewer
     ).run(TurnInput("问题", True, (), ()))
 
-    assert reviewer.calls == 1
-    assert knowledge.calls == ["knowledge query", "knowledge supplement"]
-    assert web.calls == ["web query", "web supplement"]
+    assert reviewer.calls == 3
+    assert knowledge.calls == [
+        "knowledge query",
+        "knowledge supplement",
+        "knowledge extra",
+    ]
+    assert web.calls == ["web query", "web supplement", "web extra"]
+
+
+@pytest.mark.asyncio
+async def test_supplemental_loop_runs_multiple_rounds_until_reviewer_converges():
+    class Reviewer:
+        calls = 0
+
+        async def review(self, turn, plan, evidence_items, limitations):
+            self.calls += 1
+            done = self.calls >= 3
+            return CoverageDecision(
+                uncovered_questions=() if done else (f"缺口{self.calls}",),
+                knowledge_queries=() if done else (f"followup-{self.calls}",),
+                web_queries=(),
+            )
+
+    reviewer = Reviewer()
+    knowledge = Retriever((evidence("knowledge", 1),))
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-knowledge-1",)),),
+            limitations=(),
+        )
+    )
+
+    await TurnResearchEngine(
+        Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer, reviewer
+    ).run(TurnInput("问题", False, (), ()))
+
+    # 前两轮各执行 1 条补充查询，第 3 轮审阅收敛为空 → synthesize
+    assert knowledge.calls == ["knowledge query", "followup-1", "followup-2"]
+
+
+@pytest.mark.asyncio
+async def test_supplemental_round_budget_exhaustion_records_limitation_without_loop():
+    class Reviewer:
+        calls = 0
+
+        async def review(self, turn, plan, evidence_items, limitations):
+            self.calls += 1
+            return CoverageDecision(
+                uncovered_questions=("永远缺",),
+                knowledge_queries=(f"unique-{self.calls}",),
+                web_queries=(f"web-{self.calls}",),
+            )
+
+    knowledge = Retriever((evidence("knowledge", 1),))
+    web = Retriever((evidence("web", 1, "h.example"),))
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-knowledge-1",)),),
+            limitations=(),
+        )
+    )
+
+    result = await TurnResearchEngine(
+        Planner(), knowledge, FileRetriever(()), web, synthesizer, Reviewer()
+    ).run(TurnInput("问题", True, (), ()))
+
+    issued = len(knowledge.calls) + len(web.calls) - 2
+    assert issued == _MAX_SUPPLEMENTAL_QUERIES_TOTAL
+    # 每轮两条 × MAX_ROUNDS 轮恰好耗尽预算后退出，不死循环
+    assert issued == 2 * _MAX_SUPPLEMENTAL_ROUNDS
+    assert any("预算已用尽" in item for item in result.limitations)
 
 
 @pytest.mark.asyncio

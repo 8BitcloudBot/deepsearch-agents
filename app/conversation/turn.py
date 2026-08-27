@@ -148,6 +148,18 @@ class _TurnState(TypedDict):
     coverage: CoverageDecision | None
     session_file_retriever: SessionFileRetriever | None
     result: TurnResult | None
+    supplemental_rounds: int
+    supplemental_used: int
+    executed_queries: tuple[str, ...]
+
+
+def _route_after_review(state: _TurnState) -> str:
+    coverage = state.get("coverage")
+    if not coverage or not (coverage.knowledge_queries or coverage.web_queries):
+        return "synthesize"
+    if state.get("supplemental_rounds", 0) >= _MAX_SUPPLEMENTAL_ROUNDS:
+        return "synthesize"
+    return "supplemental"
 
 
 class TurnResearchEngine:
@@ -179,17 +191,13 @@ class TurnResearchEngine:
         graph.add_edge("retrieve", "review")
         graph.add_conditional_edges(
             "review",
-            lambda state: (
-                "supplemental"
-                if state.get("coverage")
-                and (
-                    state["coverage"].knowledge_queries or state["coverage"].web_queries
-                )
-                else "synthesize"
-            ),
+            _route_after_review,
             {"supplemental": "supplemental", "synthesize": "synthesize"},
         )
-        graph.add_edge("supplemental", "synthesize")
+        # 补充检索回环：supplemental 执行新查询后回到 review 复评，
+        # 由轮次上限与查询总预算保证收敛（retrieve 是首轮计划查询节点，
+        # 回边到它会让每一轮重复执行初始查询，故复用 review 生成下一轮）。
+        graph.add_edge("supplemental", "review")
         graph.add_edge("synthesize", END)
         self._graph = graph.compile()
 
@@ -219,8 +227,13 @@ class TurnResearchEngine:
                 "coverage": None,
                 "session_file_retriever": session_files,
                 "result": None,
+                "supplemental_rounds": 0,
+                "supplemental_used": 0,
+                "executed_queries": (),
             },
-            config={"recursion_limit": 16},
+            # plan+retrieve + (review+supplemental)×(MAX_ROUNDS+1) + synthesize
+            # 的安全上限；轮次上限保证正常收敛，这里只兜异常路径。
+            config={"recursion_limit": 5 + 2 * (_MAX_SUPPLEMENTAL_ROUNDS + 1) + 3},
         )
         result = state.get("result")
         if not isinstance(result, TurnResult):
@@ -360,6 +373,7 @@ class TurnResearchEngine:
         executed = {
             query.casefold()
             for query in (
+                *state.get("executed_queries", ()),
                 *(plan.knowledge_queries or (state["turn"].question,)),
                 *(
                     plan.web_queries or (state["turn"].question,)
@@ -370,18 +384,23 @@ class TurnResearchEngine:
         }
         knowledge_queries = _new_queries(decision.knowledge_queries, executed)
         web_queries = _new_queries(decision.web_queries, executed)
-        # One supplementary round only; a query is attributed to one uncovered
-        # question by the reviewer and therefore cannot fan out recursively.
+        # 补充查询跨轮记账：总预算内每轮至多 _SUPPLEMENTAL_PER_ROUND_LIMIT 条；
+        # 无新查询时返回空 decision，路由自然退出回环。
+        remaining = max(
+            0,
+            _MAX_SUPPLEMENTAL_QUERIES_TOTAL - state.get("supplemental_used", 0),
+        )
+        per_round = min(_SUPPLEMENTAL_PER_ROUND_LIMIT, remaining)
         candidates = [
             ("knowledge", query) for query in knowledge_queries[:1]
         ] + [
             ("web", query) for query in web_queries[:1] if state["turn"].use_web
         ]
         bounded_knowledge = tuple(
-            query for source, query in candidates[:2] if source == "knowledge"
+            query for source, query in candidates[:per_round] if source == "knowledge"
         )
         bounded_web = tuple(
-            query for source, query in candidates[:2] if source == "web"
+            query for source, query in candidates[:per_round] if source == "web"
         )
         bounded = CoverageDecision(
             uncovered_questions=decision.uncovered_questions,
@@ -392,10 +411,20 @@ class TurnResearchEngine:
         limitations = list(state["limitations"])
         if bounded.uncovered_questions:
             limitations.append("未覆盖问题：" + "；".join(bounded.uncovered_questions))
+        if state.get("supplemental_rounds", 0) >= _MAX_SUPPLEMENTAL_ROUNDS and (
+            bounded.uncovered_questions
+        ):
+            limitations.append("补充检索预算已用尽，仍有问题未被证据覆盖。")
+        issued = (*bounded_knowledge, *bounded_web)
         return {
             "coverage": bounded,
             "turn": turn,
             "limitations": tuple(dict.fromkeys(limitations)),
+            "executed_queries": (
+                *state.get("executed_queries", ()),
+                *issued,
+            ),
+            "supplemental_used": state.get("supplemental_used", 0) + len(issued),
         }
 
     async def _retrieve_supplemental(self, state: _TurnState) -> dict[str, object]:
@@ -429,6 +458,7 @@ class TurnResearchEngine:
             "knowledge": tuple(knowledge),
             "web": tuple(web),
             "limitations": tuple(dict.fromkeys(limitations)),
+            "supplemental_rounds": state.get("supplemental_rounds", 0) + 1,
         }
 
     async def _synthesize(self, state: _TurnState) -> dict[str, object]:
@@ -479,6 +509,9 @@ _SOURCE_ORDER = ("knowledge", "session_file", "web")
 _EVIDENCE_QUOTE_STANDARD_LIMIT = 1500  # 普通轮单条证据 quote 上限
 _EVIDENCE_QUOTE_DEEP_LIMIT = 2000  # 深入轮单条证据 quote 上限
 _EVIDENCE_TOTAL_CHAR_BUDGET = 24000  # 单轮证据总字符预算，超出按分数整条剔除
+_MAX_SUPPLEMENTAL_ROUNDS = 3  # 补充检索最多轮数
+_MAX_SUPPLEMENTAL_QUERIES_TOTAL = 6  # 跨轮补充查询总数预算
+_SUPPLEMENTAL_PER_ROUND_LIMIT = 2  # 每轮补充查询数（延续原夹具）
 
 
 def _enforce_total_budget(
