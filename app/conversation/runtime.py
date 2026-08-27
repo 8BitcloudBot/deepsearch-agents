@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from app.conversation.contracts import EvidenceItem, TurnResearchPlan
+from app.conversation.heuristics import is_deep_request as _is_deep_request
 from app.conversation.turn import (
     CoverageDecision,
     SynthesisClaim,
@@ -403,14 +404,6 @@ def _web_search_options(query: str) -> dict[str, str]:
     if current:
         result["time_range"] = "month"
     return result
-
-
-def _is_deep_request(question: str) -> bool:
-    folded = question.casefold()
-    return any(
-        marker in folded
-        for marker in ("深入", "详细", "全面分析", "深度", "完整分析")
-    )
 
 
 def _relevant_excerpt(content: str, query: str) -> str:

@@ -9,7 +9,8 @@
 - 备注：基线中 pyproject 主依赖仍含 deepagents / httpx（对应 A1/A4 待办）
 
 ## 已完成任务
-
+- [x] A4 httpx 移入 dev 依赖，uv.lock 刷新 (6d6502b)
+- [x] A3 _is_deep_request 收敛到 app/conversation/heuristics.py 单一定义
 ## 进行中
 
 ## 待办队列

@@ -16,6 +16,7 @@ from app.conversation.contracts import (
     TurnResearchPlan,
     TurnResult,
 )
+from app.conversation.heuristics import is_deep_request as _is_deep_request
 
 
 @dataclass(frozen=True)
@@ -515,14 +516,6 @@ def _new_queries(values: tuple[str, ...], executed: set[str]) -> tuple[str, ...]
         executed.add(normalized)
         result.append(value)
     return tuple(result)
-
-
-def _is_deep_request(question: str) -> bool:
-    folded = question.casefold()
-    return any(
-        marker in folded
-        for marker in ("深入", "详细", "全面分析", "深度", "完整分析")
-    )
 
 
 def _coverage_is_sufficient(state: _TurnState) -> bool:
