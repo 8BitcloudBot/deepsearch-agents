@@ -29,8 +29,25 @@
 ## 进行中
 
 ## 待办队列
-- 阶段 3：冒烟三问（时效题需真实 key 留给用户）+ README 重写 + 最终报告
+- 用户手测项：冒烟三问之③时效题（需真实 key，例："Tavily 最近发布了什么新功能？"）
 - 用户决策项：B6 第3点答案压缩机制是否新增
+
+## 阶段 3 收尾（2026-08-27）
+- [x] 管线级冒烟①单跳事实题：证据按分数排序（web:0.9 → web:0.8 → knowledge:0.4）、引用编号正常附加
+- [x] 管线级冒烟③追问承接：2 轮 recent_history 端到端到达综合器（规划器/审阅器 payload 由 B3/B7 单测覆盖）
+- 冒烟②时效题留用户手测：需 MODEL_API_KEY + TAVILY_API_KEY 真实凭证，验证"截至…"表述与新近 web 证据排前
+- [x] README.md 重写为现状版 (15fb7a5)
+- 全部任务状态：A1-A4 ✓、B1-B9 ✓（B6 仅第3点未实施，见用户决策项）、B10 未做（P2，仅在点名时执行）
+
+### 最终 flag 清单
+| 开关 | 默认 | 说明 |
+|---|---|---|
+| ENABLE_CITATION_VALIDATION | false | B9 引用校验；开启后未获支持 claim 裁剪+limitation。建议在验证 rules 词法阈值对本业务语料有效后再开 |
+| ENABLE_TAVILY / TAVILY_API_KEY | 不设即关 | 原有 fail-closed 语义不变 |
+| MODEL_TEMPERATURE / MODEL_TOP_P / MODEL_MAX_RETRIES | 0.2 / None / 2 | B1 参数；显式设回可即时恢复旧行为 |
+| MAX_SUPPLEMENTAL_ROUNDS / QUERIES_TOTAL | 3 / 6 | B5 预算常量（代码常量区，调参改 turn.py） |
 
 ## 用户决策记录
 - 2026-08-27 移除 deepagents 后顶层 examples/ 处置 => 删除 examples/（推荐选项）
+
+## 最终测试状态：692 passed / 4 skipped / ruff 全通过（baseline 为 735+6 examples 演示测试）
