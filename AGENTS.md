@@ -10,7 +10,7 @@
 
 1. 若存在 `EXECUTION_LOG.md` → 先读它，那是改造进度的唯一真源；从"进行中"条目恢复，禁止重做已完成任务。
 2. 找不到要做什么时：任务手册《deepsearch-agents-改进计划.md》，阶段流程《deepsearch-agents-执行提示词.md》。
-3. 历史文档一律位于 `benchmarks/docs-history/`，**默认不读**——只有用户点名历史背景或需要在 PR 里引用记录时才查。
+3. 历史文档**未随迁本工作区**（原样保留在 `/Users/wxhu/Documents/reasonix/deepsearch-agents`）。需要查证历史背景时去原仓库目录找，不要在垃圾箱或 reflog 里恢复已删内容。
 
 ## 常用命令
 
@@ -33,7 +33,6 @@ python scripts/index_knowledge.py  # 从 data/knowledge 重建 Qdrant 本地索�
 | `app/conversation/application.py`、`store.py`、`settings.py`、`model.py` | 编排入口 / SQLite 状态机 / 配置 / 模型构造 |
 | `app/knowledge/`、`app/providers/tavily.py`、`app/tools/files.py` | 知识库混合检索 / Web 检索 / 附件解析 |
 | `app/citations/` | 引用校验设施（当前只在评测侧使用，改进计划 B9 将接入运行时） |
-| `benchmarks/docs-history/` | 历史文档归档，只读 |
 
 ## 红线（任何任务不得削弱）
 
@@ -42,7 +41,6 @@ python scripts/index_knowledge.py  # 从 data/knowledge 重建 Qdrant 本地索�
 3. 错误脱敏走 `model.py` 的稳定枚举文案。
 4. `app/citations` 包不删除、不改其规则语义。
 5. API/WS 响应合同向后兼容。
-6. 归档区（benchmarks/docs-history）不参与运行时 import。
 
 ## 工作纪律
 

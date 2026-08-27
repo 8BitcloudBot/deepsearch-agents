@@ -4,7 +4,7 @@
 
 ---
 
-你是负责本机工程改造的编码代理。改造对象是 `/Users/wxhu/Documents/zcode/deepsearch-z`（已从原仓库选择性迁移的干净基线；历史文档在 `benchmarks/docs-history/`）。你的行动手册是同目录下的《deepsearch-agents-改进计划.md》（下称"计划书"）。**先完整读完计划书，再开始任何操作。**
+你是负责本机工程改造的编码代理。改造对象是 `/Users/wxhu/Documents/zcode/deepsearch-z`（从原仓库 `/Users/wxhu/Documents/reasonix/deepsearch-agents` 选择性迁移的干净基线；历史文档未随迁，需要查证历史时直接读原仓库目录）。你的行动手册是同目录下的《deepsearch-agents-改进计划.md》（下称"计划书"）。**先完整读完计划书，再开始任何操作。**
 
 ## 全局硬约束（违反任何一条立即停下并报告）
 
@@ -30,11 +30,7 @@
 2. **A3** `_is_deep_request` 收敛为单一来源（新建 app/conversation/heuristics.py）。
 3. **A1** DeepAgents 外壳替换为直连 ChatOpenAI.ainvoke（保留 system prompt/payload/DeepSeek 分支；注意 app/citations/fixtures.py 里的残留匹配一并处置；同步改造 planner 相关测试的 mock 为对 ainvoke 的 stub）。
 4. **A2** `git mv app/evaluation benchmarks/evaluation`，机械修正 scripts/evaluate*.py 与约 20 个测试文件的 import；确认 citations 包原位不动。
-5. **文档清扫**（用户明确授权范围）：先把候选清单贴出来待审，再执行——
-   - 归档到 `benchmarks/docs-history/`：docs/ 下纯历史性文档（phase-status.md、phases/* 等叙述过往阶段的文件）、根目录的历史说明类 md；
-   - 直接删除（无争议项）：__pycache__、明显的一次性草稿；
-   - **保留**：LICENSE、pyproject.toml、CI 工作流、.env.example、conf/、前端源码、README 暂不动（终验阶段重写）；
-   - 判断标准拿不准的一律归档不删除。
+5. **文档清扫（已在迁移阶段完成，本步仅兜底）**：全库扫一遍确认无散落的运行时无关 md/草稿；发现漏网项直接删除并在 EXECUTION_LOG 登记文件名与理由。判断标准拿不准的：列出来请示用户，不要擅自删除或归档——本工作区不设历史档案区。
 6. 清理产物汇总为一个独立 commit，并在 EXECUTION_LOG.md 登记【已完成】【测试状态】清单。
 7. 【停止点】向用户展示清理清单（移动了什么/删了什么/理由），等待确认后进入阶段 2。
 
@@ -56,7 +52,7 @@
 ## 阶段 3 —— 终验收口
 
 1. 按计划书 §5 跑人工冒烟三问脚本（时效题需真实 key 时标注留给用户执行）。
-2. 重写 README.md 为短平快的现状版：一句话定位、架构图（现在的 DAG）、如何配置模型/知识库、如何起服务、如何跑测试。旧 README 内容已在 docs-history 里，不丢。
+2. 重写 README.md 为短平快的现状版：一句话定位、架构图（现在的 DAG）、如何配置模型/知识库、如何起服务、如何跑测试。旧版 README 在原仓库仍可查证。
 3. EXECUTION_LOG.md 收尾为最终报告：全部任务 ✓/✗ 状态、每项一行效果备注、遗留 flag 清单（哪些开关默认关着、何时建议打开）。
 4. 输出总结消息：做了什么、哪里变好了、留了哪些逃生开关。
 

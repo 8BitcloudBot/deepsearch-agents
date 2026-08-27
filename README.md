@@ -9,7 +9,7 @@
 - 代码功能与原仓库完全一致（基线），智能化改进尚未开始。
 - 改造任务手册：《deepsearch-agents-改进计划.md》；执行流程指令：《deepsearch-agents-执行提示词.md》。
 - 执行进度记录在 `EXECUTION_LOG.md`（由执行会话创建与维护）。
-- 原仓库的历史文档（ADR、阶段交接、验收记录等）归档在 `benchmarks/docs-history/`。
+- 历史文档（ADR、阶段交接、验收记录等）未随迁；如需查证，访问原仓库目录。
 
 ## 快速开始
 
