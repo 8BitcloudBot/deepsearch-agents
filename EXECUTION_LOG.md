@@ -30,9 +30,18 @@
 
 ## 进行中
 
+### 后续优化轮（2026-08-27，按盘点优先级推进）
+- [x] 合并决策：opt/deepsearch 全部本地 commit 以 fast-forward 合入 main（此后新任务继续在 opt/deepsearch 上做）
+- [x] published_at 复查：结论"无需改动"——关键词回退路径已对时效词自动补 topic=news+time_range=month，hints 优先路径有单测；剩余缺失纯属 Tavily API 响应是否携带该字段
+- [x] Citation 真实开箱 (ENABLE_CITATION_VALIDATION=true + DeepSeek/Tavily 实测)：flag 裁剪降级路径端到端可靠、主回答引用完好；但 rules.py 词法引擎为英文冻结语料设计（ASCII tokenizer + 英文否定词表），真实中文混合语料系统性误杀（本轮即有一条 claim 被 r6 'without' 触发裁剪）→ **结论：flag 维持默认关；正式启用需先给 citations 补中文 tokenizer，触碰规则语义红线，须单独拍板**
+- [x] limitations 文案收敛 (ea69f3b)：未覆盖问题文案仅保留最新一轮，缺口解决后陈旧文案消失
+- [x] web 单查询交付上限常量化 _MAX_WEB_HITS_PER_QUERY (68d859b)，行为零变化
+- [x] B2 结构化输出 (d286f84)：output_schemas.py 三组 Pydantic 合同桥（失败原样透传旧行为）；_strict_json 噪声窗口剥离（JSON 前后夹带说明文字不再整轮失败）；MODEL_STRUCTURED_OUTPUT flag → 全角色 bind json_object；classify_model_error 类型/status_code 判断优先、字符串匹配降为兜底。真实 DeepSeek 验证通道开启链路正常
+- [x] AGENTS.md 同步现状代码地图与开关清单
+- [x] 前端 pnpm build 验证通过（vite build ✓ built in 902ms）
+
 ## 待办队列
-- [x] B4 调优：web 证据多查询合并后统一重排衰减分 (4ad2267)
-- 备选池：B10 各项（会话标题模型化 / 滚动记忆 / 优雅降级 / 前端过程展示）；ENABLE_CITATION_VALIDATION 真实开箱验证；附件上传链路真实冒烟
+- 备选池：B10 各项（会话标题模型化 / 滚动记忆 / 优雅降级 / 前端过程展示）；citations 中文 tokenizer 立项（若要正式启用引用校验）；附件上传链路真实冒烟
 
 ## 用户决策记录
 - 2026-08-27 移除 deepagents 后顶层 examples/ 处置 => 删除 examples/（推荐选项）
