@@ -358,7 +358,9 @@ async def test_model_title_generation_wins_and_falls_back_to_regex(
         store, Engine([]), ConversationReport(tmp_path / "reports", store),
         title_generator=success,
     )
-    turn = await application.submit(user, conversation.id, question="请问什么是 LangGraph？", use_web=False)
+    turn = await application.submit(
+        user, conversation.id, question="请问什么是 LangGraph？", use_web=False
+    )
     await application.execute(user, conversation.id, turn.id)
     assert store.get_conversation(user, conversation.id).title == "LangGraph 状态图入门"
 
@@ -369,7 +371,9 @@ async def test_model_title_generation_wins_and_falls_back_to_regex(
         store, Engine([]), ConversationReport(tmp_path / "reports", store),
         title_generator=fallback,
     )
-    turn2 = await application2.submit(user, second.id, question="我想了解向量数据库", use_web=False)
+    turn2 = await application2.submit(
+        user, second.id, question="我想了解向量数据库", use_web=False
+    )
     await application2.execute(user, second.id, turn2.id)
     assert store.get_conversation(user, second.id).title == "向量数据库"
 
@@ -379,6 +383,8 @@ async def test_model_title_generation_wins_and_falls_back_to_regex(
         store, Engine([]), ConversationReport(tmp_path / "reports", store),
         title_generator=TitleGenerator(),
     )
-    turn3 = await application3.submit(user, third.id, question="随便问问", use_web=False)
+    turn3 = await application3.submit(
+        user, third.id, question="随便问问", use_web=False
+    )
     await application3.execute(user, third.id, turn3.id)
     assert store.get_conversation(user, third.id).title == "我的专属标题"
