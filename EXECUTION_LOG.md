@@ -224,8 +224,12 @@ bluewhale-project.md（多轮记忆素材）。服务四能力全 ready，DEEPSE
 - [x] I5 回合取消机制（评审稿 docs/design/turn-cancellation.md，RED-first）：
   DELETE /turns/{tid}（404/409/僵尸分支）+ WS 新事件 turn.cancelled（向后兼容）
   + task 注册表按键定位；前端停止按钮；单测/integration/前端三层覆盖
-- [x] I6 citations 中文 tokenizer：评审稿 docs/design/citations-chinese-tokenizer.md
-  出毕，**待用户拍板红线4 解读**（tokenizer 属输入处理层还是规则语义）后实施
+- [x] I6 citations 中文 tokenizer：**两拍板点已决**（红线4 解读接受=tokenizer 属
+  输入处理层、默认值保持关）；实现 app/citations/chinese.py 并行中文路径
+  （rules.py 零改动）+ runtime_adapter 双 flag 串联 + 敌意套件 11 例 +
+  真机 A/B（零误杀；一次裁剪为推断性陈述符合设计）；评审稿状态已更新
+  （docs/design/citations-chinese-tokenizer.md）。观察项：真机一次 drop_reason
+  截为 ": t"（本地不可复现），已加 DEBUG 诊断日志待复跑定位
 - [x] sparse 检索重构：**决策不实施**——H6 容量上限已把最坏规模锁死在
   ~250 点，全库扫描无实际痛点；容量上限放开时再立项
 

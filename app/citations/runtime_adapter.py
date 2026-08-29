@@ -86,8 +86,12 @@ def validate_claims(
     Never raises: adapter failures count as unsupported with a reason,
     keeping the caller's degrade path usable.
     """
+    from app.citations.chinese import check_chinese, chinese_enabled
     from app.citations.rules import PHASE3_SOURCES, RuleSupportChecker, Verdict
 
+    # I6：中文并行路径——双 flag 串联（ENABLE_CITATION_VALIDATION 开且
+    # CITATIONS_CHINESE_TOKENIZER 开）；rules.py 原路径零改动。
+    use_chinese = chinese_enabled()
     checker = RuleSupportChecker()
     by_id = {item.evidence_id: item for item in evidence_items}
     reports: list[ClaimValidationReport] = []
@@ -106,9 +110,15 @@ def validate_claims(
             # 直接回填映射来源的冻结哈希使 r4 恒通过，由 r1/r2/r6 判定。
             payload_evidence["content_sha256"] = _frozen_compatible_hash()
             try:
-                judgment = checker.check(
-                    _to_citation_claim(claim), payload_evidence
-                )
+                if use_chinese:
+                    # 中文口径：直接消费 dict 形状，不做冻结哈希占位
+                    judgment = check_chinese(
+                        _to_citation_claim(claim), payload_evidence
+                    )
+                else:
+                    judgment = checker.check(
+                        _to_citation_claim(claim), payload_evidence
+                    )
             except Exception as exc:  # pragma: no cover - 防御面
                 fail_reasons.append(f"{evidence_id}: 校验异常 {type(exc).__name__}")
                 continue

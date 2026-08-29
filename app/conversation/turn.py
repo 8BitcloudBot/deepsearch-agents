@@ -895,6 +895,13 @@ def _finalize_draft_with_validation(
     valid_claims = tuple(
         claim for claim in result.claims if claim.statement in keep_statements
     )
+    for report in unsupported:
+        logger.debug(
+            "claim dropped id=%s reasons_type=%s reasons=%r",
+            report.claim.claim_id,
+            type(report.reasons).__name__,
+            report.reasons,
+        )
     drop_reasons = "; ".join(
         reason for report in unsupported for reason in report.reasons[:1]
     )
