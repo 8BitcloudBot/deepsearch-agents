@@ -671,3 +671,26 @@ async def test_reviewer_receives_brief_history_while_synthesizer_full() -> None:
     reviewer_history = model.payloads[0]["recent_history"]
     assert reviewer_history[0]["answer"] == "细" * 300  # 审阅器吃摘要（H12）
     assert _history_records(turn)[0]["answer"] == long_answer  # 全量路径不变
+
+
+def test_short_output_roles_carry_max_tokens_cap() -> None:
+    from app.conversation.runtime import (
+        ModelCoverageReviewerAdapter,
+        ModelPlannerAdapter,
+        ModelTitleAdapter,
+    )
+
+    class FakeModel:
+        def bind(self, **kwargs):
+            return ("bound", kwargs)
+
+    assert ModelTitleAdapter(FakeModel())._model[1] == {"max_tokens": 200}
+    assert ModelPlannerAdapter(FakeModel())._model[1] == {"max_tokens": 600}
+    assert ModelCoverageReviewerAdapter(FakeModel())._model[1] == {"max_tokens": 800}
+
+
+def test_reviewer_prompt_tightens_covered_judgement() -> None:
+    from app.conversation.prompts import COVERAGE_REVIEWER_SYSTEM_PROMPT
+
+    assert "不因表述措辞" in COVERAGE_REVIEWER_SYSTEM_PROMPT
+    assert "必须为空数组" in COVERAGE_REVIEWER_SYSTEM_PROMPT

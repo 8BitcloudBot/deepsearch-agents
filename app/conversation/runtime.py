@@ -47,6 +47,17 @@ _FENCE_RE = re.compile(
     r"^```(?:json)?\s*\n(?P<body>.*?)\n```$", re.DOTALL | re.IGNORECASE
 )
 logger = logging.getLogger("deepsearch.runtime")
+# I4：短输出角色的 max_tokens 上限（真机实测 title 曾失控输出 2442 token）；
+# synthesizer 不设限（回答 800～1400 汉字需要空间）。
+_MAX_TOKENS_TITLE = 200
+_MAX_TOKENS_PLANNER = 600
+_MAX_TOKENS_REVIEWER = 800
+
+
+def _bind_max_tokens(model: Any, max_tokens: int) -> Any:
+    if callable(getattr(model, "bind", None)):
+        return model.bind(max_tokens=max_tokens)
+    return model
 _MAX_QUOTE = 2000
 _EXCERPT_PARAGRAPHS = 2  # 每次摘录取查询词密度最高的前 N 个段落
 _MAX_WEB_HITS_PER_QUERY = 5  # 每条 web 查询交付证据数上限（providers 层有同值兜底）
@@ -167,7 +178,7 @@ class ModelPlannerAdapter:
             planner_model = model.model_copy(
                 update={"extra_body": extra_body, "model_kwargs": model_kwargs}
             )
-        self._model = planner_model
+        self._model = _bind_max_tokens(planner_model, _MAX_TOKENS_PLANNER)
 
     async def plan(self, turn: TurnInput) -> TurnResearchPlan:
         response = await self._model.ainvoke(
@@ -215,7 +226,7 @@ class ModelPlannerAdapter:
 
 class ModelCoverageReviewerAdapter:
     def __init__(self, model: Any):
-        self._model = model
+        self._model = _bind_max_tokens(model, _MAX_TOKENS_REVIEWER)
 
     async def review(
         self,
@@ -369,7 +380,7 @@ class ModelTitleAdapter:
     """B10-1：首问生成会话标题；任何失败由调用方回退正则路径。"""
 
     def __init__(self, model: Any):
-        self._model = model
+        self._model = _bind_max_tokens(model, _MAX_TOKENS_TITLE)
 
     async def generate(self, question: str) -> str:
         response = await self._model.ainvoke(
