@@ -63,7 +63,7 @@ function EvidenceCard({ evidence, anchorId }: { evidence: EvidenceItem; anchorId
       <div className="evidence-location">
         {isLink ? (
           <a href={evidence.locator_value} target="_blank" rel="noreferrer">打开来源</a>
-        ) : evidence.locator_value}
+        ) : null}
         {evidence.published_at && <time dateTime={evidence.published_at}>{evidence.published_at.slice(0, 10)}</time>}
       </div>
     </article>
@@ -72,6 +72,10 @@ function EvidenceCard({ evidence, anchorId }: { evidence: EvidenceItem; anchorId
 
 function TurnMessage({ turn }: { turn: Turn }) {
   const result = turn.result;
+  // 展示审阅：内部诊断条目（证据 id 前缀/重叠率）不直接呈现给用户
+  const userLimitations = (result?.limitations ?? []).filter(
+    (item) => !item.startsWith("ev-") && !item.includes("词法重叠"),
+  );
   const evidenceById = new Map((result?.evidence ?? []).map((item) => [item.evidence_id, item]));
   const citedIds = new Set((result?.claims ?? []).flatMap((claim) => claim.evidence_ids));
   const citedEvidence = (result?.evidence ?? []).filter((item) => citedIds.has(item.evidence_id));
@@ -95,9 +99,6 @@ function TurnMessage({ turn }: { turn: Turn }) {
         <div className="message-error">本轮没有生成可交付回答，请调整问题后重试。</div>
       ) : (
         <>
-          {result && result.limitations.length > 0 && (
-            <div className="turn-limitations"><strong>本轮限制</strong><ul>{result.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>
-          )}
           <div className="message-answer"><span className="message-label">助手</span>
             <div className="answer-body">
               {(turn.answer ?? result?.answer ?? "正在整理回答…").split(/\n{2,}/).map((paragraph, index) => (
@@ -105,6 +106,12 @@ function TurnMessage({ turn }: { turn: Turn }) {
               ))}
             </div>
           </div>
+          {userLimitations.length > 0 && (
+            <details className="turn-notes">
+              <summary>本轮限制与说明（{userLimitations.length}）</summary>
+              <ul>{userLimitations.map((item) => <li key={item}>{item}</li>)}</ul>
+            </details>
+          )}
           {result && (
             <section className="turn-evidence" aria-label="本轮依据">
               <h3>本轮依据</h3>
@@ -148,7 +155,10 @@ function Sidebar({ state, active }: { state: ConversationWorkspaceState; active:
         <div><span className="section-kicker">DEEPSEARCH</span><h1>研究助手</h1></div>
         <button className="icon-button" type="button" aria-label="新建会话" title="新建会话" onClick={() => void state.createConversation()}>+</button>
       </div>
-      <div className="sidebar-user"><span className="connection-dot connection-open" />{state.user?.username}<button type="button" onClick={() => void state.logout()}>退出</button></div>
+      <div className="sidebar-user">
+        <span className="sidebar-identity"><span className="connection-dot connection-open" />{state.user?.username}</span>
+        <button type="button" onClick={() => void state.logout()}>退出</button>
+      </div>
       <div className="library-nav" role="tablist" aria-label="工作区视图">
         <button type="button" className={state.view === "research" ? "active" : ""} onClick={() => state.setView("research")}>研究</button>
         <button type="button" className={state.view === "library" ? "active" : ""} onClick={() => state.setView("library")}>知识库</button>
@@ -223,6 +233,9 @@ export function ConversationWorkspace({ state }: { state: ConversationWorkspaceS
     state.activeConversation ??
     state.conversations.find((item) => item.id === state.activeConversationId) ??
     null;
+  // 列表项是轻量摘要（无 turns），详情未到达前不当作空会话渲染
+  const activeDetail =
+    active && Array.isArray(active.turns) ? active : null;
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   return (
@@ -248,7 +261,7 @@ export function ConversationWorkspace({ state }: { state: ConversationWorkspaceS
         </header>
         {state.error && <div role="alert" className="notice notice-error">{state.error}</div>}
         <div className="message-stream">
-          {!active ? <div className="empty-conversation"><h3>从一个问题开始</h3><p>本地知识库始终参与；需要最新资料时再打开实时网络。</p></div> : active.turns.length === 0 ? <div className="empty-conversation"><h3>这是一段新的研究</h3><p>试着问一个你正在学习的技术问题。</p></div> : active.turns.map((turn) => <TurnMessage key={turn.id} turn={turn} />)}
+          {!activeDetail ? <div className="empty-conversation"><h3>从一个问题开始</h3><p>本地知识库始终参与；需要最新资料时再打开实时网络。</p></div> : activeDetail.turns.length === 0 ? <div className="empty-conversation"><h3>这是一段新的研究</h3><p>试着问一个你正在学习的技术问题。</p></div> : activeDetail.turns.map((turn) => <TurnMessage key={turn.id} turn={turn} />)}
         </div>
         <div className="composer-dock">
           {state.stage && <div className="stage-line" role="status"><span className="stage-pulse" />{state.stage}

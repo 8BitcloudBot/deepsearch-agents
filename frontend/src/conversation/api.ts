@@ -90,7 +90,8 @@ export const conversationApi = {
 };
 
 export function eventSocketUrl(baseUrl: string, conversationId: string): string {
-  const url = new URL(baseUrl);
+  // 同源模式（baseUrl 为空）退回当前 origin，new URL 不接受空串
+  const url = new URL(baseUrl || window.location.origin);
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   url.pathname = `/api/conversations/${conversationId}/events`;
   url.search = "";

@@ -252,3 +252,33 @@ bluewhale-project.md（多轮记忆素材）。服务四能力全 ready，DEEPSE
 - 暂缓观察：sparse 检索重构（触发条件未达成）
 - 已全部收口：真机观察项（慢回合输出约束/审阅器文案）、4 项漏网小项、
   回合取消机制；留档决策项（单机假设、B6-3、主库冻结等）不变
+
+
+## 前端展示审阅轮（2026-08-30，浏览器真机逐屏截图审阅）
+
+真机审阅发现并修复三个功能性缺陷 + 一批展示优化：
+
+### 功能缺陷（审阅实测暴露）
+- [x] 跨站 cookie 401：页面 localhost:5173 与 API 默认 127.0.0.1:8000 属跨站，
+  SameSite=Lax 会话 cookie 不随 fetch 发送 → 登录后会话列表静默为空、事件
+  收不到。修复：vite dev 代理 /api → 127.0.0.1:8000（ws 支持），前端默认
+  同源（VITE_API_BASE_URL 覆盖保留）；顺带发现 vite 仅绑定 ::1 时 IPv4
+  客户端（内嵌浏览器）连接失败，server.host 双栈监听。
+- [x] lite 摘要形状崩溃：hook 将 lite 列表直接断言为 Conversation 形状
+  （无 turns 字段），组件 fallback 读 active.turns.length 白屏。修复：
+  lite 结果补空 turns/attachments + 组件 activeDetail 守卫（双保险）。
+- [x] eventSocketUrl 对空 baseUrl 构造 URL 抛 Invalid URL（同源模式），
+  React 崩溃卸载。修复：退回 location.origin。
+
+### 展示优化
+- [x] "本轮限制"黄色大块从回答上方移除：流程性说明折叠为回答后方的
+  "本轮限制与说明（N）"面板（默认收起）；内部诊断条目（ev- 前缀、
+  token 重叠率）过滤不展示。
+- [x] 主题统一：知识库页与工作区切换按钮的蓝色（#1a73e8）全部收敛到
+  全站绿色系；证据卡裸露的 chunk locator 技术串对用户隐藏。
+- [x] 侧栏身份成组（绿点+用户名），退出靠右；证据卡标题 13→14px；
+  清理 T1 后死附件样式与重复的 .visually-hidden 弱化定义；补
+  cancel-turn/stage-subquestions 新元素样式与窄屏缩进。
+
+最终测试状态：前端 tsc + vitest 13 passed + vite build 通过；后端无改动
+（626 unit passed 基线不变）。

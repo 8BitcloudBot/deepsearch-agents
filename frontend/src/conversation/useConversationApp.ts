@@ -46,9 +46,10 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
   }, []);
 
   const loadConversations = useCallback(async (preferredId?: string | null) => {
-    // G11：列表走轻量端点（仅元数据），详情单独按需拉取
+    // G11：列表走轻量端点（仅元数据），详情单独按需拉取；
+    // 补空 turns/attachments 使其满足组件层 Conversation 形状
     const items = await conversationApi.conversationsLite(baseUrl);
-    setConversations(items);
+    setConversations(items.map((item) => ({ ...item, turns: [], attachments: [] })));
     setActiveConversationId((current) => {
       const candidate = preferredId ?? current;
       return candidate && items.some((item) => item.id === candidate)

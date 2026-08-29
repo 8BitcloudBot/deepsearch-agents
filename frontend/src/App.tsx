@@ -1,7 +1,8 @@
 import { ConversationWorkspace, LoginScreen } from "./conversation/ConversationWorkspace";
 import { useConversationApp } from "./conversation/useConversationApp";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+// 默认同源（vite dev 走代理）；独立部署时用 VITE_API_BASE_URL 覆盖
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 export default function App() {
   const state = useConversationApp(API_BASE_URL);

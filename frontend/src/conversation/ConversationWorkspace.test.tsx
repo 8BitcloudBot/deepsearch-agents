@@ -116,12 +116,14 @@ describe("ConversationWorkspace", () => {
     render(<ConversationWorkspace state={value} />);
     expect(screen.queryByText("补充检索来源（未被声明引用）")).not.toBeInTheDocument();
     expect(screen.queryByText("补充页面")).not.toBeInTheDocument();
-    const limitation = screen.getByText("未覆盖部署规模问题。");
     const answer = screen.getByText((_, element) =>
       element?.tagName === "P" &&
       element.textContent === "LangGraph 用状态图组织可恢复的 Agent 流程。[1]",
     );
-    expect(limitation.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // 展示审阅：限制说明折叠面板位于回答之后（默认收起，不压在回答上方）
+    const notes = screen.getByText("本轮限制与说明（1）");
+    // answer 在 notes 之前（notes.compareDocumentPosition(answer) 返回 PRECEDING）
+    expect(notes.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   it("expands and collapses a clamped evidence quote", () => {
