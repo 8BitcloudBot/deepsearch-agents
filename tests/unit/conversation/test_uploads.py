@@ -87,3 +87,25 @@ def test_empty_content_rejected(tmp_path: Path) -> None:
     store = make_store(tmp_path)
     with pytest.raises(ValueError):
         store.ingest("user-1", "empty.md", "   \n  ")
+
+
+def test_delete_user_removes_collection_directory_and_caches(
+    tmp_path: Path,
+) -> None:
+    store = make_store(tmp_path)
+    store.ingest("user-1", "handbook.md", "48小时报销制与住宿标准。")
+    assert store.retriever_for("user-1") is not None
+    assert (tmp_path / "user-uploads" / "user-1").exists()
+
+    assert store.delete_user("user-1") is True
+    assert not (tmp_path / "user-uploads" / "user-1").exists()
+    assert store.list_documents("user-1") == ()
+    assert store.retriever_for("user-1") is None
+    # 缓存清除后重新入库可用（同一生命周期内回收干净）
+    store.ingest("user-1", "handbook.md", "重新入库的内容。")
+    assert store.retriever_for("user-1") is not None
+
+
+def test_delete_user_without_directory_reports_false(tmp_path: Path) -> None:
+    store = make_store(tmp_path)
+    assert store.delete_user("never-uploaded") is False

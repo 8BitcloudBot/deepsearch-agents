@@ -201,3 +201,18 @@ def test_completed_turn_persists_schema_5_result(tmp_path: Path) -> None:
     assert completed.status == "completed"
     assert completed.answer == "回答。[1]"
     assert completed.result == result.as_dict()
+
+
+def test_admin_conversation_ids_lists_target_user_conversations(tmp_path) -> None:
+    import pytest
+
+    repository = ConversationStore(tmp_path / "state.sqlite3")
+    admin = repository.authenticate("admin", "0000")
+    user = repository.authenticate("user", "0000")
+    assert admin is not None and user is not None
+    first = repository.create_conversation(user, "会话一")
+    repository.create_conversation(user, "会话二")
+    ids = repository.admin_conversation_ids(admin, user.id)
+    assert first.id in ids and len(ids) == 2
+    with pytest.raises(PermissionError):
+        repository.admin_conversation_ids(user, user.id)

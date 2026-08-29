@@ -7,6 +7,7 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+from weakref import WeakValueDictionary
 
 from app.conversation.report import ConversationReport
 from app.conversation.store import ConversationStore, Turn, User
@@ -36,7 +37,11 @@ class ConversationApplication:
             source: {"status": "unavailable"}
             for source in ("model", "knowledge", "web", "session_file")
         }
-        self._turn_locks: dict[tuple[str, str], asyncio.Lock] = {}
+        # 弱值字典：锁仅在被等待/持有时存活，回合结束后自动回收，
+        # 避免 (conversation, turn) 键随进程生命周期无限累积（G3）。
+        self._turn_locks: WeakValueDictionary[
+            tuple[str, str], asyncio.Lock
+        ] = WeakValueDictionary()
         self.upload_store = upload_store
 
     async def submit(

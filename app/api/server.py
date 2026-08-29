@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import secrets
 from pathlib import Path
@@ -47,6 +48,7 @@ from app.conversation.store import (
     Turn,
     User,
 )
+from app.logging_setup import brief
 
 _COOKIE = "deepsearch_session"
 _LIBRARY_MAX_FILE_SIZE = 10 * 1024 * 1024  # 与 readers.MAX_FILE_SIZE_BYTES 一致
@@ -218,6 +220,9 @@ def create_app(
         user_id: str, user: User = Depends(current_user)
     ) -> None:
         try:
+            # 会话行删除前先清外置资产：报告文件与个人知识库（G3 数据完整性）
+            for conversation_id in store.admin_conversation_ids(user, user_id):
+                report.discard(user, conversation_id)
             store.admin_delete_user_data(user, user_id)
         except PermissionError as exc:
             raise HTTPException(
@@ -227,6 +232,14 @@ def create_app(
             raise HTTPException(
                 status_code=422, detail="administrator data cannot be deleted here"
             ) from exc
+        library = getattr(conversation_application, "upload_store", None)
+        if library is not None:
+            try:
+                library.delete_user(user_id)
+            except Exception as exc:
+                logging.getLogger("deepsearch.api").warning(
+                    "cleanup uploads for user failed: %s", brief(exc)
+                )
 
     @app.get("/api/conversations", response_model=list[ConversationResponse])
     async def list_conversations(
@@ -281,6 +294,7 @@ def create_app(
         conversation_id: str, user: User = Depends(current_user)
     ) -> None:
         require_conversation(user, conversation_id)
+        report.discard(user, conversation_id)
         store.delete_conversation(user, conversation_id)
 
     @app.post(

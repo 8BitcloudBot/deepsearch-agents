@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -154,6 +155,19 @@ class UploadKnowledgeStore:
         self._index_for(user_id).delete_documents((document_id,))
         self._metas[user_id] = after
         self._save_meta(user_id)
+        return True
+
+    def delete_user(self, user_id: str) -> bool:
+        """管理员清理用户数据时连带删除其整个个人知识库（G3 数据完整性）。
+
+        清除内存缓存后整目录移除；目录不存在视为已清理，返回 False。
+        """
+        directory = self._user_dir(user_id)
+        self._indexes.pop(user_id, None)
+        self._metas.pop(user_id, None)
+        if not directory.exists():
+            return False
+        shutil.rmtree(directory)
         return True
 
     def list_documents(self, user_id: str) -> tuple[dict[str, str], ...]:

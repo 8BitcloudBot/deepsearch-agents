@@ -204,6 +204,15 @@ class ConversationStore:
             for row in rows
         )
 
+    def admin_conversation_ids(self, actor: User, user_id: str) -> tuple[str, ...]:
+        """admin 视角列出目标用户的会话 id（供清理 SQLite 之外的外置资产）。"""
+        self._require_admin(actor)
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT id FROM conversations WHERE owner_id = ?", (user_id,)
+            ).fetchall()
+        return tuple(row["id"] for row in rows)
+
     def admin_delete_user_data(self, actor: User, user_id: str) -> None:
         self._require_admin(actor)
         if actor.id == user_id:

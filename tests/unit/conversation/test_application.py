@@ -75,7 +75,9 @@ async def test_application_runs_turn_with_recent_history_and_refreshes_report(
     ]
     assert events[1]["data"] == {"source_kinds": ["knowledge", "web"]}
     report_path = store.report_path(user, conversation.id)
-    assert report_path is not None and Path(report_path).exists()
+    assert report_path is not None
+    # G3 起报告路径存相对路径（相对报告根目录）
+    assert (tmp_path / "reports" / report_path).exists()
 
 
 @pytest.mark.asyncio
@@ -194,3 +196,24 @@ async def test_first_successful_turn_assigns_an_automatic_title(tmp_path: Path) 
     assert store.get_conversation(user, conversation.id).title == (
         "LangGraph 的状态和持久化应该怎么入门"
     )
+
+
+@pytest.mark.asyncio
+async def test_turn_lock_entry_is_reclaimed_after_execution(tmp_path: Path) -> None:
+    import gc
+
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = store.authenticate("user", "0000")
+    assert user is not None
+    conversation = store.create_conversation(user, "锁回收")
+    application = ConversationApplication(
+        store, Engine([]), ConversationReport(tmp_path / "reports", store)
+    )
+    turn = await application.submit(
+        user, conversation.id, question="问题", use_web=False
+    )
+    await application.execute(user, conversation.id, turn.id)
+    del turn
+    gc.collect()
+    # 弱值字典：回合结束后锁条目自动回收，不随进程生命周期累积（G3）
+    assert len(application._turn_locks) == 0

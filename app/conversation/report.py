@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -35,10 +36,16 @@ class ConversationReport:
         self._store.record_report(
             user,
             conversation_id,
-            path=str(target),
+            # 存相对路径：报告根目录迁移后记录不失效（G3 数据完整性）
+            path=str(target.relative_to(self._root)),
             checksum=hashlib.sha256(markdown.encode("utf-8")).hexdigest(),
         )
         return target
+
+    def discard(self, user: User, conversation_id: str) -> None:
+        """删除会话时移除其报告目录；会话不存在时由 store 抛 LookupError。"""
+        self._store.get_conversation(user, conversation_id)
+        shutil.rmtree(self._root / conversation_id, ignore_errors=True)
 
 
 def _render(

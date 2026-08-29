@@ -129,3 +129,35 @@ def test_report_ignores_running_and_failed_turns(tmp_path: Path) -> None:
 
     assert "运行中问题" not in markdown
     assert "当前尚无已完成的研究回合。" in markdown
+
+
+def test_refresh_records_relative_path_and_discard_removes_directory(
+    tmp_path: Path,
+) -> None:
+    repository = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = repository.authenticate("user", "0000")
+    assert user is not None
+    conversation = repository.create_conversation(user, "清理测试")
+    turn = repository.start_turn(
+        user, conversation.id, question="什么是状态？", use_web=True
+    )
+    repository.complete_turn(
+        user,
+        conversation.id,
+        turn.id,
+        result("回答。[1]", "ev-web-1", "https://docs.langchain.com/state"),
+    )
+    report = ConversationReport(tmp_path / "reports", repository)
+    report.refresh(user, conversation.id)
+
+    stored = repository.report_path(user, conversation.id)
+    assert stored is not None and not stored.startswith("/")
+
+    report.discard(user, conversation.id)
+    assert not (tmp_path / "reports" / conversation.id).exists()
+
+    repository.delete_conversation(user, conversation.id)
+    import pytest as _pytest
+
+    with _pytest.raises(LookupError):
+        report.discard(user, conversation.id)
