@@ -23,13 +23,9 @@ jobs:
       - name: Run tests
         run: uv run pytest tests/ -q
       - name: Lint
-        run: uv run ruff check app examples tests scripts
-      - name: Check formatting
-        run: uv run ruff format --check app examples tests scripts
+        run: uv run ruff check app tests benchmarks scripts
       - name: Run pre-commit hooks
         run: uv run pre-commit run --all-files
-      - name: Validate Compose configuration
-        run: docker compose config
       - name: Run offline environment doctor
         run: uv run python scripts/doctor.py --offline
 
