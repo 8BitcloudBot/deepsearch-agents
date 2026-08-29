@@ -44,3 +44,19 @@ def test_doctor_module_has_no_structured_data_configuration():
     doctor = importlib.reload(doctor)
     assert not hasattr(doctor, "check_mysql")
     assert not hasattr(doctor, "MYSQL_PORT")
+
+
+def test_doctor_reports_unknown_env_keys(tmp_path, monkeypatch, capsys):
+    doctor = importlib.import_module("scripts.doctor")
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "MODEL_NAME=deepseek\n"
+        "TYPO_MODEL_KEY=x\n"
+        "MYSQL_HOST=legacy\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    assert doctor.check_offline() == 0
+    output = capsys.readouterr().out
+    assert "[WARN] .env 键 TYPO_MODEL_KEY" in output
+    assert "[INFO] .env 键 MYSQL_HOST" in output

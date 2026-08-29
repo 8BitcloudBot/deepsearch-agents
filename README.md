@@ -51,7 +51,7 @@ ruff check app tests benchmarks scripts
 python scripts/index_knowledge.py        # 从 data/knowledge 语料构建 Qdrant 本地索引
 ```
 
-启动：FastAPI + WebSocket 入口在 `app/api/server.py`（`uvicorn app.api.server:app`）；前端在 `frontend/` 下 `pnpm install && pnpm dev`。
+启动：`uv run uvicorn app.main:app --reload`（FastAPI + WebSocket）；前端在 `frontend/` 下 `pnpm install && pnpm dev`。
 
 ## 配置
 

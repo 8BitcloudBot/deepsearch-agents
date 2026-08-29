@@ -22,3 +22,7 @@ def create_app() -> FastAPI:
         store=application.store,
         conversation_application=application,
     )
+
+
+# 模块级实例：uvicorn app.main:app 直跑入口（H1；装配本身 lazy 无外部连接）
+app = create_app()
