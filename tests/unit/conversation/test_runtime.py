@@ -649,6 +649,8 @@ def test_settings_parses_per_role_temperature() -> None:
 
 
 async def test_reviewer_receives_brief_history_while_synthesizer_full() -> None:
+    from app.conversation.runtime import _history_records
+
     long_answer = "细" * 5000
 
     class Model:
