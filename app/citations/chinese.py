@@ -60,7 +60,14 @@ def tokenize_chinese(text: str) -> tuple[str, ...]:
 
 
 def _digits(text: str) -> set[str]:
-    return set(_DIGIT_RE.findall(text))
+    """数字锚点集合：按数值归一（023 与 23 同值），小数原样保留。"""
+    values: set[str] = set()
+    for raw in _DIGIT_RE.findall(text):
+        try:
+            values.add(str(int(raw)))
+        except ValueError:
+            values.add(raw)
+    return values
 
 
 def _negations(text: str) -> set[str]:
@@ -110,7 +117,7 @@ def check_chinese(claim: dict, evidence: dict) -> ChineseJudgment:
             reasons=(
                 "证据原文引入了声明中不存在的否定表述：" + "、".join(new_negations)
                 + "（r6 否定冲突，中文路径）",
-            ),
+            ),  # 尾逗号：单元素 tuple（I6 修正：缺逗号实为 str，迭代会逐字符展开）
         )
 
     claim_digits = _digits(statement)
@@ -123,7 +130,7 @@ def check_chinese(claim: dict, evidence: dict) -> ChineseJudgment:
             reasons=(
                 "声明中的数字 " + "、".join(missing_digits)
                 + " 未出现在证据原文中（数字锚点，中文路径）",
-            ),
+            ),  # 尾逗号：单元素 tuple
         )
 
     claim_tokens = set(tokenize_chinese(statement))
@@ -148,8 +155,8 @@ def check_chinese(claim: dict, evidence: dict) -> ChineseJudgment:
             matched,
             reasons=(
                 f"token 重叠率 {score:.2f} 达到 {min_overlap:.2f} 阈值"
-                "（r2 词法重叠，中文路径）"
-            ),
+                "（r2 词法重叠，中文路径）",
+            ),  # 尾逗号：单元素 tuple
         )
     return ChineseJudgment(
         Verdict.UNSUPPORTED,
@@ -157,8 +164,8 @@ def check_chinese(claim: dict, evidence: dict) -> ChineseJudgment:
         matched,
         reasons=(
             f"token 重叠率 {score:.2f} 低于 {min_overlap:.2f} 阈值"
-            "（r2 词法重叠，中文路径）"
-        ),
+            "（r2 词法重叠，中文路径）",
+        ),  # 尾逗号：单元素 tuple
     )
 
 

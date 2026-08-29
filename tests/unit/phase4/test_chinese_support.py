@@ -148,3 +148,40 @@ def test_chinese_flag_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("CITATIONS_CHINESE_TOKENIZER", raising=False)
     assert chinese_enabled({}) is False
     assert chinese_enabled({"CITATIONS_CHINESE_TOKENIZER": "1"}) is True
+
+
+def test_all_branch_reasons_are_tuple_of_str() -> None:
+    """I6 回归：reasons 缺尾逗号会变成 str，adapter 迭代时逐字符展开
+    （真机 ": t" 根因）。锁定所有分支的 reasons 必须是 tuple[str, ...]。"""
+    cases = [
+        (
+            claim("个人每日 token 预算为 200 万"),
+            evidence("每人每日 token 预算为 200 万。"),
+        ),
+        (
+            claim("个人每日 token 预算为 500 万"),
+            evidence("每人每日 token 预算为 200 万。"),
+        ),
+        (
+            claim("客户数据可以进入模型输入"),
+            evidence("客户数据严禁进入任何模型输入。"),
+        ),
+        (
+            claim("违规会被立即开除"),
+            evidence("首次违规暂停账号 3 天并复盘。"),
+        ),
+        (claim("   "), evidence("有效证据内容。")),
+    ]
+    for claim_input, evidence_input in cases:
+        judgment = check_chinese(claim_input, evidence_input)
+        assert isinstance(judgment.reasons, tuple), judgment
+        assert all(isinstance(item, str) for item in judgment.reasons)
+        if judgment.reasons:
+            assert len(judgment.reasons[0]) > 1  # 不再是单字符
+
+
+def test_digit_anchor_normalizes_leading_zeros() -> None:
+    judgment = check_chinese(
+        claim("设备编号 DEV-023 在用"), evidence("编号 DEV-23 的设备状态在用")
+    )
+    assert judgment.verdict is Verdict.SUPPORTED
