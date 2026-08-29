@@ -319,6 +319,7 @@ class ModelSynthesizerAdapter:
                         {
                             "question": turn.question,
                             "recent_history": _history_records(turn),
+                            "prior_summary": turn.prior_summary,
                             "plan": plan.as_dict(),
                             "evidence": evidence,
                             "limitations": list(limitations),

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import re
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -20,6 +21,22 @@ from app.logging_setup import brief
 EventEmitter = Callable[[dict[str, Any]], None]
 _HISTORY_TOKEN_BUDGET = 12000  # 中文≈1 token/字，与原 12000 字符预算语义对齐（H11）
 logger = logging.getLogger("deepsearch.application")
+
+
+def _rollup_conclusions(
+    excluded: tuple[tuple[str, str], ...], *, max_items: int = 6
+) -> str:
+    """B10-2 结论卡：窗口外更早轮次的确定性摘要（问题+答案首句）。
+
+    纯拼装、无模型调用；为空时综合器 payload 不携带该字段语义。
+    """
+    if not excluded:
+        return ""
+    lines: list[str] = []
+    for question, answer in excluded[-max_items:]:
+        first_sentence = re.split(r"[。！？!?]", answer.strip())[0][:100]
+        lines.append(f"- {question[:60]}：{first_sentence}")
+    return "此前轮次已讨论（结论卡）：\n" + "\n".join(lines)
 
 
 def _estimate_tokens(text: str) -> int:
@@ -110,19 +127,20 @@ class ConversationApplication:
         turn = self.store.get_turn(user, conversation_id, turn_id)
         if turn.status != "running":
             return turn
-        history = _bounded_history(
-            tuple(
-                (item.question, item.answer or "")
-                for item in self.store.list_turns(user, conversation_id)
-                if item.status == "completed" and item.id != turn_id and item.answer
-            ),
-            budget=self._history_token_budget,
+        all_history = tuple(
+            (item.question, item.answer or "")
+            for item in self.store.list_turns(user, conversation_id)
+            if item.status == "completed" and item.id != turn_id and item.answer
         )
+        history = _bounded_history(all_history, budget=self._history_token_budget)
+        # B10-2：窗口外更早轮次生成结论卡随回合注入综合器
+        excluded = all_history[: max(0, len(all_history) - len(history))]
         input_value = TurnInput(
             question=turn.question,
             use_web=turn.use_web,
             attachment_ids=turn.attachment_ids,
             recent_history=history,
+            prior_summary=_rollup_conclusions(excluded),
         )
         emit({"type": "stage.changed", "stage": "planning", "message": "正在分析问题"})
         source_kinds = ["knowledge"]

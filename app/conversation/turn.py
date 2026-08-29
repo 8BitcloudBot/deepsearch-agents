@@ -32,6 +32,8 @@ class TurnInput:
     attachment_ids: tuple[str, ...]
     recent_history: tuple[tuple[str, str], ...]
     uncovered_questions: tuple[str, ...] = ()
+    # B10-2：窗口外更早轮次的结论卡（确定性拼装），供综合器承接
+    prior_summary: str = ""
 
     def __post_init__(self) -> None:
         if not isinstance(self.question, str) or not self.question.strip():

@@ -466,3 +466,38 @@ async def test_same_conversation_turns_execute_serially(tmp_path: Path) -> None:
         application.execute(user, conversation.id, second.id),
     )
     assert peak == 1  # H13：同会话回合互斥串行
+
+
+@pytest.mark.asyncio
+async def test_early_rounds_roll_up_into_prior_summary(tmp_path: Path) -> None:
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = store.authenticate("user", "0000")
+    assert user is not None
+    conversation = store.create_conversation(user, "滚动记忆")
+    engine = Engine([])
+    application = ConversationApplication(
+        store, engine, ConversationReport(tmp_path / "reports", store)
+    )
+    questions = [f"第{index}个研究问题是什么？" for index in range(7)]
+    for question in questions:
+        turn = await application.submit(
+            user, conversation.id, question=question, use_web=False
+        )
+        await application.execute(user, conversation.id, turn.id)
+        engine.seen.clear()
+        with store._connect() as connection:
+            connection.execute(
+                "UPDATE turns SET answer = ? WHERE id = ?",
+                (question.replace("什么？", "") + "的结论。补充细节很长。", turn.id),
+            )
+    current = await application.submit(
+        user, conversation.id, question="当前问题", use_web=False
+    )
+    await application.execute(user, conversation.id, current.id)
+
+    seen = engine.seen[-1]
+    assert seen.recent_history and len(seen.recent_history) <= 6
+    # B10-2：窗口外的最早期轮次进入结论卡，含问题与答案首句
+    assert seen.prior_summary.startswith("此前轮次已讨论")
+    assert "第0个研究问题" in seen.prior_summary
+    assert "的结论" in seen.prior_summary
