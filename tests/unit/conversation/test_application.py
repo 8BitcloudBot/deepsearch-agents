@@ -295,3 +295,17 @@ async def test_unclassified_failure_keeps_legacy_message_and_event_shape(
     assert failed.result["error"] == "本轮研究未能完成，请稍后重试。"
     failed_events = [e for e in events if e["type"] == "turn.failed"]
     assert failed_events and "error_kind" not in failed_events[0]["data"]
+
+
+def test_truncate_at_sentence_keeps_complete_sentences() -> None:
+    from app.conversation.application import _truncate_at_sentence
+
+    text = "第一句结论。" + "细节" * 200 + "结尾句。"
+    truncated = _truncate_at_sentence(text, 50)
+    assert truncated == "第一句结论。"
+    assert len(_truncate_at_sentence(text, 10)) <= 10
+    # 无任何句末标点时退化为字符截断，预算上限依然成立
+    no_punct = "字" * 300
+    assert len(_truncate_at_sentence(no_punct, 100)) == 100
+    # 短文本原样保留
+    assert _truncate_at_sentence("完整回答。", 100) == "完整回答。"

@@ -209,6 +209,24 @@ class ConversationApplication:
             return failed
 
 
+_SENTENCE_ENDINGS = "。！？!?；;"
+
+
+def _truncate_at_sentence(text: str, limit: int) -> str:
+    """按句子边界截断（G12）：注入三角色的历史不出现拦腰残句。
+
+    从上限位置向前找最近的句末标点（中文为主，含英文 !?;）；找不到
+    （或全文无标点）退化为原字符截断，保证预算上限依然成立。
+    """
+    if len(text) <= limit:
+        return text
+    clipped = text[:limit]
+    for index in range(len(clipped) - 1, 0, -1):
+        if clipped[index] in _SENTENCE_ENDINGS:
+            return clipped[: index + 1]
+    return clipped
+
+
 def _bounded_history(
     history: tuple[tuple[str, str], ...], *, budget: int = _HISTORY_CHAR_BUDGET
 ) -> tuple[tuple[str, str], ...]:
@@ -220,7 +238,7 @@ def _bounded_history(
         available = budget - used - len(question) - 1
         if available <= 0:
             break
-        answer = answer[:available]
+        answer = _truncate_at_sentence(answer, available)
         selected.append((question, answer))
         used += len(question) + len(answer) + 1
     selected.reverse()
