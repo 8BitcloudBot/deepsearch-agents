@@ -234,3 +234,64 @@ async def test_submit_reclaims_stale_running_turns_first(tmp_path: Path) -> None
     )
     await application.submit(user, conversation.id, question="新一问", use_web=False)
     assert store.get_turn(user, conversation.id, orphan.id).status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_turn_failure_carries_model_error_category(tmp_path: Path) -> None:
+    from app.conversation.turn import TurnExecutionError
+
+    class TimeoutEngine:
+        async def run(self, turn, *, user_knowledge=None):
+            raise TurnExecutionError("model-timeout")
+
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = store.authenticate("user", "0000")
+    assert user is not None
+    conversation = store.create_conversation(user, "错误分类")
+    application = ConversationApplication(
+        store, TimeoutEngine(), ConversationReport(tmp_path / "reports", store)
+    )
+    turn = await application.submit(
+        user, conversation.id, question="问题", use_web=False
+    )
+    events: list[dict[str, object]] = []
+    failed = await application.execute(
+        user, conversation.id, turn.id, emit=events.append
+    )
+
+    assert failed.status == "failed"
+    assert failed.result is not None
+    assert failed.result["error"] == "研究模型请求超时，请稍后重试"
+    failed_events = [e for e in events if e["type"] == "turn.failed"]
+    assert failed_events
+    assert failed_events[0]["data"].get("error_kind") == "model-timeout"
+
+
+@pytest.mark.asyncio
+async def test_unclassified_failure_keeps_legacy_message_and_event_shape(
+    tmp_path: Path,
+) -> None:
+    class BrokenEngine:
+        async def run(self, turn, *, user_knowledge=None):
+            raise RuntimeError("boom")
+
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = store.authenticate("user", "0000")
+    assert user is not None
+    conversation = store.create_conversation(user, "未知错误")
+    application = ConversationApplication(
+        store, BrokenEngine(), ConversationReport(tmp_path / "reports", store)
+    )
+    turn = await application.submit(
+        user, conversation.id, question="问题", use_web=False
+    )
+    events: list[dict[str, object]] = []
+    failed = await application.execute(
+        user, conversation.id, turn.id, emit=events.append
+    )
+
+    assert failed.status == "failed"
+    assert failed.result is not None
+    assert failed.result["error"] == "本轮研究未能完成，请稍后重试。"
+    failed_events = [e for e in events if e["type"] == "turn.failed"]
+    assert failed_events and "error_kind" not in failed_events[0]["data"]

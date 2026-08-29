@@ -19,6 +19,7 @@ from app.conversation.contracts import (
     TurnResult,
 )
 from app.conversation.heuristics import is_deep_request as _is_deep_request
+from app.conversation.model import classify_model_error
 from app.logging_setup import brief
 
 logger = logging.getLogger("deepsearch.turn")
@@ -99,7 +100,11 @@ class SynthesisDraft:
 
 
 class TurnExecutionError(RuntimeError):
-    """Safe terminal failure for one turn."""
+    """Safe terminal failure for one turn; code 是 model.py 的稳定枚举值。"""
+
+    def __init__(self, code: str = "model-response-invalid") -> None:
+        super().__init__(code)
+        self.code = code
 
 
 class TurnPlanner(Protocol):
@@ -257,7 +262,7 @@ class TurnResearchEngine:
             plan = await self._planner.plan(state["turn"])
         except Exception as exc:
             logger.warning("planner failed: %s", brief(exc))
-            raise TurnExecutionError("model-response-invalid") from exc
+            raise TurnExecutionError(classify_model_error(exc).code) from exc
         logger.debug("node=plan exit intensity=%s", plan.research_intensity)
         return {"plan": plan}
 
@@ -583,7 +588,7 @@ class TurnResearchEngine:
                 )
         if isinstance(last_error, TurnExecutionError):
             raise last_error
-        raise TurnExecutionError("model-response-invalid") from last_error
+        raise TurnExecutionError(classify_model_error(last_error).code) from last_error
 
     @staticmethod
     def _require_plan(state: _TurnState) -> TurnResearchPlan:

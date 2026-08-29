@@ -45,6 +45,11 @@ class ModelUnavailable(RuntimeError):  # noqa: N818 - public contract name
         return _MODEL_MESSAGES.get(self.code, "研究模型调用失败，请稍后重试")
 
 
+def safe_message_for(code: str) -> str:
+    """稳定枚举 code 的用户面文案；未知 code 退化为通用失败文案（G9）。"""
+    return _MODEL_MESSAGES.get(code, "研究模型调用失败，请稍后重试")
+
+
 def build_agent_model(
     settings: ConversationSettings,
 ) -> tuple[Any, ModelDescriptor]:

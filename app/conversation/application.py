@@ -9,9 +9,10 @@ from pathlib import Path
 from typing import Any
 from weakref import WeakValueDictionary
 
+from app.conversation.model import safe_message_for
 from app.conversation.report import ConversationReport
 from app.conversation.store import ConversationStore, Turn, User
-from app.conversation.turn import TurnInput, TurnResearchEngine
+from app.conversation.turn import TurnExecutionError, TurnInput, TurnResearchEngine
 from app.logging_setup import brief
 
 EventEmitter = Callable[[dict[str, Any]], None]
@@ -181,18 +182,26 @@ class ConversationApplication:
             logger.warning(
                 "turn execution failed turn_id=%s: %s", turn_id, brief(exc)
             )
+            if isinstance(exc, TurnExecutionError):
+                # 红线3：用户面文案取自 model.py 稳定枚举；事件 data 新增
+                # error_kind 供前端区分"重试即可"与"配置问题"（向后兼容）
+                error_kind = exc.code
+                safe_message = safe_message_for(exc.code)
+            else:
+                error_kind = None
+                safe_message = "本轮研究未能完成，请稍后重试。"
             failed = self.store.fail_turn(
-                user,
-                conversation_id,
-                turn_id,
-                "本轮研究未能完成，请稍后重试。",
+                user, conversation_id, turn_id, safe_message
             )
             emit(
                 {
                     "type": "turn.failed",
                     "stage": "failed",
-                    "message": "本轮研究未能完成，请稍后重试。",
-                    "data": {"turn_id": turn_id},
+                    "message": safe_message,
+                    "data": {
+                        "turn_id": turn_id,
+                        **({"error_kind": error_kind} if error_kind else {}),
+                    },
                 }
             )
             return failed

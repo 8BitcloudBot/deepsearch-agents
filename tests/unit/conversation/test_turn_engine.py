@@ -1307,3 +1307,19 @@ async def test_supplemental_round_queries_personal_knowledge_library():
     # G6：补充轮与首轮一致，主库与个人知识库都执行同一组补充查询
     assert knowledge.calls == ["knowledge query", "followup-1"]
     assert personal.calls == ["knowledge query", "followup-1"]
+
+
+@pytest.mark.asyncio
+async def test_planner_timeout_maps_to_model_timeout_code():
+    class TimeoutPlanner:
+        async def plan(self, turn: TurnInput) -> TurnResearchPlan:
+            raise TimeoutError()
+
+    engine = build_engine(
+        TimeoutPlanner(), Retriever(()), FileRetriever(()), Retriever(()),
+        Synthesizer(SynthesisDraft(sections=(), claims=(), limitations=())),
+    )
+
+    with pytest.raises(TurnExecutionError) as excinfo:
+        await engine.run(TurnInput("问题", False, (), ()))
+    assert excinfo.value.code == "model-timeout"
