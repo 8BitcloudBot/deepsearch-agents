@@ -53,6 +53,29 @@ from app.logging_setup import brief
 
 _COOKIE = "deepsearch_session"
 _LIBRARY_MAX_FILE_SIZE = 10 * 1024 * 1024  # 与 readers.MAX_FILE_SIZE_BYTES 一致
+_DEFAULT_CORS_ORIGINS = (
+    "http://127.0.0.1:5181",
+    "http://localhost:5181",
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+)
+
+
+def _cors_origins() -> list[str]:
+    """DEEPSEARCH_CORS_ORIGINS 逗号分隔可覆写（H3；默认本地开发端口）。"""
+    raw = os.getenv("DEEPSEARCH_CORS_ORIGINS", "").strip()
+    if not raw:
+        return list(_DEFAULT_CORS_ORIGINS)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _cookie_secure() -> bool:
+    return os.getenv("DEEPSEARCH_COOKIE_SECURE", "").strip().casefold() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def create_app(
@@ -82,12 +105,7 @@ def create_app(
     app.state.turn_tasks: set[asyncio.Task[Any]] = set()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://127.0.0.1:5181",
-            "http://localhost:5181",
-            "http://127.0.0.1:5173",
-            "http://localhost:5173",
-        ],
+        allow_origins=_cors_origins(),
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type"],
@@ -180,7 +198,7 @@ def create_app(
             _COOKIE,
             token,
             httponly=True,
-            secure=False,
+            secure=_cookie_secure(),
             samesite="lax",
             max_age=7 * 24 * 60 * 60,
         )

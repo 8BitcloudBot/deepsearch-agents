@@ -4,6 +4,9 @@ from urllib.parse import urlsplit
 
 from app.providers.contracts import SearchHit, SearchResult
 
+# 每查询交付上限；runtime._MAX_WEB_HITS_PER_QUERY 与此同值（H3 断言锁定）
+MAX_DELIVERY_LIMIT = 5
+
 
 class TavilyWebProvider:
     def __init__(self, api_key: str):
@@ -28,8 +31,8 @@ class TavilyWebProvider:
     ) -> SearchResult:
         client = self._get_client()
         # delivery_limit 是 provider 层交付上限；runtime._MAX_WEB_HITS_PER_QUERY
-        # 与此保持同值语义，调大需两处同步（此处再做一次 min 兜底）。
-        delivery_limit = max(0, min(5, max_results))
+        # 与此同值（tests/unit/test_constants_alignment.py 锁定）。
+        delivery_limit = max(0, min(MAX_DELIVERY_LIMIT, max_results))
         candidate_limit = min(10, max(1, delivery_limit * 2))
         try:
             kwargs = {
