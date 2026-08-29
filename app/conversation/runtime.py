@@ -716,4 +716,5 @@ def build_conversation_application(
             "session_file": {"status": "unavailable"},
         },
         upload_store=upload_store,
+        stale_turn_seconds=settings.turn_stale_seconds,
     )

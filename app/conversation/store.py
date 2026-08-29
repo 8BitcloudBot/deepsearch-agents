@@ -575,6 +575,28 @@ class ConversationStore:
             )
         return self.get_turn(user, conversation_id, turn_id)
 
+    def fail_stale_running_turns(self, *, max_age_seconds: int = 1800) -> int:
+        """回收僵尸 running 回合（G4）：进程崩溃/重启后失去执行者的回合
+        会永久停留 running；按创建时刻超过阈值收敛为 failed，恢复正常
+        状态机语义。返回回收数量。
+        """
+        cutoff = (
+            dt.datetime.now(dt.UTC) - dt.timedelta(seconds=max_age_seconds)
+        ).isoformat()
+        failure = json.dumps(
+            {"schema_version": "5.0.0", "error": "服务中断，本轮研究未完成。"},
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """UPDATE turns SET status = 'failed', result_json = ?, completed_at = ?
+                WHERE status = 'running' AND created_at <= ?""",
+                (failure, _now(), cutoff),
+            )
+            return int(cursor.rowcount)
+
     def record_report(
         self,
         user: User,

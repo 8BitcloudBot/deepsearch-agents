@@ -92,6 +92,7 @@ class ConversationSettings:
     model_max_retries: int = 2
     enable_citation_validation: bool = False
     model_structured_output: bool = False
+    turn_stale_seconds: int = 1800
     knowledge: KnowledgeSettings = KnowledgeSettings()
 
     @classmethod
@@ -121,6 +122,9 @@ class ConversationSettings:
             ),
             model_structured_output=_truthy(
                 environ.get("MODEL_STRUCTURED_OUTPUT", "")
+            ),
+            turn_stale_seconds=_non_negative_int(
+                environ, "TURN_STALE_SECONDS", cls.turn_stale_seconds
             ),
             knowledge=KnowledgeSettings(
                 index_path=_safe_relative_path(

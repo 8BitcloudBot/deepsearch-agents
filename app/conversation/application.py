@@ -27,6 +27,8 @@ class ConversationApplication:
         report: ConversationReport,
         capabilities: dict[str, dict[str, str]] | None = None,
         upload_store: Any | None = None,
+        *,
+        stale_turn_seconds: int = 1800,
     ) -> None:
         self.store = store
         self.engine = engine
@@ -43,6 +45,7 @@ class ConversationApplication:
             tuple[str, str], asyncio.Lock
         ] = WeakValueDictionary()
         self.upload_store = upload_store
+        self._stale_turn_seconds = stale_turn_seconds
 
     async def submit(
         self,
@@ -52,6 +55,12 @@ class ConversationApplication:
         question: str,
         use_web: bool,
     ) -> Turn:
+        # 每次新建回合前回收僵尸 running 回合（进程崩溃/重启后的遗留状态）
+        reclaimed = self.store.fail_stale_running_turns(
+            max_age_seconds=self._stale_turn_seconds
+        )
+        if reclaimed:
+            logger.warning("reclaimed %d stale running turn(s)", reclaimed)
         return self.store.start_turn(
             user, conversation_id, question=question, use_web=use_web
         )

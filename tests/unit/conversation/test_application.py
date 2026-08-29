@@ -217,3 +217,20 @@ async def test_turn_lock_entry_is_reclaimed_after_execution(tmp_path: Path) -> N
     gc.collect()
     # 弱值字典：回合结束后锁条目自动回收，不随进程生命周期累积（G3）
     assert len(application._turn_locks) == 0
+
+
+@pytest.mark.asyncio
+async def test_submit_reclaims_stale_running_turns_first(tmp_path: Path) -> None:
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = store.authenticate("user", "0000")
+    assert user is not None
+    conversation = store.create_conversation(user, "僵尸回收")
+    orphan = store.start_turn(user, conversation.id, question="遗留", use_web=False)
+    application = ConversationApplication(
+        store,
+        Engine([]),
+        ConversationReport(tmp_path / "reports", store),
+        stale_turn_seconds=0,
+    )
+    await application.submit(user, conversation.id, question="新一问", use_web=False)
+    assert store.get_turn(user, conversation.id, orphan.id).status == "failed"

@@ -216,3 +216,25 @@ def test_admin_conversation_ids_lists_target_user_conversations(tmp_path) -> Non
     assert first.id in ids and len(ids) == 2
     with pytest.raises(PermissionError):
         repository.admin_conversation_ids(user, user.id)
+
+
+def test_fail_stale_running_turns_reclaims_only_expired(tmp_path) -> None:
+    repository = ConversationStore(tmp_path / "state.sqlite3")
+    user = repository.authenticate("user", "0000")
+    assert user is not None
+    conversation = repository.create_conversation(user, "僵尸回收")
+    stale = repository.start_turn(user, conversation.id, question="旧的", use_web=False)
+    fresh = repository.start_turn(user, conversation.id, question="新的", use_web=False)
+
+    # 新鲜回合（阈值内）不受影响
+    assert repository.fail_stale_running_turns(max_age_seconds=3600) == 0
+    assert repository.get_turn(user, conversation.id, stale.id).status == "running"
+
+    # 阈值归零：创建时刻必然早于截止线，全部 running 收敛为 failed
+    assert repository.fail_stale_running_turns(max_age_seconds=0) == 2
+    reclaimed = repository.get_turn(user, conversation.id, stale.id)
+    assert reclaimed.status == "failed"
+    assert reclaimed.completed_at is not None
+    assert repository.get_turn(user, conversation.id, fresh.id).status == "failed"
+    # 幂等：已终态的回合不再被触碰
+    assert repository.fail_stale_running_turns(max_age_seconds=0) == 0
