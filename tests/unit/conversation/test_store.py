@@ -238,3 +238,77 @@ def test_fail_stale_running_turns_reclaims_only_expired(tmp_path) -> None:
     assert repository.get_turn(user, conversation.id, fresh.id).status == "failed"
     # 幂等：已终态的回合不再被触碰
     assert repository.fail_stale_running_turns(max_age_seconds=0) == 0
+
+
+def test_schema_migration_creates_indexes_and_tracks_version(tmp_path) -> None:
+    import sqlite3
+
+    repository = ConversationStore(tmp_path / "state.sqlite3")
+    with sqlite3.connect(repository.path) as connection:
+        version = connection.execute(
+            "SELECT version FROM schema_state"
+        ).fetchone()[0]
+        names = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type = 'index' AND name LIKE 'idx_%'"
+            )
+        }
+    assert version == 2
+    assert {
+        "idx_conversations_owner",
+        "idx_turns_conversation",
+        "idx_attachments_conversation",
+        "idx_auth_sessions_expiry",
+    } <= names
+
+
+def test_schema_migration_upgrades_legacy_database(tmp_path) -> None:
+    import sqlite3
+
+    path = tmp_path / "legacy.sqlite3"
+    with sqlite3.connect(path) as connection:
+        # 手造 v1 存量库：有业务表但无 schema_state 与索引
+        connection.executescript(
+            """
+            CREATE TABLE users (
+                id TEXT PRIMARY KEY,
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE conversations (
+                id TEXT PRIMARY KEY,
+                owner_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE TABLE turns (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                question TEXT NOT NULL,
+                answer TEXT,
+                use_web INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                attachment_ids_json TEXT NOT NULL,
+                result_json TEXT,
+                created_at TEXT NOT NULL,
+                completed_at TEXT
+            );
+            """
+        )
+    ConversationStore(path)  # 打开即迁移
+    with sqlite3.connect(path) as connection:
+        version = connection.execute("SELECT version FROM schema_state").fetchone()[0]
+        indexes = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type = 'index' AND name LIKE 'idx_%'"
+            )
+        }
+    assert version == 2
+    assert "idx_turns_conversation" in indexes

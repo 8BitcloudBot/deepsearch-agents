@@ -18,6 +18,10 @@ from app.conversation.contracts import TurnResult
 
 Role = Literal["admin", "user"]
 
+# G13：最小迁移机制。v1 = 初始建表；后续 schema 变更以幂等步骤追加在
+# _MIGRATIONS 中，既有库按 schema_state 记录的版本逐级演进。
+_SCHEMA_VERSION = 2
+
 
 @dataclass(frozen=True)
 class User:
@@ -166,12 +170,43 @@ class ConversationStore:
                 );
                 """
             )
+            self._migrate(connection)
             for username, role in (("admin", "admin"), ("user", "user")):
                 connection.execute(
                     "INSERT OR IGNORE INTO users(id, username, password_hash, role, "
                     "created_at) VALUES (?, ?, ?, ?, ?)",
                     (str(uuid.uuid4()), username, _password_hash("0000"), role, _now()),
                 )
+
+    def _migrate(self, connection: sqlite3.Connection) -> None:
+        """幂等迁移：schema_state 记录版本，缺失的存量库视为 v1（初始建表）。"""
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS schema_state (version INTEGER NOT NULL)"
+        )
+        row = connection.execute("SELECT version FROM schema_state").fetchone()
+        if row is None:
+            connection.execute("INSERT INTO schema_state(version) VALUES (1)")
+            current = 1
+        else:
+            current = int(row["version"])
+        migrations: dict[int, tuple[str, ...]] = {
+            2: (
+                "CREATE INDEX IF NOT EXISTS idx_conversations_owner "
+                "ON conversations(owner_id)",
+                "CREATE INDEX IF NOT EXISTS idx_turns_conversation "
+                "ON turns(conversation_id)",
+                "CREATE INDEX IF NOT EXISTS idx_attachments_conversation "
+                "ON attachments(conversation_id)",
+                "CREATE INDEX IF NOT EXISTS idx_auth_sessions_expiry "
+                "ON auth_sessions(expires_at)",
+            ),
+        }
+        for version in range(current + 1, _SCHEMA_VERSION + 1):
+            for statement in migrations.get(version, ()):
+                connection.execute(statement)
+            connection.execute(
+                "UPDATE schema_state SET version = ?", (version,)
+            )
 
     def authenticate(self, username: str, password: str) -> User | None:
         with self._connect() as connection:
