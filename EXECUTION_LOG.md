@@ -230,6 +230,16 @@ bluewhale-project.md（多轮记忆素材）。服务四能力全 ready，DEEPSE
   真机 A/B（零误杀；一次裁剪为推断性陈述符合设计）；评审稿状态已更新
   （docs/design/citations-chinese-tokenizer.md）。观察项：真机一次 drop_reason
   截为 ": t"（本地不可复现），已加 DEBUG 诊断日志待复跑定位
+- [x] ": t" 展示 bug 已定位并修复：根因是 chinese.py 各分支 reasons=("…")
+  缺尾逗号实为 str，adapter 迭代字符串被逐字符展开成 "…: t/o/k…"；单测只
+  断言 verdict 未查 reasons 类型形成盲区。修复：全分支尾逗号 tuple + 数字
+  锚点按数值归一（023≡23）+ reasons 类型回归测试 2 例；真机复跑 drop_reason
+  完整可读（"token 重叠率 0.13 低于 0.65 阈值（r2 词法重叠，中文路径）"）
+- [x] I6 真机观察轮（.env 双 flag 开）：Q1 数字题 4 claims 零误杀 15s；Q2
+  推断题裁剪 2 条且 drop_reason 完整（重叠率 0.13/0.06 低于阈值，fail-closed
+  正确）；Q3 数字锚点对汇总类陈述从严（"共 25 台"引用单 chunk 证据不足被裁，
+  符合设计）；定位中顺带发现 Qdrant local 文件锁被残留服务器进程占用导致
+  主库不可用（pkill 重启即恢复）
 - [x] sparse 检索重构：**决策不实施**——H6 容量上限已把最坏规模锁死在
   ~250 点，全库扫描无实际痛点；容量上限放开时再立项
 
