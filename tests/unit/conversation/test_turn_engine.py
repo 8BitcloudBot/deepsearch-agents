@@ -240,7 +240,8 @@ async def test_unknown_evidence_only_removes_its_claim_and_section() -> None:
 
 
 @pytest.mark.asyncio
-async def test_external_evidence_with_zero_valid_claims_fails_explicitly() -> None:
+async def test_external_evidence_with_zero_valid_claims_degrades_to_snapshot() -> None:
+    """B10-3 后引用幻觉（claims 全无效）同样降级为证据快照而非整轮失败。"""
     knowledge = Retriever((evidence("knowledge", 1),))
     synthesizer = Synthesizer(
         SynthesisDraft(
@@ -253,8 +254,10 @@ async def test_external_evidence_with_zero_valid_claims_fails_explicitly() -> No
         Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer
     )
 
-    with pytest.raises(TurnExecutionError, match="model-response-invalid"):
-        await engine.run(TurnInput("问题", False, (), ()))
+    result = await engine.run(TurnInput("问题", False, (), ()))
+    assert result.answer.startswith("模型综合服务本轮未能完成整理")
+    assert result.claims == ()
+    assert "knowledge source 1" in result.answer
 
 
 @pytest.mark.asyncio
@@ -1323,3 +1326,38 @@ async def test_planner_timeout_maps_to_model_timeout_code():
     with pytest.raises(TurnExecutionError) as excinfo:
         await engine.run(TurnInput("问题", False, (), ()))
     assert excinfo.value.code == "model-timeout"
+
+
+@pytest.mark.asyncio
+async def test_synthesis_failure_degrades_to_evidence_snapshot():
+    class FailingSynthesizer:
+        async def synthesize(self, turn, plan, evidence_items, limitations):
+            raise RuntimeError("synthesis model down")
+
+    knowledge = Retriever((evidence("knowledge", 1),))
+    engine = build_engine(
+        Planner(), knowledge, FileRetriever(()), Retriever(()), FailingSynthesizer()
+    )
+
+    result = await engine.run(TurnInput("问题", False, (), ()))
+
+    # B10-3：证据在手 → 降级为证据快照而非整轮失败
+    assert result.answer.startswith("模型综合服务本轮未能完成整理")
+    assert "knowledge source 1" in result.answer
+    assert "Evidence quote knowledge 1" in result.answer
+    assert result.claims == ()
+    assert any("降级" in item for item in result.limitations)
+
+
+@pytest.mark.asyncio
+async def test_synthesis_failure_without_evidence_still_fails():
+    class FailingSynthesizer:
+        async def synthesize(self, turn, plan, evidence_items, limitations):
+            raise RuntimeError("synthesis model down")
+
+    engine = build_engine(
+        Planner(), Retriever(()), FileRetriever(()), Retriever(()), FailingSynthesizer()
+    )
+
+    with pytest.raises(TurnExecutionError):
+        await engine.run(TurnInput("问题", False, (), ()))

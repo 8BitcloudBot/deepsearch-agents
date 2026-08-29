@@ -607,8 +607,16 @@ class TurnResearchEngine:
                 logger.warning(
                     "synthesis attempt %d failed: %s", _attempt + 1, brief(exc)
                 )
-        if isinstance(last_error, TurnExecutionError):
-            raise last_error
+        # B10-3：证据在手则降级为证据快照；无证据维持旧行为（整轮失败）
+        if evidence_items:
+            logger.warning(
+                "synthesis degraded to evidence snapshot: %s", brief(last_error)
+            )
+            return {
+                "result": _degraded_result(
+                    evidence_items, state["limitations"], last_error
+                )
+            }
         raise TurnExecutionError(classify_model_error(last_error).code) from last_error
 
     @staticmethod
@@ -620,6 +628,37 @@ class TurnResearchEngine:
 
 
 _SOURCE_ORDER = ("knowledge", "session_file", "web")
+
+_DEGRADED_HEADER = (
+    "模型综合服务本轮未能完成整理，以下为本轮检索到的证据快照，"
+    "供直接查阅原始出处。"
+)
+
+
+def _degraded_result(
+    evidence_items: tuple[EvidenceItem, ...],
+    retrieval_limitations: tuple[str, ...],
+    error: Exception,
+) -> TurnResult:
+    """B10-3：模型综合失败但证据在手时的确定性降级结果。
+
+    走既有 turn.completed 事件流（合同零扩展）；无事实声明（claims 空），
+    limitations 明确告知降级原因。
+    """
+    sections: list[str] = []
+    for index, item in enumerate(evidence_items[:8], start=1):
+        sections.append(f"[{index}] {item.title}\n{item.quote[:300]}")
+    return TurnResult(
+        schema_version=SCHEMA_VERSION,
+        answer=_DEGRADED_HEADER + "\n\n" + "\n\n".join(sections),
+        claims=(),
+        evidence=tuple(evidence_items),
+        limitations=(
+            *retrieval_limitations,
+            "模型服务异常，本轮以证据快照降级呈现。",
+            brief(error),
+        ),
+    )
 
 # ---- 规模常量区（B5/B6 调参入口）----
 _EVIDENCE_QUOTE_STANDARD_LIMIT = 1500  # 普通轮单条证据 quote 上限
