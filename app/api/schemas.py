@@ -77,6 +77,16 @@ class ConversationResponse(BaseModel):
     attachments: list[AttachmentResponse] = Field(default_factory=list)
 
 
+class ConversationSummary(BaseModel):
+    """轻量会话元数据（G10）：列表场景不再嵌全部回合与附件。"""
+
+    id: str
+    title: str
+    owner_id: str
+    created_at: str
+    updated_at: str
+
+
 class TurnStartResponse(BaseModel):
     status: Literal["started"] = "started"
     turn_id: str

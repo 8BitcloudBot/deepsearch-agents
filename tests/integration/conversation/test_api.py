@@ -332,3 +332,25 @@ def test_library_unavailable_returns_503(tmp_path: Path) -> None:
         login(http)
         response = http.get("/api/library/documents")
     assert response.status_code == 503
+
+
+def test_lite_conversation_list_returns_metadata_only(tmp_path: Path) -> None:
+    with client(tmp_path) as http:
+        assert http.get("/api/conversations/lite").status_code == 401
+        login(http)
+        created = http.post("/api/conversations", json={"title": "轻量列表"})
+        conversation_id = created.json()["id"]
+
+        response = http.get("/api/conversations/lite")
+        assert response.status_code == 200
+        summaries = response.json()
+        assert [item["id"] for item in summaries] == [conversation_id]
+        assert summaries[0]["title"] == "轻量列表"
+        # 轻量端点不含回合与附件字段（G10）
+        assert "turns" not in summaries[0]
+        assert "attachments" not in summaries[0]
+
+        # 完整端点保持既有合同（向后兼容）
+        full = http.get(f"/api/conversations/{conversation_id}")
+        assert full.status_code == 200
+        assert full.json()["turns"] == []

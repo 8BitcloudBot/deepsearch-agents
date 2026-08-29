@@ -30,6 +30,7 @@ from app.api.schemas import (
     ConversationCreateRequest,
     ConversationRenameRequest,
     ConversationResponse,
+    ConversationSummary,
     HealthResponse,
     LibraryDocument,
     LoginRequest,
@@ -247,6 +248,24 @@ def create_app(
     ) -> list[ConversationResponse]:
         return [
             conversation_response(user, item) for item in store.list_conversations(user)
+        ]
+
+    @app.get(
+        "/api/conversations/lite", response_model=list[ConversationSummary]
+    )
+    async def list_conversations_lite(
+        user: User = Depends(current_user),
+    ) -> list[ConversationSummary]:
+        """轻量会话列表（G10）：只含元数据，供高频刷新场景使用。"""
+        return [
+            ConversationSummary(
+                id=item.id,
+                title=item.title,
+                owner_id=item.owner_id,
+                created_at=item.created_at,
+                updated_at=item.updated_at,
+            )
+            for item in store.list_conversations(user)
         ]
 
     @app.post(
