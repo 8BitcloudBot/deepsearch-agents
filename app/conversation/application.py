@@ -31,6 +31,7 @@ class ConversationApplication:
         upload_store: Any | None = None,
         *,
         stale_turn_seconds: int = 1800,
+        max_turns_per_conversation: int = 0,
     ) -> None:
         self.store = store
         self.engine = engine
@@ -48,6 +49,7 @@ class ConversationApplication:
         ] = WeakValueDictionary()
         self.upload_store = upload_store
         self._stale_turn_seconds = stale_turn_seconds
+        self._max_turns_per_conversation = max_turns_per_conversation
 
     async def submit(
         self,
@@ -63,6 +65,10 @@ class ConversationApplication:
         )
         if reclaimed:
             logger.warning("reclaimed %d stale running turn(s)", reclaimed)
+        if self._max_turns_per_conversation:
+            existing = self.store.list_turns(user, conversation_id)
+            if len(existing) >= self._max_turns_per_conversation:
+                raise ValueError("conversation turn limit reached")
         return self.store.start_turn(
             user, conversation_id, question=question, use_web=use_web
         )

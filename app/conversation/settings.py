@@ -93,6 +93,7 @@ class ConversationSettings:
     enable_citation_validation: bool = False
     model_structured_output: bool = False
     turn_stale_seconds: int = 1800
+    max_turns_per_conversation: int = 0  # 0 = 不限制（H8 软上限，默认关）
     knowledge: KnowledgeSettings = KnowledgeSettings()
 
     @classmethod
@@ -125,6 +126,9 @@ class ConversationSettings:
             ),
             turn_stale_seconds=_non_negative_int(
                 environ, "TURN_STALE_SECONDS", cls.turn_stale_seconds
+            ),
+            max_turns_per_conversation=_non_negative_int(
+                environ, "MAX_TURNS_PER_CONVERSATION", cls.max_turns_per_conversation
             ),
             knowledge=KnowledgeSettings(
                 index_path=_safe_relative_path(

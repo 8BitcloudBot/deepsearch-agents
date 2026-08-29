@@ -309,3 +309,23 @@ def test_truncate_at_sentence_keeps_complete_sentences() -> None:
     assert len(_truncate_at_sentence(no_punct, 100)) == 100
     # 短文本原样保留
     assert _truncate_at_sentence("完整回答。", 100) == "完整回答。"
+
+
+@pytest.mark.asyncio
+async def test_turn_limit_rejects_when_configured(tmp_path: Path) -> None:
+    from app.logging_setup import brief  # noqa: F401
+
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = store.authenticate("user", "0000")
+    assert user is not None
+    conversation = store.create_conversation(user, "轮次上限")
+    application = ConversationApplication(
+        store,
+        Engine([]),
+        ConversationReport(tmp_path / "reports", store),
+        max_turns_per_conversation=1,
+    )
+    first = await application.submit(user, conversation.id, question="第一问", use_web=False)
+    with pytest.raises(ValueError, match="turn limit"):
+        await application.submit(user, conversation.id, question="第二问", use_web=False)
+    assert first.status == "running"

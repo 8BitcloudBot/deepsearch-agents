@@ -690,4 +690,5 @@ def build_conversation_application(
         },
         upload_store=upload_store,
         stale_turn_seconds=settings.turn_stale_seconds,
+        max_turns_per_conversation=settings.max_turns_per_conversation,
     )
