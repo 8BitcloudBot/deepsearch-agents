@@ -97,6 +97,7 @@ class ConversationSettings:
     model_structured_output: bool = False
     turn_stale_seconds: int = 1800
     max_turns_per_conversation: int = 0  # 0 = 不限制（H8 软上限，默认关）
+    history_token_budget: int = 12000  # H11：历史注入 token 预算（中文≈1 token/字）
     knowledge: KnowledgeSettings = KnowledgeSettings()
 
     @classmethod
@@ -141,6 +142,9 @@ class ConversationSettings:
             ),
             max_turns_per_conversation=_non_negative_int(
                 environ, "MAX_TURNS_PER_CONVERSATION", cls.max_turns_per_conversation
+            ),
+            history_token_budget=_non_negative_int(
+                environ, "HISTORY_TOKEN_BUDGET", cls.history_token_budget
             ),
             knowledge=KnowledgeSettings(
                 index_path=_safe_relative_path(

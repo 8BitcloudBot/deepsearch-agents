@@ -144,7 +144,14 @@ async def test_application_bounds_recent_history_before_model_input(
 
     history = engine.seen[-1].recent_history
     assert len(history) <= 6
-    assert sum(len(question) + len(answer) for question, answer in history) <= 12000
+    # H11 起按 token 预算记账（中文≈1 token/字）；纯数字串按 4 字符≈1 token
+    from app.conversation.application import _estimate_tokens
+
+    total = sum(
+        _estimate_tokens(question) + _estimate_tokens(answer)
+        for question, answer in history
+    )
+    assert total <= 12000
     assert all("历史问题 0" != question for question, _ in history)
 
 
@@ -388,3 +395,24 @@ async def test_model_title_generation_wins_and_falls_back_to_regex(
     )
     await application3.execute(user, third.id, turn3.id)
     assert store.get_conversation(user, third.id).title == "我的专属标题"
+
+
+def test_token_budget_allows_more_english_context() -> None:
+    from app.conversation.application import (
+        _bounded_history,
+        _estimate_tokens,
+    )
+
+    # 英文答案 4 字符≈1 token：同预算下应容纳远多于中文场景的字符量
+    english_answer = "word " * 8000  # 40000 字符 ≈ 10000 token
+    history = (("q", english_answer),)
+    bounded = _bounded_history(history, budget=12000)
+    assert len(bounded[0][1]) > 20000
+    total = _estimate_tokens(bounded[0][0]) + _estimate_tokens(bounded[0][1])
+    assert total <= 12000
+
+    # 中文答案二次 1:1 收敛：不超预算
+    chinese_answer = "字" * 40000
+    bounded = _bounded_history((("问题", chinese_answer),), budget=12000)
+    total = _estimate_tokens(bounded[0][0]) + _estimate_tokens(bounded[0][1])
+    assert total <= 12000

@@ -740,4 +740,5 @@ def build_conversation_application(
         stale_turn_seconds=settings.turn_stale_seconds,
         max_turns_per_conversation=settings.max_turns_per_conversation,
         title_generator=title_generator,
+        history_token_budget=settings.history_token_budget,
     )

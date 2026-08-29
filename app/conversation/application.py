@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -17,8 +18,14 @@ from app.conversation.turn import TurnExecutionError, TurnInput, TurnResearchEng
 from app.logging_setup import brief
 
 EventEmitter = Callable[[dict[str, Any]], None]
-_HISTORY_CHAR_BUDGET = 12000
+_HISTORY_TOKEN_BUDGET = 12000  # 中文≈1 token/字，与原 12000 字符预算语义对齐（H11）
 logger = logging.getLogger("deepsearch.application")
+
+
+def _estimate_tokens(text: str) -> int:
+    """加权 token 估算：CJK 每字计 1，其余按 4 字符≈1 token（H11）。"""
+    cjk = sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
+    return cjk + math.ceil((len(text) - cjk) / 4)
 
 
 class ConversationApplication:
@@ -33,6 +40,7 @@ class ConversationApplication:
         stale_turn_seconds: int = 1800,
         max_turns_per_conversation: int = 0,
         title_generator: Any | None = None,
+        history_token_budget: int = _HISTORY_TOKEN_BUDGET,
     ) -> None:
         self.store = store
         self.engine = engine
@@ -52,6 +60,7 @@ class ConversationApplication:
         self._stale_turn_seconds = stale_turn_seconds
         self._max_turns_per_conversation = max_turns_per_conversation
         self.title_generator = title_generator
+        self._history_token_budget = history_token_budget
 
     async def submit(
         self,
@@ -105,7 +114,8 @@ class ConversationApplication:
                 (item.question, item.answer or "")
                 for item in self.store.list_turns(user, conversation_id)
                 if item.status == "completed" and item.id != turn_id and item.answer
-            )
+            ),
+            budget=self._history_token_budget,
         )
         input_value = TurnInput(
             question=turn.question,
@@ -258,18 +268,27 @@ def _truncate_at_sentence(text: str, limit: int) -> str:
 
 
 def _bounded_history(
-    history: tuple[tuple[str, str], ...], *, budget: int = _HISTORY_CHAR_BUDGET
+    history: tuple[tuple[str, str], ...],
+    *,
+    budget: int = _HISTORY_TOKEN_BUDGET,
 ) -> tuple[tuple[str, str], ...]:
-    """Keep the newest useful context under a deterministic character budget."""
+    """Keep the newest useful context under a deterministic token budget (H11).
+
+    先按 token 估算换算 4×字符窗口粗截，CJK 占比高时二次按 1:1 收敛，
+    保证总成本不超预算；中文场景与原字符预算行为基本一致。
+    """
     selected: list[tuple[str, str]] = []
     used = 0
     for question, answer in reversed(history[-6:]):
         question = question[:2000]
-        available = budget - used - len(question) - 1
+        question_cost = _estimate_tokens(question)
+        available = budget - used - question_cost - 1
         if available <= 0:
             break
-        answer = _truncate_at_sentence(answer, available)
+        answer = _truncate_at_sentence(answer, available * 4)
+        if _estimate_tokens(answer) > available:
+            answer = _truncate_at_sentence(answer, available)
         selected.append((question, answer))
-        used += len(question) + len(answer) + 1
+        used += question_cost + _estimate_tokens(answer) + 1
     selected.reverse()
     return tuple(selected)
