@@ -13,7 +13,7 @@ from app.conversation.store import ConversationStore
 class Engine:
     seen: list[object]
 
-    async def run(self, turn, *, user_knowledge=None):
+    async def run(self, turn, *, user_knowledge=None, emit=None):
         self.seen.append(turn)
         item = EvidenceItem(
             evidence_id="ev-knowledge-1",
@@ -85,7 +85,7 @@ async def test_application_marks_safe_failure_and_does_not_publish_report(
     tmp_path: Path,
 ) -> None:
     class FailingEngine:
-        async def run(self, turn, *, user_knowledge=None):
+        async def run(self, turn, *, user_knowledge=None, emit=None):
             raise RuntimeError("provider details must not leak")
 
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
@@ -241,7 +241,7 @@ async def test_turn_failure_carries_model_error_category(tmp_path: Path) -> None
     from app.conversation.turn import TurnExecutionError
 
     class TimeoutEngine:
-        async def run(self, turn, *, user_knowledge=None):
+        async def run(self, turn, *, user_knowledge=None, emit=None):
             raise TurnExecutionError("model-timeout")
 
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
@@ -272,7 +272,7 @@ async def test_unclassified_failure_keeps_legacy_message_and_event_shape(
     tmp_path: Path,
 ) -> None:
     class BrokenEngine:
-        async def run(self, turn, *, user_knowledge=None):
+        async def run(self, turn, *, user_knowledge=None, emit=None):
             raise RuntimeError("boom")
 
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
