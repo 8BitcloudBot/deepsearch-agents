@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import logging
 from dataclasses import dataclass, replace
 from functools import partial
 from typing import Any, Protocol, TypedDict
@@ -18,6 +19,9 @@ from app.conversation.contracts import (
     TurnResult,
 )
 from app.conversation.heuristics import is_deep_request as _is_deep_request
+from app.logging_setup import brief
+
+logger = logging.getLogger("deepsearch.turn")
 
 
 @dataclass(frozen=True)
@@ -248,13 +252,17 @@ class TurnResearchEngine:
         return result
 
     async def _plan(self, state: _TurnState) -> dict[str, object]:
+        logger.debug("node=plan enter")
         try:
             plan = await self._planner.plan(state["turn"])
         except Exception as exc:
+            logger.warning("planner failed: %s", brief(exc))
             raise TurnExecutionError("model-response-invalid") from exc
+        logger.debug("node=plan exit intensity=%s", plan.research_intensity)
         return {"plan": plan}
 
     async def _retrieve_initial(self, state: _TurnState) -> dict[str, object]:
+        logger.debug("node=retrieve enter")
         plan = self._require_plan(state)
         turn = state["turn"]
         deep = _plan_is_deep(plan, turn.question)
@@ -334,6 +342,12 @@ class TurnResearchEngine:
                 if source in successful_sources
                 else limitation_labels[source]
             )
+        logger.debug(
+            "node=retrieve exit knowledge=%d web=%d failed=%s",
+            len(grouped["knowledge"]),
+            len(grouped["web"]),
+            sorted(failed_sources) or "none",
+        )
         return {
             "knowledge": tuple(grouped["knowledge"]),
             "web": _apply_global_rank_decay(tuple(grouped["web"])),
@@ -342,6 +356,7 @@ class TurnResearchEngine:
         }
 
     async def _review_coverage(self, state: _TurnState) -> dict[str, object]:
+        logger.debug("node=review enter rounds=%d", state.get("supplemental_rounds", 0))
         if self._coverage_reviewer is None:
             return {"coverage": CoverageDecision()}
         plan = self._require_plan(state)
@@ -426,6 +441,13 @@ class TurnResearchEngine:
         ):
             limitations.append("补充检索预算已用尽，仍有问题未被证据覆盖。")
         issued = (*bounded_knowledge, *bounded_web)
+        logger.debug(
+            "node=review exit uncovered=%d queries=%d round=%d/%d",
+            len(bounded.uncovered_questions),
+            len(issued),
+            state.get("supplemental_rounds", 0),
+            _MAX_SUPPLEMENTAL_ROUNDS,
+        )
         return {
             "coverage": bounded,
             "turn": turn,
@@ -438,6 +460,7 @@ class TurnResearchEngine:
         }
 
     async def _retrieve_supplemental(self, state: _TurnState) -> dict[str, object]:
+        logger.debug("node=supplemental enter")
         coverage = state.get("coverage") or CoverageDecision()
         knowledge = list(state["knowledge"])
         web = list(state["web"])
@@ -465,6 +488,12 @@ class TurnResearchEngine:
         if failed:
             limitations.append("补充检索暂不可用。")
         # 旧+新全量重编：补充轮证据接在已有位次之后，避免再次冒出并列 1.0
+        logger.debug(
+            "node=supplemental exit knowledge=%d web=%d round=%d",
+            len(knowledge),
+            len(web),
+            state.get("supplemental_rounds", 0) + 1,
+        )
         return {
             "knowledge": tuple(knowledge),
             "web": _apply_global_rank_decay(
@@ -503,6 +532,11 @@ class TurnResearchEngine:
                 draft = await self._synthesizer.synthesize(
                     state["turn"], plan, evidence_items, state["limitations"]
                 )
+                logger.debug(
+                    "node=synthesize exit sections=%d claims=%d",
+                    len(draft.sections),
+                    len(draft.claims),
+                )
                 if citation_validation:
                     return {
                         "result": _finalize_draft_with_validation(
@@ -519,6 +553,9 @@ class TurnResearchEngine:
                 }
             except Exception as exc:
                 last_error = exc
+                logger.warning(
+                    "synthesis attempt %d failed: %s", _attempt + 1, brief(exc)
+                )
         if isinstance(last_error, TurnExecutionError):
             raise last_error
         raise TurnExecutionError("model-response-invalid") from last_error

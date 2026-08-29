@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import logging
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -30,10 +31,16 @@ from app.conversation.turn import (
     SynthesisSection,
     TurnInput,
 )
+from app.logging_setup import (
+    brief,
+    configure_logging,
+    log_model_usage,
+)
 
 _FENCE_RE = re.compile(
     r"^```(?:json)?\s*\n(?P<body>.*?)\n```$", re.DOTALL | re.IGNORECASE
 )
+logger = logging.getLogger("deepsearch.runtime")
 _MAX_QUOTE = 2000
 _EXCERPT_PARAGRAPHS = 2  # 每次摘录取查询词密度最高的前 N 个段落
 _MAX_WEB_HITS_PER_QUERY = 5  # 每条 web 查询交付证据数上限（providers 层有同值兜底）
@@ -174,6 +181,7 @@ class ModelPlannerAdapter:
                 },
             ]
         )
+        log_model_usage(logger, "planner", response)
         payload = _strict_json(response)
         payload = coerce_plan_output(payload)
         try:
@@ -254,6 +262,7 @@ class ModelCoverageReviewerAdapter:
                 },
             ]
         )
+        log_model_usage(logger, "coverage-reviewer", response)
         payload = _strict_json(response)
         payload = coerce_review_output(payload)
         try:
@@ -336,6 +345,7 @@ class ModelSynthesizerAdapter:
                 },
             ]
         )
+        log_model_usage(logger, "synthesizer", response)
         payload = _strict_json(response)
         payload = coerce_synthesis_output(payload)
         try:
@@ -575,6 +585,7 @@ def build_conversation_application(
     from app.conversation.store import ConversationStore
     from app.conversation.turn import TurnResearchEngine
 
+    configure_logging(environ)
     settings = ConversationSettings.from_env(environ)
     store = ConversationStore(store_path)
     report = ConversationReport(report_root, store)
@@ -591,12 +602,28 @@ def build_conversation_application(
             synthesizer = ModelSynthesizerAdapter(model)
             coverage_reviewer = ModelCoverageReviewerAdapter(model)
             model_ready = True
-        except Exception:
+        except Exception as exc:
+            logger.warning("research model unavailable: %s", brief(exc))
             planner = _UnavailablePlanner()
             synthesizer = _UnavailableSynthesizer()
             coverage_reviewer = None
     else:
         coverage_reviewer = None
+
+    # embedder 独立构造（构造本身 lazy 不加载模型）：主库索引 readiness
+    # 失败不得连带剥夺个人知识库的可用性。
+    embedder: Any = None
+    try:
+        from app.knowledge.embeddings import FastEmbedEmbeddingAdapter
+
+        embedder = FastEmbedEmbeddingAdapter(
+            model=settings.knowledge.embedding_model,
+            version="0.8.0",
+            dimension=384,
+            cache_dir=str(runtime_root / ".cache" / "fastembed"),
+        )
+    except Exception as exc:
+        logger.warning("embedding adapter unavailable: %s", brief(exc))
 
     knowledge: Any = _UnavailableRetriever()
     knowledge_ready = False
@@ -605,15 +632,8 @@ def build_conversation_application(
             KnowledgeIndexSpec,
             resolve_knowledge_index_path,
         )
-        from app.knowledge.embeddings import FastEmbedEmbeddingAdapter
         from app.knowledge.qdrant_local import QdrantLocalKnowledgeIndex
 
-        embedder = FastEmbedEmbeddingAdapter(
-            model=settings.knowledge.embedding_model,
-            version="0.8.0",
-            dimension=384,
-            cache_dir=str(runtime_root / ".cache" / "fastembed"),
-        )
         spec = KnowledgeIndexSpec(
             collection_id=settings.knowledge.collection,
             embedding=embedder.descriptor,
@@ -623,30 +643,35 @@ def build_conversation_application(
         index_path = resolve_knowledge_index_path(
             settings.knowledge.index_path, runtime_root=runtime_root
         )
-        ready, _ = QdrantLocalKnowledgeIndex.check_readiness(index_path, spec)
-        if ready:
+        ready, reason = QdrantLocalKnowledgeIndex.check_readiness(index_path, spec)
+        if ready and embedder is not None:
             knowledge = KnowledgeEvidenceRetriever(
                 QdrantLocalKnowledgeIndex(
                     index_path, spec, embedder, min_score=settings.knowledge.min_score
                 )
             )
             knowledge_ready = True
-    except Exception:
+        else:
+            logger.warning("knowledge index not ready: %s", reason)
+    except Exception as exc:
         knowledge = _UnavailableRetriever()
+        logger.warning("knowledge index unavailable: %s", brief(exc))
 
     # 个人知识库（RAG 入库）装配：独立 per-user collection，
     # 装配失败不拖垮主链路（fail-safe 降级为无个人库）。
     upload_store: Any = None
     try:
-        from app.conversation.uploads import UploadKnowledgeStore
+        if embedder is not None:
+            from app.conversation.uploads import UploadKnowledgeStore
 
-        upload_store = UploadKnowledgeStore(
-            runtime_root / ".data" / "user-uploads",
-            embedder,
-            min_score=settings.knowledge.min_score,
-        )
-    except Exception:
+            upload_store = UploadKnowledgeStore(
+                runtime_root / ".data" / "user-uploads",
+                embedder,
+                min_score=settings.knowledge.min_score,
+            )
+    except Exception as exc:
         upload_store = None
+        logger.warning("personal knowledge store unavailable: %s", brief(exc))
 
     web: Any = _UnavailableRetriever()
     web_ready = False
@@ -658,9 +683,17 @@ def build_conversation_application(
                 TavilyWebProvider(settings.tavily_api_key)
             )
             web_ready = True
-        except Exception:
+        except Exception as exc:
+            logger.warning("web provider unavailable: %s", brief(exc))
             web = _UnavailableRetriever()
 
+    logger.info(
+        "conversation application assembled: model=%s knowledge=%s web=%s uploads=%s",
+        "ready" if model_ready else "unavailable",
+        "ready" if knowledge_ready else "unavailable",
+        "ready" if web_ready else "unavailable",
+        "ready" if upload_store is not None else "unavailable",
+    )
     engine = TurnResearchEngine(
         planner,
         knowledge,

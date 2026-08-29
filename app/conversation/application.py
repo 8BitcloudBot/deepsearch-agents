@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -10,9 +11,11 @@ from typing import Any
 from app.conversation.report import ConversationReport
 from app.conversation.store import ConversationStore, Turn, User
 from app.conversation.turn import TurnInput, TurnResearchEngine
+from app.logging_setup import brief
 
 EventEmitter = Callable[[dict[str, Any]], None]
 _HISTORY_CHAR_BUDGET = 12000
+logger = logging.getLogger("deepsearch.application")
 
 
 class ConversationApplication:
@@ -160,7 +163,10 @@ class ConversationApplication:
                 }
             )
             return completed
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "turn execution failed turn_id=%s: %s", turn_id, brief(exc)
+            )
             failed = self.store.fail_turn(
                 user,
                 conversation_id,
