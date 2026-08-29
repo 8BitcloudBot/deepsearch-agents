@@ -77,7 +77,8 @@ export type ConversationEventType =
   | "evidence.ready"
   | "report.updated"
   | "turn.completed"
-  | "turn.failed";
+  | "turn.failed"
+  | "turn.cancelled";
 
 export interface ConversationEvent {
   schema_version: "5.0.0";

@@ -28,6 +28,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
   const [libraryDocs, setLibraryDocs] = useState<LibraryDocument[]>([]);
   const [libraryBusy, setLibraryBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
+  const [runningTurnId, setRunningTurnId] = useState<string | null>(null);
   const [planSubquestions, setPlanSubquestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -123,6 +124,9 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
           console.warn("conversation events skipped", lastSequenceRef.current, event.sequence);
         }
         lastSequenceRef.current = event.sequence;
+        if (event.type === "turn.started") {
+          setRunningTurnId(event.turn_id);
+        }
         if (event.type === "stage.changed" || event.type === "turn.started") {
           setStage(event.message);
           const subquestions = event.data?.subquestions;
@@ -130,14 +134,17 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
             setPlanSubquestions(subquestions.filter((item): item is string => typeof item === "string"));
           }
         }
-        if (event.type === "turn.failed") {
+        if (
+          event.type === "turn.completed"
+          || event.type === "turn.failed"
+          || event.type === "turn.cancelled"
+        ) {
           setStage(null);
           setPlanSubquestions([]);
-          setError(event.message || "本轮研究失败");
+          setRunningTurnId(null);
         }
-        if (event.type === "turn.completed") {
-          setStage(null);
-          setPlanSubquestions([]);
+        if (event.type === "turn.failed") {
+          setError(event.message || "本轮研究失败");
         }
         // G11：回合事件只增量刷新当前会话详情；列表用轻量端点
         if (
@@ -229,6 +236,15 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
   }, [activeConversationId, baseUrl, handleApiError, loadConversations, question, stage, useWeb]);
 
 
+  const cancelTurn = useCallback(async () => {
+    if (!activeConversationId || !runningTurnId) return;
+    try {
+      await conversationApi.cancelTurn(baseUrl, activeConversationId, runningTurnId);
+    } catch (caught) {
+      handleApiError(caught, "取消失败，请稍后重试");
+    }
+  }, [activeConversationId, baseUrl, handleApiError, runningTurnId]);
+
   const loadLibrary = useCallback(async () => {
     try {
       setLibraryDocs(await conversationApi.libraryDocuments(baseUrl));
@@ -289,8 +305,10 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
     question,
     useWeb,
     stage,
+    runningTurnId,
     planSubquestions,
     error,
+    cancelTurn,
     booting,
     loginError,
     setQuestion,

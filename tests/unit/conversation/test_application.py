@@ -501,3 +501,39 @@ async def test_early_rounds_roll_up_into_prior_summary(tmp_path: Path) -> None:
     assert seen.prior_summary.startswith("此前轮次已讨论")
     assert "第0个研究问题" in seen.prior_summary
     assert "的结论" in seen.prior_summary
+
+
+@pytest.mark.asyncio
+async def test_cancelled_turn_fails_with_cancel_message(tmp_path: Path) -> None:
+    import asyncio as _asyncio
+
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = store.authenticate("user", "0000")
+    assert user is not None
+    conversation = store.create_conversation(user, "取消")
+    gate = _asyncio.Event()
+
+    class SlowEngine:
+        async def run(self, turn, *, user_knowledge=None, emit=None):
+            await gate.wait()  # 模拟长执行
+            raise AssertionError("should be cancelled before here")
+
+    application = ConversationApplication(
+        store, SlowEngine(), ConversationReport(tmp_path / "reports", store)
+    )
+    turn = await application.submit(
+        user, conversation.id, question="问题", use_web=False
+    )
+    events: list[dict[str, object]] = []
+    task = _asyncio.create_task(
+        application.execute(user, conversation.id, turn.id, emit=events.append)
+    )
+    await _asyncio.sleep(0.05)
+    task.cancel()
+    await task  # 体面退出（CancelledError 在 execute 内被收敛）
+    failed = store.get_turn(user, conversation.id, turn.id)
+    assert failed.status == "failed"
+    assert failed.result is not None
+    assert failed.result["error"] == "本轮研究已取消。"
+    cancelled = [e for e in events if e["type"] == "turn.cancelled"]
+    assert cancelled and cancelled[0]["data"]["turn_id"] == turn.id

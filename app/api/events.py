@@ -19,6 +19,7 @@ EventType = Literal[
     "report.updated",
     "turn.completed",
     "turn.failed",
+    "turn.cancelled",
 ]
 
 

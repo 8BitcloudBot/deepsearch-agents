@@ -236,6 +236,22 @@ class ConversationApplication:
                 time.monotonic() - started_at,
             )
             return completed
+        except asyncio.CancelledError:
+            # I5：用户取消——收敛为 failed 并发 turn.cancelled（BaseException
+            # 子类，须在 except Exception 之前单独捕获）
+            logger.info("turn cancelled turn_id=%s", turn_id)
+            failed = self.store.fail_turn(
+                user, conversation_id, turn_id, "本轮研究已取消。"
+            )
+            emit(
+                {
+                    "type": "turn.cancelled",
+                    "stage": "failed",
+                    "message": "本轮研究已取消。",
+                    "data": {"turn_id": turn_id},
+                }
+            )
+            return failed
         except Exception as exc:
             logger.warning(
                 "turn execution failed turn_id=%s elapsed=%.1fs: %s",

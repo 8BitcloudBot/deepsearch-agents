@@ -67,6 +67,10 @@ export const conversationApi = {
       method: "POST",
       body: JSON.stringify({ question, use_web: useWeb }),
     }),
+  cancelTurn: (baseUrl: string, id: string, turnId: string) =>
+    request<void>(baseUrl, `/api/conversations/${id}/turns/${turnId}`, {
+      method: "DELETE",
+    }),
   conversation: (baseUrl: string, id: string) =>
     request<Conversation>(baseUrl, `/api/conversations/${id}`),
   libraryDocuments: (baseUrl: string) =>

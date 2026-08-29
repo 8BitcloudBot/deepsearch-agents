@@ -35,7 +35,9 @@ function state(): ConversationWorkspaceState {
     question: "",
     useWeb: true,
     stage: null,
+    runningTurnId: null,
     planSubquestions: [],
+    cancelTurn: vi.fn(),
     error: null,
     adminUsers: [],
     setQuestion: vi.fn(),
@@ -139,6 +141,19 @@ describe("ConversationWorkspace", () => {
       "href",
       "#turn-t1-evidence-ev-1",
     );
+  });
+
+  it("shows the stop control only while a turn is running", () => {
+    const running = render(<ConversationWorkspace state={{
+      ...state(),
+      stage: "正在检索证据",
+      runningTurnId: "t1",
+    }} />);
+    expect(screen.getByRole("button", { name: "停止本轮研究" })).toBeInTheDocument();
+    running.unmount();
+
+    render(<ConversationWorkspace state={state()} />);
+    expect(screen.queryByRole("button", { name: "停止本轮研究" })).not.toBeInTheDocument();
   });
 
   it("supports manual conversation renaming", () => {

@@ -383,3 +383,88 @@ def test_websocket_closes_on_queue_overflow(tmp_path: Path) -> None:
             with pytest.raises(WebSocketDisconnect):
                 while True:
                     ws.receive_text()
+
+
+def test_cancel_running_turn_via_delete(tmp_path: Path) -> None:
+    import threading
+    import time as _time
+
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    report = ConversationReport(tmp_path / "reports", store)
+
+    class GatedApplication(NoopApplication):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.gate = threading.Event()
+            self._loop = None
+
+        async def execute(self, user, conversation_id, turn_id, *, emit=None):
+            # 异步等待（同步 sleep 会阻塞事件循环，DELETE 将无法进入）；
+            # 模拟真实 ConversationApplication 的取消收敛行为
+            import asyncio as _asyncio
+
+            try:
+                while not self.gate.is_set():
+                    await _asyncio.sleep(0.02)
+            except _asyncio.CancelledError:
+                self.store.fail_turn(
+                    user, conversation_id, turn_id, "本轮研究已取消。"
+                )
+                if emit is not None:
+                    emit(
+                        {
+                            "type": "turn.cancelled",
+                            "stage": "failed",
+                            "message": "本轮研究已取消。",
+                            "data": {"turn_id": turn_id},
+                        }
+                    )
+                return self.store.get_turn(user, conversation_id, turn_id)
+            return self.store.get_turn(user, conversation_id, turn_id)
+
+    gated = GatedApplication(store, report)
+    with TestClient(
+        create_app(store=store, conversation_application=gated)
+    ) as http:
+        login(http)
+        conversation = http.post("/api/conversations", json={"title": "取消"}).json()
+        started = http.post(
+            f"/api/conversations/{conversation['id']}/turns",
+            json={"question": "长任务", "use_web": False},
+        )
+        turn_id = started.json()["turn_id"]
+
+        # 取消不存在 → 404；执行中 → 204
+        missing = http.delete(f"/api/conversations/{conversation['id']}/turns/nope")
+        assert missing.status_code == 404
+        cancelled = http.delete(
+            f"/api/conversations/{conversation['id']}/turns/{turn_id}"
+        )
+        assert cancelled.status_code == 204
+        gated.gate.set()
+        _time.sleep(0.1)
+
+        # 取消已终态 → 409；turn 收敛为 failed，带取消文案
+        again = http.delete(
+            f"/api/conversations/{conversation['id']}/turns/{turn_id}"
+        )
+        assert again.status_code == 409
+        turn = http.get(
+            f"/api/conversations/{conversation['id']}/turns/{turn_id}"
+        ).json()
+        assert turn["status"] == "failed"
+        assert turn["result"]["error"] == "本轮研究已取消。"
+
+        # 僵尸分支：running 但无执行任务（服务重启遗留）→ 直接标记失败
+        owner = store.authenticate("user", "0000")
+        assert owner is not None
+        zombie = store.start_turn(
+            owner, conversation["id"], question="遗留", use_web=False
+        )
+        zombie_delete = http.delete(
+            f"/api/conversations/{conversation['id']}/turns/{zombie.id}"
+        )
+        assert zombie_delete.status_code == 204
+        assert (
+            store.get_turn(owner, conversation["id"], zombie.id).status == "failed"
+        )

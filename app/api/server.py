@@ -102,7 +102,8 @@ def create_app(
     app.state.store = store
     app.state.conversation_application = conversation_application
     app.state.events = events
-    app.state.turn_tasks: set[asyncio.Task[Any]] = set()
+    # I5：task 注册表按 (conversation, turn) 键控，支持取消定位
+    app.state.turn_tasks: dict[tuple[str, str], asyncio.Task[Any]] = {}
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins(),
@@ -362,8 +363,12 @@ def create_app(
         task = asyncio.create_task(
             _execute_turn(application, user, conversation_id, turn.id, events)
         )
-        app.state.turn_tasks.add(task)
-        task.add_done_callback(app.state.turn_tasks.discard)
+        app.state.turn_tasks[(conversation_id, turn.id)] = task
+        task.add_done_callback(
+            lambda _task, key=(conversation_id, turn.id): app.state.turn_tasks.pop(
+                key, None
+            )
+        )
         return TurnStartResponse(
             turn_id=turn.id, conversation_id=conversation_id, use_web=turn.use_web
         )
@@ -382,6 +387,39 @@ def create_app(
             return turn_response(store.get_turn(user, conversation_id, turn_id))
         except LookupError as exc:
             raise HTTPException(status_code=404, detail="turn not found") from exc
+
+    @app.delete(
+        "/api/conversations/{conversation_id}/turns/{turn_id}", status_code=204
+    )
+    async def cancel_turn(
+        conversation_id: str,
+        turn_id: str,
+        user: User = Depends(current_user),
+    ) -> Response:
+        """I5：取消执行中的回合；僵尸 running（无任务）直接标记失败。"""
+        require_conversation(user, conversation_id)
+        try:
+            current = store.get_turn(user, conversation_id, turn_id)
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail="turn not found") from exc
+        if current.status != "running":
+            raise HTTPException(status_code=409, detail="turn is already terminal")
+        task = app.state.turn_tasks.get((conversation_id, turn_id))
+        if task is not None:
+            task.cancel()
+        else:
+            store.fail_turn(
+                user, conversation_id, turn_id, "本轮研究已取消。"
+            )
+            events.emit(
+                conversation_id,
+                turn_id,
+                "turn.cancelled",
+                "本轮研究已取消。",
+                stage="failed",
+                data={"turn_id": turn_id},
+            )
+        return Response(status_code=204)
 
     # 会话附件上传/列表/删除端点已随 T1 移除：附件功能由知识库入库
     # （个人知识库 collection）取代；历史 AttachmentResponse 字段与
@@ -542,6 +580,7 @@ async def _execute_turn(
             "report.updated",
             "turn.completed",
             "turn.failed",
+            "turn.cancelled",
         }:
             return
         events.emit(

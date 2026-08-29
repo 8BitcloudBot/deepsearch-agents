@@ -11,8 +11,11 @@ export interface ConversationWorkspaceState {
   question: string;
   useWeb: boolean;
   stage: string | null;
+  /** I5：执行中回合 id（存在时显示停止按钮） */
+  runningTurnId: string | null;
   /** B10-4：本轮研究计划子问题（planning 事件携带，回合结束清空） */
   planSubquestions: string[];
+  cancelTurn: () => void | Promise<void>;
   error: string | null;
   setQuestion: (value: string) => void;
   setUseWeb: (value: boolean) => void;
@@ -248,7 +251,9 @@ export function ConversationWorkspace({ state }: { state: ConversationWorkspaceS
           {!active ? <div className="empty-conversation"><h3>从一个问题开始</h3><p>本地知识库始终参与；需要最新资料时再打开实时网络。</p></div> : active.turns.length === 0 ? <div className="empty-conversation"><h3>这是一段新的研究</h3><p>试着问一个你正在学习的技术问题。</p></div> : active.turns.map((turn) => <TurnMessage key={turn.id} turn={turn} />)}
         </div>
         <div className="composer-dock">
-          {state.stage && <div className="stage-line" role="status"><span className="stage-pulse" />{state.stage}</div>}
+          {state.stage && <div className="stage-line" role="status"><span className="stage-pulse" />{state.stage}
+            {state.runningTurnId && <button type="button" className="cancel-turn" aria-label="停止本轮研究" onClick={() => void state.cancelTurn()}>停止</button>}
+          </div>}
           {state.stage && state.planSubquestions.length > 0 && (
             <ul className="stage-subquestions" aria-label="研究计划子问题">
               {state.planSubquestions.map((item, index) => <li key={index}>{item}</li>)}
