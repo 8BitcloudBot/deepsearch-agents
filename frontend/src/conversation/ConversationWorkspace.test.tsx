@@ -30,6 +30,7 @@ function state(): ConversationWorkspaceState {
         },
       }],
     }],
+    activeConversation: null,
     activeConversationId: "c1",
     question: "",
     useWeb: true,

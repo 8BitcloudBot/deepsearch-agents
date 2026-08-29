@@ -67,6 +67,9 @@ export interface Conversation {
   turns: Turn[];
 }
 
+/** 轻量会话元数据（G10 lite 端点）：不含回合与附件。 */
+export type ConversationSummary = Omit<Conversation, "turns" | "attachments">;
+
 export type ConversationEventType =
   | "turn.started"
   | "stage.changed"

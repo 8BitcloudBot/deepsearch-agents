@@ -4,6 +4,8 @@ import type { AdminUserSummary, Conversation, EvidenceItem, Turn } from "./contr
 export interface ConversationWorkspaceState {
   user: { id: string; username: string; role: "admin" | "user" } | null;
   conversations: Conversation[];
+  /** 当前会话的完整详情（G11）：列表项只含轻量元数据，回合内容从这里取 */
+  activeConversation: Conversation | null;
   adminUsers: AdminUserSummary[];
   activeConversationId: string | null;
   question: string;
@@ -212,7 +214,10 @@ function LibraryPage({ state }: { state: ConversationWorkspaceState }) {
 }
 
 export function ConversationWorkspace({ state }: { state: ConversationWorkspaceState }) {
-  const active = state.conversations.find((item) => item.id === state.activeConversationId) ?? null;
+  const active =
+    state.activeConversation ??
+    state.conversations.find((item) => item.id === state.activeConversationId) ??
+    null;
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   return (

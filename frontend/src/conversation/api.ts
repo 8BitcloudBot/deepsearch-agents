@@ -1,4 +1,4 @@
-import type { AdminUserSummary, Conversation, ConversationEvent, LibraryDocument, User } from "./contracts";
+import type { AdminUserSummary, Conversation, ConversationEvent, ConversationSummary, LibraryDocument, User } from "./contracts";
 
 export class ApiError extends Error {
   constructor(public readonly status: number, message: string) {
@@ -43,6 +43,8 @@ export const conversationApi = {
     request<void>(baseUrl, `/api/admin/users/${userId}/data`, { method: "DELETE" }),
   conversations: (baseUrl: string) =>
     request<Conversation[]>(baseUrl, "/api/conversations"),
+  conversationsLite: (baseUrl: string) =>
+    request<ConversationSummary[]>(baseUrl, "/api/conversations/lite"),
   createConversation: (baseUrl: string, title = "新研究") =>
     request<Conversation>(baseUrl, "/api/conversations", {
       method: "POST",
