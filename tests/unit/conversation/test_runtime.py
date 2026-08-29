@@ -572,3 +572,43 @@ async def test_synthesizer_normalizes_dict_limitations_to_readable_text() -> Non
     assert "'" not in draft.limitations[1]
     assert '"type"' in draft.limitations[1]
     assert draft.limitations[2] == "普通字符串限制"
+
+
+def test_current_date_line_uses_local_date_when_no_now_given() -> None:
+    import datetime as dt
+
+    from app.conversation.runtime import _current_date_line
+
+    line = _current_date_line()
+    # G7：无参时使用服务器本地日期
+    assert line.startswith(f"今天是{dt.date.today().isoformat()}（星期")
+
+
+@pytest.mark.asyncio
+async def test_synthesizer_budget_prefers_plan_intensity_over_keywords() -> None:
+    class Model:
+        messages = None
+
+        async def ainvoke(self, messages):
+            self.messages = messages
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"answer_sections":[{"text":"回答",'
+                        '"claim_indexes":[0]}],"claims":[{"statement":'
+                        '"结论","evidence_ids":["ev-1"]}],"limitations":[]}'
+                    )
+                },
+            )()
+
+    model = Model()
+    # 问题含 deep 关键词，但规划器明确判 standard → 采纳规划器信号（G7）
+    await ModelSynthesizerAdapter(model).synthesize(
+        TurnInput("请详细深入分析", False, (), ()),
+        TurnResearchPlan("入门", (), (), (), research_intensity="standard"),
+        (EvidenceItem("ev-1", "knowledge", "文档", "chunk", "a#b", "原文"),),
+        (),
+    )
+    assert "400～800" in model.messages[0]["content"]

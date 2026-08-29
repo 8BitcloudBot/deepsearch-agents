@@ -122,12 +122,15 @@ def _history_records(turn: TurnInput) -> list[dict[str, str]]:
 
 
 def _current_date_line(now: Any = None) -> str:
-    """组装期注入当前日期（ISO + 星期），供所有角色 system prompt 头部使用。"""
+    """组装期注入当前日期（ISO + 星期），供所有角色 system prompt 头部使用。
+
+    使用服务器本地时区（G7）：UTC 在 UTC+8 场景下每天 0-8 点会注入前一日。
+    """
     import datetime as dt
 
-    moment = now or dt.datetime.now(dt.UTC)
+    moment = now or dt.datetime.now().astimezone()
     weekdays = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
-    iso = moment.astimezone(dt.UTC).date().isoformat()
+    iso = moment.date().isoformat()
     weekday = weekdays[moment.weekday()]
     return f"今天是{iso}（{weekday}）。"
 
@@ -303,11 +306,13 @@ class ModelSynthesizerAdapter:
             }
             for item in evidence_items
         ]
-        answer_budget = (
-            "800～1400"
-            if _is_deep_request(turn.question)
-            else "400～800"
-        )
+        # 长度预算信号与引擎一致：规划器 research_intensity 优先，缺失时
+        # 回退关键词启发（G7 修复两处信号可能不一致导致预算错档）。
+        if plan.research_intensity in ("standard", "deep"):
+            deep = plan.research_intensity == "deep"
+        else:
+            deep = _is_deep_request(turn.question)
+        answer_budget = "800～1400" if deep else "400～800"
         response = await self._model.ainvoke(
             [
                 {

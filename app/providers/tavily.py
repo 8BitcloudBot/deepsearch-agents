@@ -34,7 +34,6 @@ class TavilyWebProvider:
         try:
             kwargs = {
                 "max_results": candidate_limit,
-                "include_raw_content": "markdown",
                 "search_depth": search_depth,
                 "topic": topic,
             }
