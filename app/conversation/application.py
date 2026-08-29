@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -87,6 +88,7 @@ class ConversationApplication:
         emit: EventEmitter | None = None,
     ) -> Turn:
         emit = emit or (lambda event: None)
+        started_at = time.monotonic()
         turn = self.store.get_turn(user, conversation_id, turn_id)
         if turn.status != "running":
             return turn
@@ -179,10 +181,18 @@ class ConversationApplication:
                     "data": {"turn_id": turn_id},
                 }
             )
+            logger.info(
+                "turn completed turn_id=%s elapsed=%.1fs",
+                turn_id,
+                time.monotonic() - started_at,
+            )
             return completed
         except Exception as exc:
             logger.warning(
-                "turn execution failed turn_id=%s: %s", turn_id, brief(exc)
+                "turn execution failed turn_id=%s elapsed=%.1fs: %s",
+                turn_id,
+                time.monotonic() - started_at,
+                brief(exc),
             )
             if isinstance(exc, TurnExecutionError):
                 # 红线3：用户面文案取自 model.py 稳定枚举；事件 data 新增
