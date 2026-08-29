@@ -166,3 +166,28 @@ def test_audit_detects_meta_and_index_drift(tmp_path: Path) -> None:
         + hashlib.sha256("a.md".casefold().encode("utf-8")).hexdigest()[:16]
     ]
     assert report["index_only"] == expected
+
+
+def test_repairs_both_directions_of_meta_index_drift(tmp_path: Path) -> None:
+    import json
+
+    store = make_store(tmp_path)
+    store.ingest("user-1", "a.md", "文档 A 正文内容。")
+    entry_b = store.ingest("user-1", "b.md", "文档 B 正文内容。")
+
+    # index_only：meta 丢失 → 从索引 payload 恢复
+    meta_path = tmp_path / "user-uploads" / "user-1" / "uploads-meta.json"
+    meta_path.write_text(json.dumps([]), encoding="utf-8")
+    store._metas.pop("user-1")
+    report = store.repair("user-1")
+    assert len(report["restored"]) == 2
+    assert store.audit("user-1") == {"meta_only": [], "index_only": []}
+    names = {item["name"] for item in store.list_documents("user-1")}
+    assert names == {"a.md", "b.md"}
+
+    # meta_only：索引点已丢 → 清死条目
+    store._index_for("user-1").delete_documents((entry_b["document_id"],))
+    report = store.repair("user-1")
+    assert report["dropped"] == [entry_b["document_id"]]
+    assert store.audit("user-1") == {"meta_only": [], "index_only": []}
+    assert len(store.list_documents("user-1")) == 1

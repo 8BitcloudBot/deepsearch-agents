@@ -481,6 +481,44 @@ class QdrantLocalKnowledgeIndex:
             if offset is None:
                 return document_ids
 
+    def list_documents_summary(self) -> dict[str, tuple[str, int]]:
+        """document_id -> (title, chunk 数)（I3 对账修复用；一次全量 scroll）。"""
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+        collection_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="collection_id",
+                    match=MatchValue(value=self._spec.collection_id),
+                )
+            ]
+        )
+        summary: dict[str, tuple[str, int]] = {}
+        offset = None
+        while True:
+            records, offset = self._get_client().scroll(
+                collection_name=self._spec.physical_collection_name,
+                scroll_filter=collection_filter,
+                limit=256,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for record in records:
+                payload = record.payload
+                if not isinstance(payload, Mapping):
+                    continue
+                document_id = str(payload.get("document_id") or "")
+                if not document_id:
+                    continue
+                title, count = summary.get(document_id, ("", 0))
+                summary[document_id] = (
+                    title or str(payload.get("title") or document_id),
+                    count + 1,
+                )
+            if offset is None:
+                return summary
+
     def delete_documents(self, document_ids: Sequence[str]) -> None:
         """Remove all chunks for the supplied document identities."""
         ids = tuple(dict.fromkeys(document_ids))

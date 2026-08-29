@@ -213,6 +213,42 @@ class UploadKnowledgeStore:
             "index_only": sorted(index_ids - meta_ids),
         }
 
+    def repair(self, user_id: str) -> dict[str, list[str]]:
+        """对账差异的自动修复（I3；与 audit 配对，修复后 audit 归零）。
+
+        index_only（meta 丢失的孤儿数据）：从索引 payload 恢复 meta 条目
+        （document_id/title/块数均可恢复）；meta_only（索引点已丢）：
+        清除死条目避免误导。均不可恢复时保留人工介入空间。
+        """
+        with self._lock_for(user_id):
+            summary = self._index_for(user_id).list_documents_summary()
+            meta = [
+                item
+                for item in self._meta(user_id)
+                if item.get("document_id") in summary
+            ]
+            dropped = sorted(
+                item.get("document_id", "")
+                for item in self._meta(user_id)
+                if item.get("document_id") not in summary
+            )
+            known = {item["document_id"] for item in meta}
+            restored = sorted(set(summary) - known)
+            for document_id in restored:
+                title, chunks = summary[document_id]
+                meta.insert(
+                    0,
+                    {
+                        "document_id": document_id,
+                        "name": title[:200],
+                        "chunks": str(chunks),
+                    },
+                )
+            if restored or dropped:
+                self._metas[user_id] = meta
+                self._save_meta(user_id)
+            return {"restored": restored, "dropped": dropped}
+
     def retriever_for(self, user_id: str) -> Any:
         """当前用户的个人知识库检索器；库不存在或未入库时返回 None。"""
         if not self._meta(user_id):
