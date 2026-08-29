@@ -1,19 +1,15 @@
-"""Safe workspace paths and file readers.
+"""File readers for the personal knowledge base ingestion.
 
-Path traversal is REJECTED (not silently sanitized). Uses real
-pypdf, python-docx, openpyxl — no regex-only page counting.
-Macro and ZIP bomb defense included.
+Uses real pypdf, python-docx, openpyxl — no regex-only page counting.
+Macro and ZIP bomb defense included. (H5: T1-era session workspace helpers
+removed — ingestion is tempfile-based via app.conversation.uploads.)
 """
 
-import os
-import re
-import tempfile
 import zipfile
 from pathlib import Path
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 ALLOWED_EXTENSIONS = frozenset({".txt", ".md", ".pdf", ".docx", ".xlsx"})
 DISALLOWED_EXTENSIONS = frozenset({".doc", ".xls", ".docm", ".xlsm"})
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MiB
@@ -41,184 +37,11 @@ MACRO_CONTENT_TYPES = frozenset(
 )
 
 
-# ── Exceptions ────────────────────────────────────────────────────────────────
-
-
-class UnsafeWorkspacePath(ValueError):  # noqa: N818
-    """A path attempted to escape the workspace boundary."""
-
-
-# ── SessionWorkspace ──────────────────────────────────────────────────────────
-
-
-class SessionWorkspace:
-    """Thread-scoped upload and output directories.
-
-    The only blessed creation path is for_thread() which validates
-    the server-assigned UUID. Direct __init__ is allowed but does
-    not create directories — callers should prefer for_thread().
-    """
-
-    def __init__(self, thread_id: str, base_upload: str, base_output: str):
-        self._thread_id = thread_id
-        self.upload_dir = Path(base_upload) / f"session_{thread_id}"
-        self.output_dir = Path(base_output) / f"session_{thread_id}"
-
-    @classmethod
-    def for_thread(cls, *, thread_id: str, base_upload: str, base_output: str):
-        if not UUID_RE.fullmatch(thread_id):
-            raise ValueError(f"thread_id must be a UUID: {thread_id!r}")
-        ws = cls(thread_id, base_upload, base_output)
-        ws.upload_dir.mkdir(parents=True, exist_ok=True)
-        ws.output_dir.mkdir(parents=True, exist_ok=True)
-        return ws
-
-    def _safe_resolve(self, base: Path, name: str) -> Path:
-        """Resolve a name within base. REJECT traversal, don't sanitize."""
-        if not name or not name.strip():
-            raise UnsafeWorkspacePath("Empty filename not allowed")
-
-        # Reject absolute paths
-        if os.path.isabs(name) or name.startswith("/"):
-            raise UnsafeWorkspacePath(f"Absolute path not allowed: {name!r}")
-
-        # Reject Windows backslash traversal
-        if "\\" in name:
-            raise UnsafeWorkspacePath(f"Backslash not allowed: {name!r}")
-
-        # Reject directory components — only basename allowed
-        clean = Path(name)
-        if str(clean) != clean.name or clean.name in (".", ".."):
-            raise UnsafeWorkspacePath(f"Directory traversal not allowed: {name!r}")
-        if not clean.name or clean.name in (".", ".."):
-            raise UnsafeWorkspacePath(f"Invalid filename: {name!r}")
-
-        candidate = (base / clean.name).resolve()
-        base_resolved = base.resolve()
-
-        # Use is_relative_to for proper containment
-        if not candidate.is_relative_to(base_resolved):
-            raise UnsafeWorkspacePath(f"Path escape attempt: {name!r}")
-
-        # Symlink check
-        try:
-            real = candidate.resolve(strict=False)
-            if not real.is_relative_to(base_resolved):
-                raise UnsafeWorkspacePath(f"Symlink escape: {name!r}")
-        except (OSError, RuntimeError):
-            raise UnsafeWorkspacePath(f"Cannot resolve path: {name!r}")
-
-        return candidate
-
-    def resolve_upload(self, name: str) -> Path:
-        return self._safe_resolve(self.upload_dir, name)
-
-    def resolve_output(self, name: str) -> Path:
-        return self._safe_resolve(self.output_dir, name)
-
-
-# ── Atomic write helper ───────────────────────────────────────────────────────
-
-
-def _write_all(fd: int, data: bytes) -> None:
-    """Write all bytes to fd, handling short writes from os.write."""
-    written = 0
-    while written < len(data):
-        n = os.write(fd, data[written:])
-        if n == 0:
-            raise OSError("os.write returned 0")
-        written += n
-
-
-def _atomic_write_bytes(target: Path, data: bytes) -> None:
-    """Write data via random exclusive temp file, fsync, then os.replace.
-
-    Uses mkstemp (O_EXCL) to reject pre-existing temp symlinks.
-    Handles short writes via _write_all.
-    """
-    target.parent.mkdir(parents=True, exist_ok=True)
-    fd = -1
-    tmp_path = None
-    try:
-        fd, tmp_path = tempfile.mkstemp(
-            dir=str(target.parent), prefix=".tmp-", suffix=".tmp"
-        )
-        _write_all(fd, data)
-        os.fsync(fd)
-        os.close(fd)
-        fd = -1
-        os.replace(tmp_path, target)
-    finally:
-        if fd >= 0:
-            os.close(fd)
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-
-
-def _atomic_write_and_validate(target: Path, data: bytes, validator, ext: str) -> None:
-    """Write via random exclusive temp file, validate, then os.replace.
-
-    validator(path, ext) receives the FINAL target extension (not .tmp).
-    This prevents content-type bypass where e.g. a .pdf file's content
-    would be validated as .tmp and bypass PDF header checks.
-    """
-    target.parent.mkdir(parents=True, exist_ok=True)
-    fd = -1
-    tmp_path = None
-    try:
-        fd, tmp_path = tempfile.mkstemp(
-            dir=str(target.parent), prefix=".tmp-", suffix=".tmp"
-        )
-        _write_all(fd, data)
-        os.fsync(fd)
-        os.close(fd)
-        fd = -1
-        validator(Path(tmp_path), ext)
-        os.replace(tmp_path, target)
-        tmp_path = None  # consumed by replace
-    finally:
-        if fd >= 0:
-            os.close(fd)
-        if tmp_path and os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-
+# ── Upload validation ────────────────────────────────────────────────────────
+# （H5：T1 遗留的 SessionWorkspace/原子写助手已移除——个人知识库入库走
+#   uploads.read_supported_file 的临时目录方案，不再使用会话工作区。）
 
 # ── Upload helpers ────────────────────────────────────────────────────────────
-
-
-def save_uploaded_file(workspace: SessionWorkspace, name: str, data: bytes) -> Path:
-    """Atomically save an uploaded file with validation.
-
-    1. Reject names with directory components.
-    2. Validate extension.
-    3. Check size before writing.
-    4. Write to temp file, validate content, then atomic replace.
-    5. On validation failure, delete temp, old file remains.
-    """
-    # Reject directory components upfront
-    if "/" in name or "\\" in name:
-        raise UnsafeWorkspacePath(f"Directory component not allowed: {name!r}")
-
-    resolved = workspace.resolve_upload(name)
-
-    # Check extension
-    ext = resolved.suffix.lower()
-    if ext in DISALLOWED_EXTENSIONS:
-        raise ValueError(f"不支持的文件类型：{ext}")
-    if ext not in ALLOWED_EXTENSIONS:
-        raise ValueError(
-            f"不支持的文件类型：{ext}（支持：{', '.join(sorted(ALLOWED_EXTENSIONS))}）"
-        )
-
-    # Check size before writing
-    if len(data) > MAX_FILE_SIZE_BYTES:
-        raise ValueError(
-            f"文件过大：{len(data)} 字节（上限 {MAX_FILE_SIZE_BYTES}）"
-        )
-
-    # Write temp, validate with final extension, atomic replace
-    _atomic_write_and_validate(resolved, data, _validate_file_content, ext)
-    return resolved
 
 
 def validate_upload_file(path: Path) -> None:
@@ -236,21 +59,6 @@ def validate_upload_file(path: Path) -> None:
         )
 
 
-def _validate_file_content(path: Path, ext: str) -> None:
-    """Validate content based on the FINAL target extension.
-
-    ext is the extension of the target file (e.g. ".pdf"), NOT the
-    temp file's suffix (which is always ".tmp"). This prevents
-    content-type bypass via temp suffix confusion.
-    """
-    if ext == ".pdf":
-        read_pdf_file(path)
-    elif ext == ".docx":
-        read_docx_file(path)
-    elif ext == ".xlsx":
-        read_xlsx_file(path)
-    elif ext in (".txt", ".md"):
-        read_text_file(path)
 
 
 # ── Text readers ──────────────────────────────────────────────────────────────
