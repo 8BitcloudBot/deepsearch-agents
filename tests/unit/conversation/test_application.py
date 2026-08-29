@@ -416,3 +416,53 @@ def test_token_budget_allows_more_english_context() -> None:
     bounded = _bounded_history((("问题", chinese_answer),), budget=12000)
     total = _estimate_tokens(bounded[0][0]) + _estimate_tokens(bounded[0][1])
     assert total <= 12000
+
+
+@pytest.mark.asyncio
+async def test_same_conversation_turns_execute_serially(tmp_path: Path) -> None:
+    import asyncio as _asyncio
+
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = store.authenticate("user", "0000")
+    assert user is not None
+    conversation = store.create_conversation(user, "串行")
+    running = 0
+    peak = 0
+
+    class ProbingEngine:
+        async def run(self, turn, *, user_knowledge=None, emit=None):
+            nonlocal running, peak
+            running += 1
+            peak = max(peak, running)
+            await _asyncio.sleep(0.01)
+            running -= 1
+            item = EvidenceItem(
+                evidence_id="ev-knowledge-1",
+                source_kind="knowledge",
+                title="文档",
+                locator_kind="chunk",
+                locator_value="guide#intro",
+                quote="证据",
+            )
+            return TurnResult(
+                schema_version="5.0.0",
+                answer="完成。",
+                claims=(Claim("claim-1", "结论", (item.evidence_id,)),),
+                evidence=(item,),
+                limitations=(),
+            )
+
+    application = ConversationApplication(
+        store, ProbingEngine(), ConversationReport(tmp_path / "reports", store)
+    )
+    first = await application.submit(
+        user, conversation.id, question="一", use_web=False
+    )
+    second = await application.submit(
+        user, conversation.id, question="二", use_web=False
+    )
+    await _asyncio.gather(
+        application.execute(user, conversation.id, first.id),
+        application.execute(user, conversation.id, second.id),
+    )
+    assert peak == 1  # H13：同会话回合互斥串行

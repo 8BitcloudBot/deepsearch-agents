@@ -51,11 +51,12 @@ class ConversationApplication:
             source: {"status": "unavailable"}
             for source in ("model", "knowledge", "web", "session_file")
         }
-        # 弱值字典：锁仅在被等待/持有时存活，回合结束后自动回收，
-        # 避免 (conversation, turn) 键随进程生命周期无限累积（G3）。
-        self._turn_locks: WeakValueDictionary[
-            tuple[str, str], asyncio.Lock
-        ] = WeakValueDictionary()
+        # 弱值字典：锁仅在被等待/持有时存活，回合结束后自动回收。
+        # H13：锁粒度为会话级——同会话多个回合串行执行，避免并行回合
+        # 互见的历史快照不一致与 updated_at 竞写。
+        self._turn_locks: WeakValueDictionary[str, asyncio.Lock] = (
+            WeakValueDictionary()
+        )
         self.upload_store = upload_store
         self._stale_turn_seconds = stale_turn_seconds
         self._max_turns_per_conversation = max_turns_per_conversation
@@ -92,7 +93,7 @@ class ConversationApplication:
         *,
         emit: EventEmitter | None = None,
     ) -> Turn:
-        lock = self._turn_locks.setdefault((conversation_id, turn_id), asyncio.Lock())
+        lock = self._turn_locks.setdefault(conversation_id, asyncio.Lock())
         async with lock:
             return await self._execute_once(user, conversation_id, turn_id, emit=emit)
 
