@@ -312,3 +312,39 @@ def test_schema_migration_upgrades_legacy_database(tmp_path) -> None:
         }
     assert version == 2
     assert "idx_turns_conversation" in indexes
+
+
+def test_busy_timeout_pragma_is_set(tmp_path) -> None:
+    repository = ConversationStore(tmp_path / "state.sqlite3")
+    with repository._connect() as connection:
+        assert connection.execute("PRAGMA busy_timeout").fetchone()[0] == 5000
+
+
+def test_create_session_purges_expired_rows(tmp_path) -> None:
+    import sqlite3
+
+    repository = ConversationStore(tmp_path / "state.sqlite3")
+    user = repository.authenticate("user", "0000")
+    assert user is not None
+    stale = repository.create_session(user)
+    fresh = repository.create_session(user)
+    with sqlite3.connect(repository.path) as connection:
+        connection.execute(
+            "UPDATE auth_sessions SET expires_at = '2000-01-01T00:00:00+00:00' "
+            "WHERE token_hash = ?",
+            (
+                __import__("hashlib")
+                .sha256(stale.encode("utf-8"))
+                .hexdigest(),
+            ),
+        )
+    repository.create_session(user)  # 触发顺带清理
+    with sqlite3.connect(repository.path) as connection:
+        remaining = {
+            row[0]
+            for row in connection.execute("SELECT token_hash FROM auth_sessions")
+        }
+    stale_hash = __import__("hashlib").sha256(stale.encode("utf-8")).hexdigest()
+    fresh_hash = __import__("hashlib").sha256(fresh.encode("utf-8")).hexdigest()
+    assert stale_hash not in remaining
+    assert fresh_hash in remaining

@@ -161,3 +161,23 @@ def test_refresh_records_relative_path_and_discard_removes_directory(
 
     with _pytest.raises(LookupError):
         report.discard(user, conversation.id)
+
+
+def test_purge_orphans_removes_directories_without_conversation(
+    tmp_path: Path,
+) -> None:
+    repository = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = repository.authenticate("user", "0000")
+    assert user is not None
+    conversation = repository.create_conversation(user, "对账")
+    reports = ConversationReport(tmp_path / "reports", repository)
+    (tmp_path / "reports" / conversation.id).mkdir(parents=True)
+    (tmp_path / "reports" / "ghost-id").mkdir(parents=True)
+    (tmp_path / "reports" / "a-file.md").write_text("x", encoding="utf-8")
+
+    removed = reports.purge_orphans()
+
+    assert removed == 1
+    assert (tmp_path / "reports" / conversation.id).exists()
+    assert not (tmp_path / "reports" / "ghost-id").exists()
+    assert (tmp_path / "reports" / "a-file.md").exists()

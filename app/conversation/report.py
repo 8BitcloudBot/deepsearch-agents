@@ -42,6 +42,18 @@ class ConversationReport:
         )
         return target
 
+    def purge_orphans(self) -> int:
+        """回收报告中已无对应会话的孤儿目录（H2：G3 只保未来，这里清存量）。"""
+        known = set(self._store.all_conversation_ids())
+        removed = 0
+        if not self._root.is_dir():
+            return 0
+        for entry in self._root.iterdir():
+            if entry.is_dir() and entry.name not in known:
+                shutil.rmtree(entry, ignore_errors=True)
+                removed += 1
+        return removed
+
     def discard(self, user: User, conversation_id: str) -> None:
         """删除会话时移除其报告目录；会话不存在时由 store 抛 LookupError。"""
         self._store.get_conversation(user, conversation_id)

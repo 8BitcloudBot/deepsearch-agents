@@ -111,6 +111,9 @@ class ConversationStore:
         connection = sqlite3.connect(self.path)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
+        # WS 读 + 回合写并发下避免立即抛 database is locked（H2；
+        # 仅连接参数，不改存储语义）
+        connection.execute("PRAGMA busy_timeout = 5000")
         return connection
 
     def _initialize(self) -> None:
@@ -239,6 +242,12 @@ class ConversationStore:
             for row in rows
         )
 
+    def all_conversation_ids(self) -> tuple[str, ...]:
+        """全部会话 id（无权限维度，仅供服务端内部对账维护使用）。"""
+        with self._connect() as connection:
+            rows = connection.execute("SELECT id FROM conversations").fetchall()
+        return tuple(row["id"] for row in rows)
+
     def admin_conversation_ids(self, actor: User, user_id: str) -> tuple[str, ...]:
         """admin 视角列出目标用户的会话 id（供清理 SQLite 之外的外置资产）。"""
         self._require_admin(actor)
@@ -275,6 +284,11 @@ class ConversationStore:
         token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
         expires = dt.datetime.now(dt.UTC) + dt.timedelta(days=ttl_days)
         with self._connect() as connection:
+            # 顺带清理过期会话行（H2）：过期行此前只在原 token 再访问时惰性删除
+            connection.execute(
+                "DELETE FROM auth_sessions WHERE expires_at <= ?",
+                (dt.datetime.now(dt.UTC).isoformat(),),
+            )
             connection.execute(
                 "INSERT INTO auth_sessions(token_hash, user_id, expires_at) "
                 "VALUES (?, ?, ?)",

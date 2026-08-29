@@ -594,6 +594,9 @@ def build_conversation_application(
     settings = ConversationSettings.from_env(environ)
     store = ConversationStore(store_path)
     report = ConversationReport(report_root, store)
+    removed = report.purge_orphans()
+    if removed:
+        logger.info("purged %d orphaned report director(ies)", removed)
 
     planner: Any = _UnavailablePlanner()
     synthesizer: Any = _UnavailableSynthesizer()
