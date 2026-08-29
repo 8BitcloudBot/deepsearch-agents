@@ -145,3 +145,43 @@
   uploads meta 单点自愈对账工具；个人库容量/文件数上限；readers 死代码
   （SessionWorkspace/save_uploaded_file，T1 遗留，与既有"勿清理"豁免不是
   同一批项）处置确认；前端 useConversationApp 的 WS 逻辑单测
+
+
+## 备选池执行轮：B10 小/中项 + 暂缓池小/中项（2026-08-29，分支 opt/deepsearch）
+
+用户圈定"全部 小/中 优化"一次性开启（26 项归并 19 任务，编号 H；3 个中-大/大项
+排除：citations 中文 tokenizer、回合取消机制、sparse 通道重构）：
+
+- [x] H1 技术栈/配置小修包：dev 依赖双通道合并（httpx-ws 入 optional dev）；
+  requires-python 解封 <3.14；doctor 版本放宽 3.12+ 并新增 .env 键对账；
+  模块级 app.main:app 修正 README 启动命令
+- [x] H2 数据小修包：SQLite busy_timeout 5s；create_session 顺带清理过期
+  auth_sessions；ConversationReport.purge_orphans 启动回收孤儿报告目录
+- [x] H3 配置小修包：tavily 交付上限提常量 + 双真源对齐断言测试；
+  CORS/cookie secure 环境可配置（默认行为不变）
+- [x] H4 LLM 小修包：三角色 system prompt 外置 app/conversation/prompts.py；
+  综合器新增注入定界条款（evidence 为不可信外部材料）
+- [x] H5 readers 死代码处置：删 SessionWorkspace/save_uploaded_file/原子写助手
+  与 _validate_file_content（-199 行，T1 遗留，经用户开启确认）
+- [x] H6 个人库容量上限：每用户文档数 50（构造可调），同名覆盖不占名额
+- [x] H7 回合耗时可见：execute 完成/失败日志带 elapsed
+- [x] H8 会话轮次软上限：MAX_TURNS_PER_CONVERSATION（默认 0 不限制）
+- [x] H9 B10-1 会话标题模型化：ModelTitleAdapter 一次便宜调用，
+  rename_if_untitled 保持占位标题语义，失败回退正则
+- [x] H10 三角色独立温度通道：MODEL_TEMPERATURE_PLANNER/SYNTHESIZER/REVIEWER
+- [x] H11 token 级历史预算：HISTORY_TOKEN_BUDGET（默认 12000 对齐旧字符语义），
+  CJK 1:1 其余 4 字符/token，英文容量×4
+- [x] H12 审阅器历史瘦身：coverage reviewer 只喂问答摘要（200/300 字符）
+- [x] H13 同会话回合排队：执行锁粒度收紧为会话级，并行提交串行执行
+- [x] H14 uploads 对账工具：uploads.audit 比对 meta↔索引（meta_only/index_only）
+- [x] H15 B10-2 滚动记忆：窗口外轮次确定性结论卡（问题+答案首句）注入综合器
+- [x] H16 B10-3 优雅降级（评审稿 docs/design/graceful-degradation.md，RED-first）：
+  综合失败但证据在手 → 确定性证据快照（claims 空+降级说明），走既有
+  turn.completed 流合同零扩展；引用幻觉场景同样降级（旧显式失败契约更新）
+- [x] H17 B10-4 plan 子问题展示：planning 事件携带 subquestions，前端 stage 线渲染
+- [x] H18 合同防漂移基建：scripts/export_openapi.py + 契约测试锁定 lite 字段集
+  与完整端点兼容字段（openapi-typescript 全量生成仍留暂缓池）
+- [x] H19 前端 WS 逻辑单测：401 静默登出 / failed 事件 / 重连行为（12 tests）
+
+最终测试状态：unit 606 passed；全量 658 passed / 4 skipped；ruff 全绿；
+前端 tsc + vitest 12 passed + vite build 通过。
