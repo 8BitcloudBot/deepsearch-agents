@@ -21,7 +21,8 @@ MAX_TEXT_CHARS = 100_000
 MAX_ZIP_ENTRIES = 500
 MAX_UNCOMPRESSED_SIZE = 100 * 1024 * 1024  # 100 MiB
 MAX_ZIP_RATIO = 200
-TRUNCATION_SUFFIX = "\n\n[TRUNCATED — exceeds maximum allowed characters]\n"
+MAX_XLSX_DATA_ROWS = 200  # 每个工作表入库的数据行上限（G5：20 行静默丢失实测不可用）
+TRUNCATION_SUFFIX = "\n\n[内容已截断：超过最大允许字符数]\n"
 
 MACRO_ENTRIES = frozenset(
     {
@@ -203,17 +204,16 @@ def save_uploaded_file(workspace: SessionWorkspace, name: str, data: bytes) -> P
     # Check extension
     ext = resolved.suffix.lower()
     if ext in DISALLOWED_EXTENSIONS:
-        raise ValueError(f"Unsupported file extension: {ext!r}")
+        raise ValueError(f"不支持的文件类型：{ext}")
     if ext not in ALLOWED_EXTENSIONS:
         raise ValueError(
-            f"Unsupported file extension: {ext!r}. "
-            f"Allowed: {sorted(ALLOWED_EXTENSIONS)}"
+            f"不支持的文件类型：{ext}（支持：{', '.join(sorted(ALLOWED_EXTENSIONS))}）"
         )
 
     # Check size before writing
     if len(data) > MAX_FILE_SIZE_BYTES:
         raise ValueError(
-            f"File too large: {len(data)} bytes (max {MAX_FILE_SIZE_BYTES})"
+            f"文件过大：{len(data)} 字节（上限 {MAX_FILE_SIZE_BYTES}）"
         )
 
     # Write temp, validate with final extension, atomic replace
@@ -225,15 +225,14 @@ def validate_upload_file(path: Path) -> None:
     """Validate a single uploaded file for size and extension."""
     ext = path.suffix.lower()
     if ext in DISALLOWED_EXTENSIONS:
-        raise ValueError(f"Unsupported file extension: {ext!r}")
+        raise ValueError(f"不支持的文件类型：{ext}")
     if ext not in ALLOWED_EXTENSIONS:
         raise ValueError(
-            f"Unsupported file extension: {ext!r}. "
-            f"Allowed: {sorted(ALLOWED_EXTENSIONS)}"
+            f"不支持的文件类型：{ext}（支持：{', '.join(sorted(ALLOWED_EXTENSIONS))}）"
         )
     if path.stat().st_size > MAX_FILE_SIZE_BYTES:
         raise ValueError(
-            f"File too large: {path.stat().st_size} bytes (max {MAX_FILE_SIZE_BYTES})"
+            f"文件过大：{path.stat().st_size} 字节（上限 {MAX_FILE_SIZE_BYTES}）"
         )
 
 
@@ -261,7 +260,7 @@ def read_text_file(path: Path, max_chars: int = MAX_TEXT_CHARS) -> str:
     try:
         raw = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
-        raise ValueError("File is not valid UTF-8") from exc
+        raise ValueError("文件不是有效的 UTF-8 编码，请另存为 UTF-8 后重试") from exc
     if len(raw) > max_chars:
         return raw[:max_chars] + TRUNCATION_SUFFIX
     return raw
@@ -274,7 +273,7 @@ def read_pdf_file(path: Path, max_pages: int = 200) -> str:
     """Read PDF using pypdf with real page counting and text extraction."""
     data = path.read_bytes()
     if not data.startswith(b"%PDF"):
-        raise ValueError("Not a valid PDF (missing %PDF header)")
+        raise ValueError("不是有效的 PDF 文件（缺少 %PDF 头）")
 
     try:
         from pypdf import PdfReader
@@ -284,14 +283,14 @@ def read_pdf_file(path: Path, max_pages: int = 200) -> str:
     try:
         reader = PdfReader(path)
     except Exception:
-        raise ValueError("Damaged or unreadable PDF")
+        raise ValueError("PDF 文件损坏或无法读取")
 
     if reader.is_encrypted:
-        raise ValueError("Encrypted PDF not supported")
+        raise ValueError("暂不支持加密 PDF")
 
     pages = len(reader.pages)
     if pages > max_pages:
-        raise ValueError(f"PDF exceeds max pages: {pages} > {max_pages}")
+        raise ValueError(f"PDF 页数超出上限：{pages} > {max_pages}")
 
     texts: list[str] = []
     for page in reader.pages:
@@ -306,7 +305,7 @@ def read_pdf_file(path: Path, max_pages: int = 200) -> str:
     if len(combined) > MAX_TEXT_CHARS:
         combined = combined[:MAX_TEXT_CHARS] + TRUNCATION_SUFFIX
     if not combined:
-        combined = "[PDF has no extractable text]"
+        combined = "[PDF 未包含可提取的文本]"
     return combined
 
 
@@ -317,15 +316,13 @@ def _validate_zip_safety(zf: zipfile.ZipFile) -> None:
     """Reject ZIP bombs and macro-enabled archives."""
     names = zf.namelist()
     if len(names) > MAX_ZIP_ENTRIES:
-        raise ValueError(f"ZIP entry limit exceeded: {len(names)} > {MAX_ZIP_ENTRIES}")
+        raise ValueError(f"ZIP 条目数超出上限：{len(names)} > {MAX_ZIP_ENTRIES}")
 
     # Check for macro entries
     for name in names:
         base = name.split("/")[-1]
         if base in MACRO_ENTRIES or name in MACRO_ENTRIES:
-            raise ValueError(
-                "Macro-enabled document rejected — vbaProject.bin detected"
-            )
+            raise ValueError("已拒绝宏文档：检测到 vbaProject.bin")
 
     # Check uncompressed size to avoid ZIP bomb
     total_size = 0
@@ -336,11 +333,10 @@ def _validate_zip_safety(zf: zipfile.ZipFile) -> None:
             if info.compress_size > 0:
                 ratio = info.file_size / info.compress_size
                 if ratio > MAX_ZIP_RATIO:
-                    raise ValueError("ZIP bomb detected: abnormal compression ratio")
+                    raise ValueError("检测到疑似 ZIP 炸弹：异常压缩比")
     if total_size > MAX_UNCOMPRESSED_SIZE:
         raise ValueError(
-            f"ZIP uncompressed size exceeds limit: "
-            f"{total_size} > {MAX_UNCOMPRESSED_SIZE}"
+            f"ZIP 解压后大小超出上限：{total_size} > {MAX_UNCOMPRESSED_SIZE}"
         )
 
 
@@ -350,7 +346,7 @@ def _check_content_types_macros(names: list[str], raw_ct: bytes | None) -> None:
         text = raw_ct.decode("utf-8", errors="replace").lower()
         for mt in MACRO_CONTENT_TYPES:
             if mt.lower() in text:
-                raise ValueError("Macro-enabled content type detected")
+                raise ValueError("检测到宏启用内容类型")
 
 
 def read_docx_file(path: Path) -> str:
@@ -361,9 +357,9 @@ def read_docx_file(path: Path) -> str:
         with _zf.ZipFile(path) as zf:
             names = zf.namelist()
             if "[Content_Types].xml" not in names:
-                raise ValueError("Missing [Content_Types].xml in DOCX")
+                raise ValueError("DOCX 缺少 [Content_Types].xml")
             if "word/document.xml" not in names:
-                raise ValueError("Missing word/document.xml in DOCX")
+                raise ValueError("DOCX 缺少 word/document.xml")
 
             # Check content types for macros
             ct_data = zf.read("[Content_Types].xml")
@@ -372,7 +368,7 @@ def read_docx_file(path: Path) -> str:
             # ZIP bomb defense
             _validate_zip_safety(zf)
     except zipfile.BadZipFile as exc:
-        raise ValueError("Not a valid ZIP (DOCX)") from exc
+        raise ValueError("不是有效的 DOCX 文件（ZIP 结构损坏）") from exc
     except ValueError:
         raise
 
@@ -385,7 +381,7 @@ def read_docx_file(path: Path) -> str:
             "python-docx not installed. Run: uv sync --extra dev"
         ) from exc
     except Exception:
-        raise ValueError("Unable to parse DOCX document")
+        raise ValueError("无法解析 DOCX 文档")
 
     paragraphs = []
     for para in doc.paragraphs:
@@ -415,15 +411,15 @@ def read_xlsx_file(path: Path) -> str:
         with _zf.ZipFile(path) as zf:
             names = zf.namelist()
             if "[Content_Types].xml" not in names:
-                raise ValueError("Missing [Content_Types].xml in XLSX")
+                raise ValueError("XLSX 缺少 [Content_Types].xml")
             if "xl/workbook.xml" not in names:
-                raise ValueError("Missing xl/workbook.xml in XLSX")
+                raise ValueError("XLSX 缺少 xl/workbook.xml")
 
             ct_data = zf.read("[Content_Types].xml")
             _check_content_types_macros(names, ct_data)
             _validate_zip_safety(zf)
     except zipfile.BadZipFile as exc:
-        raise ValueError("Not a valid ZIP (XLSX)") from exc
+        raise ValueError("不是有效的 XLSX 文件（ZIP 结构损坏）") from exc
     except ValueError:
         raise
 
@@ -445,7 +441,7 @@ def read_xlsx_file(path: Path) -> str:
             try:
                 for sheet_name in wb.sheetnames:
                     ws = wb[sheet_name]
-                    # Bound: only iterate header + 20 data rows using islice
+                    # Bound: header + up to MAX_XLSX_DATA_ROWS data rows
                     all_rows = ws.iter_rows(values_only=True)
                     header_row = next(all_rows, None)
                     headers = (
@@ -453,7 +449,8 @@ def read_xlsx_file(path: Path) -> str:
                         if header_row
                         else []
                     )
-                    data_rows = list(itertools.islice(all_rows, 20))
+                    data_rows = list(itertools.islice(all_rows, MAX_XLSX_DATA_ROWS))
+                    truncated = next(all_rows, None) is not None
 
                     col_count = ws.max_column or len(headers)
                     row_count = len(data_rows) + (1 if header_row else 0)
@@ -470,11 +467,15 @@ def read_xlsx_file(path: Path) -> str:
                             str(c) if c is not None else "" for c in row
                         )
                         output_lines.append(row_str)
+                    if truncated:
+                        output_lines.append(
+                            f"[数据已截断：仅入库每个工作表前 {MAX_XLSX_DATA_ROWS} 行]"
+                        )
                     output_lines.append("")
             finally:
                 wb.close()
     except Exception:
-        raise ValueError("Unable to parse XLSX workbook")
+        raise ValueError("无法解析 XLSX 工作簿")
     text = "\n".join(output_lines)
     if len(text) > MAX_TEXT_CHARS:
         text = text[:MAX_TEXT_CHARS] + TRUNCATION_SUFFIX

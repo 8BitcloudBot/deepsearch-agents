@@ -118,7 +118,7 @@ class UploadKnowledgeStore:
 
     def ingest(self, user_id: str, name: str, content: str) -> dict[str, str]:
         if not name.strip() or not content.strip():
-            raise ValueError("uploaded document is empty")
+            raise ValueError("上传的文档内容为空")
         document_id = self._document_id(name)
         document = KnowledgeDocument(
             collection_id=f"uploads-{user_id}",
@@ -128,7 +128,7 @@ class UploadKnowledgeStore:
             chunks=_section_chunks(content),
         )
         if not document.chunks:
-            raise ValueError("uploaded document produced no chunks")
+            raise ValueError("文档未能切分出任何内容块")
         index = self._index_for(user_id)
         index.index_documents((document,))
 
@@ -196,9 +196,9 @@ def read_supported_file(path: Path) -> str:
 
     extension = path.suffix.casefold()
     if extension not in ALLOWED_EXTENSIONS:
-        raise ValueError("unsupported document type")
+        raise ValueError("不支持的文档类型")
     if path.stat().st_size > MAX_FILE_SIZE_BYTES:
-        raise ValueError("document too large")
+        raise ValueError("文档过大")
     validate_upload_file(path)
     readers = {
         ".txt": read_text_file,

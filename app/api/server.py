@@ -411,10 +411,10 @@ def create_app(
                     ".docx",
                     ".xlsx",
                 }:
-                    raise HTTPException(422, detail="unsupported document type")
+                    raise HTTPException(422, detail="不支持的文档类型")
                 payload = await upload.read(_LIBRARY_MAX_FILE_SIZE + 1)
                 if len(payload) > _LIBRARY_MAX_FILE_SIZE:
-                    raise HTTPException(413, detail="document too large")
+                    raise HTTPException(413, detail="文档过大")
                 destination = Path(workdir) / f"{secrets.token_hex(8)}-{original}"
                 destination.write_bytes(payload)
                 try:
@@ -422,9 +422,7 @@ def create_app(
                 except ValueError as exc:
                     raise HTTPException(422, detail=str(exc)) from exc
                 except Exception as exc:
-                    raise HTTPException(
-                        422, detail="document could not be ingested"
-                    ) from exc
+                    raise HTTPException(422, detail="文档解析失败") from exc
                 created.append(
                     LibraryDocument(
                         document_id=entry["document_id"],
