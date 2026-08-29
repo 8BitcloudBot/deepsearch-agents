@@ -126,3 +126,16 @@ def test_concurrent_ingest_same_user_is_serialized(tmp_path: Path) -> None:
     assert sorted(entry["name"] for entry in entries) == sorted(documents)
     assert len(store.list_documents("user-1")) == 4
     assert store.retriever_for("user-1") is not None
+
+
+def test_per_user_document_cap_rejects_new_but_allows_overwrite(tmp_path: Path) -> None:
+    store = UploadKnowledgeStore(
+        tmp_path / "user-uploads", FakeEmbedder(), min_score=0.40, max_documents=2
+    )
+    store.ingest("user-1", "a.md", "文档 A 内容。")
+    store.ingest("user-1", "b.md", "文档 B 内容。")
+    with pytest.raises(ValueError, match="上限"):
+        store.ingest("user-1", "c.md", "文档 C 内容。")
+    # 同名覆盖不占新名额
+    store.ingest("user-1", "a.md", "文档 A 更新内容。")
+    assert len(store.list_documents("user-1")) == 2

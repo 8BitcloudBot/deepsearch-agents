@@ -21,6 +21,7 @@ from app.knowledge.contracts import KnowledgeDocument, KnowledgeDocumentChunk
 
 CHUNKING_VERSION = "heading-section-v1"
 _META_NAME = "uploads-meta.json"
+MAX_DOCUMENTS_PER_USER = 50  # 每用户文档数上限（H6；同名覆盖不占新名额）
 _SAFE_USER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
@@ -51,7 +52,14 @@ class UploadKnowledgeStore:
     min_score 语义与主库 KnowledgeEvidenceRetriever 一致。
     """
 
-    def __init__(self, root: Path, embedder: Any, min_score: float):
+    def __init__(
+        self,
+        root: Path,
+        embedder: Any,
+        min_score: float,
+        *,
+        max_documents: int = MAX_DOCUMENTS_PER_USER,
+    ):
         self._root = Path(root)
         self._embedder = embedder
         self._min_score = min_score
@@ -60,6 +68,7 @@ class UploadKnowledgeStore:
         # per-user 写锁（G8）：入库转入工作线程后 Qdrant local 不允许并发写，
         # 同一用户的 ingest/remove/delete_user 必须互斥。
         self._user_locks: dict[str, threading.Lock] = {}
+        self._max_documents = max_documents
 
     # -- 内部 -----------------------------------------------------------
 
@@ -138,6 +147,15 @@ class UploadKnowledgeStore:
         if not document.chunks:
             raise ValueError("文档未能切分出任何内容块")
         with self._lock_for(user_id):
+            meta = [
+                item
+                for item in self._meta(user_id)
+                if item.get("document_id") != document_id
+            ]
+            if len(meta) >= self._max_documents:
+                raise ValueError(
+                    f"个人知识库文档数量已达上限（{self._max_documents}），请先删除部分文档"
+                )
             index = self._index_for(user_id)
             index.index_documents((document,))
 
@@ -146,11 +164,6 @@ class UploadKnowledgeStore:
                 "name": name[:200],
                 "chunks": str(len(document.chunks)),
             }
-            meta = [
-                item
-                for item in self._meta(user_id)
-                if item.get("document_id") != document_id
-            ]
             meta.insert(0, entry)
             self._metas[user_id] = meta
             self._save_meta(user_id)
