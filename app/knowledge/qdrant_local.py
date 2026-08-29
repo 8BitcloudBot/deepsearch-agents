@@ -450,6 +450,37 @@ class QdrantLocalKnowledgeIndex:
             (point_id, payload, overlap) for overlap, point_id, payload in ranked[:100]
         ]
 
+    def list_document_ids(self) -> set[str]:
+        """collection 内全部 document_id（H14 对账用；一次全量 scroll）。"""
+        from qdrant_client.models import FieldCondition, Filter, MatchValue
+
+        collection_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="collection_id",
+                    match=MatchValue(value=self._spec.collection_id),
+                )
+            ]
+        )
+        document_ids: set[str] = set()
+        offset = None
+        while True:
+            records, offset = self._get_client().scroll(
+                collection_name=self._spec.physical_collection_name,
+                scroll_filter=collection_filter,
+                limit=256,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for record in records:
+                if isinstance(record.payload, Mapping):
+                    document_id = record.payload.get("document_id")
+                    if document_id:
+                        document_ids.add(str(document_id))
+            if offset is None:
+                return document_ids
+
     def delete_documents(self, document_ids: Sequence[str]) -> None:
         """Remove all chunks for the supplied document identities."""
         ids = tuple(dict.fromkeys(document_ids))

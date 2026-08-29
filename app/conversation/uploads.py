@@ -199,6 +199,20 @@ class UploadKnowledgeStore:
     def list_documents(self, user_id: str) -> tuple[dict[str, str], ...]:
         return tuple(dict(item) for item in self._meta(user_id))
 
+    def audit(self, user_id: str) -> dict[str, list[str]]:
+        """meta 与索引对账（H14，只读不修）。
+
+        meta_only：meta 有记录但索引无点（删除未达/索引丢失）；
+        index_only：索引有数据但 meta 无记录（meta 损坏或写盘失败的孤儿）。
+        任一侧非空即说明该用户库需要人工干预或重建。
+        """
+        meta_ids = {item["document_id"] for item in self._meta(user_id)}
+        index_ids = self._index_for(user_id).list_document_ids()
+        return {
+            "meta_only": sorted(meta_ids - index_ids),
+            "index_only": sorted(index_ids - meta_ids),
+        }
+
     def retriever_for(self, user_id: str) -> Any:
         """当前用户的个人知识库检索器；库不存在或未入库时返回 None。"""
         if not self._meta(user_id):

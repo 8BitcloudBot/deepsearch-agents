@@ -139,3 +139,30 @@ def test_per_user_document_cap_rejects_new_but_allows_overwrite(tmp_path: Path) 
     # 同名覆盖不占新名额
     store.ingest("user-1", "a.md", "文档 A 更新内容。")
     assert len(store.list_documents("user-1")) == 2
+
+
+def test_audit_detects_meta_and_index_drift(tmp_path: Path) -> None:
+    import json
+
+    store = make_store(tmp_path)
+    store.ingest("user-1", "a.md", "文档 A。")
+    entry = store.ingest("user-1", "b.md", "文档 B。")
+    assert store.audit("user-1") == {"meta_only": [], "index_only": []}
+
+    # 模拟删除未达：meta 有记录、索引无点
+    store._index_for("user-1").delete_documents((entry["document_id"],))
+    report = store.audit("user-1")
+    assert report["meta_only"] == [entry["document_id"]]
+
+    # 模拟 meta 丢失：索引有数据、meta 无记录（孤儿；b 已在删除未达场景移除）
+    meta_path = tmp_path / "user-uploads" / "user-1" / "uploads-meta.json"
+    meta_path.write_text(json.dumps([]), encoding="utf-8")
+    store._metas.pop("user-1")
+    report = store.audit("user-1")
+    import hashlib
+
+    expected = [
+        "upload-"
+        + hashlib.sha256("a.md".casefold().encode("utf-8")).hexdigest()[:16]
+    ]
+    assert report["index_only"] == expected
