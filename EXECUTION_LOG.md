@@ -210,3 +210,31 @@ bluewhale-project.md（多轮记忆素材）。服务四能力全 ready，DEEPSE
   "未覆盖问题" limitations，文案略有噪声。
 
 最终测试状态：与收尾基线一致（本轮无代码变更，仅新增数据文档）。
+
+
+## 剩余问题修复轮（2026-08-29，9 项规划 → I1-I6）
+
+- [x] I1+I2 漏网小项包：start_turn 关闭死附件流水线（新回合恒空、历史行读取
+  兼容、冻结语义测试更新）；embedding 版本/维度入 settings（EMBEDDING_VERSION/
+  DIMENSION）；前端请求 AbortSignal.timeout 兜底（30s/上传 120s）
+- [x] I3 uploads 对账修复：repair() 双向修复（index_only 从 payload 恢复 meta、
+  meta_only 清死条目），修复后 audit 归零；qdrant_local 增加 list_documents_summary
+- [x] I4 真机观察项治理：title/planner/reviewer 设 max_tokens（200/600/800，
+  synthesizer 不限）；reviewer 提示词强化 covered 判定
+- [x] I5 回合取消机制（评审稿 docs/design/turn-cancellation.md，RED-first）：
+  DELETE /turns/{tid}（404/409/僵尸分支）+ WS 新事件 turn.cancelled（向后兼容）
+  + task 注册表按键定位；前端停止按钮；单测/integration/前端三层覆盖
+- [x] I6 citations 中文 tokenizer：评审稿 docs/design/citations-chinese-tokenizer.md
+  出毕，**待用户拍板红线4 解读**（tokenizer 属输入处理层还是规则语义）后实施
+- [x] sparse 检索重构：**决策不实施**——H6 容量上限已把最坏规模锁死在
+  ~250 点，全库扫描无实际痛点；容量上限放开时再立项
+
+最终测试状态：全量 667 passed / 4 skipped；ruff 全绿；前端 tsc + vitest
+13 passed + vite build 通过。
+
+## 剩余问题最新状态（本轮后）
+
+- 待拍板：citations 中文 tokenizer（I6 评审稿就绪，2 个拍板点见评审稿）
+- 暂缓观察：sparse 检索重构（触发条件未达成）
+- 已全部收口：真机观察项（慢回合输出约束/审阅器文案）、4 项漏网小项、
+  回合取消机制；留档决策项（单机假设、B6-3、主库冻结等）不变
