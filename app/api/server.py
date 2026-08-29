@@ -480,13 +480,30 @@ def create_app(
         await websocket.accept()
         async with events.subscribe(conversation_id) as subscription:
             sender = asyncio.create_task(_send_events(websocket, subscription))
+            overflow_watcher = asyncio.create_task(subscription.overflowed.wait())
+            receive = asyncio.create_task(websocket.receive_text())
             try:
                 while True:
-                    await websocket.receive_text()
+                    done, _pending = await asyncio.wait(
+                        {receive, overflow_watcher},
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if overflow_watcher in done:
+                        # 队列溢出后订阅已被丢弃，继续挂着只会静默失聪；
+                        # 主动断开让前端走重连自愈（G11）
+                        await websocket.close(code=1013)
+                        break
+                    if receive in done:
+                        exc = receive.exception()
+                        if exc is not None:
+                            raise exc
+                        receive = asyncio.create_task(websocket.receive_text())
             except WebSocketDisconnect:
                 pass
             finally:
                 sender.cancel()
+                overflow_watcher.cancel()
+                receive.cancel()
 
     return app
 

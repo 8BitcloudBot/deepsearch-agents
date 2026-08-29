@@ -4,6 +4,7 @@ import pytest
 from starlette.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
+from app.api.events import ConversationEventBus
 from app.api.server import create_app
 from app.conversation.application import ConversationApplication
 from app.conversation.contracts import Claim, EvidenceItem, TurnResult
@@ -214,7 +215,7 @@ def test_websocket_success_has_one_terminal_event_and_aggregated_stages(
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
 
     class Engine:
-        async def run(self, turn, *, user_knowledge=None):
+        async def run(self, turn, *, user_knowledge=None, emit=None):
             item = EvidenceItem(
                 evidence_id="ev-knowledge-1",
                 source_kind="knowledge",
@@ -354,3 +355,31 @@ def test_lite_conversation_list_returns_metadata_only(tmp_path: Path) -> None:
         full = http.get(f"/api/conversations/{conversation_id}")
         assert full.status_code == 200
         assert full.json()["turns"] == []
+
+
+def test_websocket_closes_on_queue_overflow(tmp_path: Path) -> None:
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    report = ConversationReport(tmp_path / "reports", store)
+    with TestClient(
+        create_app(
+            store=store,
+            conversation_application=NoopApplication(store, report),
+            events=ConversationEventBus(max_queue_size=1),
+        )
+    ) as http:
+        login(http)
+        conversation = http.post("/api/conversations", json={"title": "溢出"}).json()
+        with http.websocket_connect(
+            f"/api/conversations/{conversation['id']}/events"
+        ) as ws:
+            # 第一条占用队列，第二条触发溢出 → 订阅被丢弃 → 服务端主动断开
+            http.app.state.events.emit(
+                conversation["id"], "turn-1", "stage.changed", "m1"
+            )
+            http.app.state.events.emit(
+                conversation["id"], "turn-1", "stage.changed", "m2"
+            )
+            assert ws.receive_json()["message"] == "m1"
+            with pytest.raises(WebSocketDisconnect):
+                while True:
+                    ws.receive_text()

@@ -122,7 +122,9 @@ class ConversationApplication:
                     user_knowledge = self.upload_store.retriever_for(user.id)
                 except Exception:
                     user_knowledge = None
-            result = await self.engine.run(input_value, user_knowledge=user_knowledge)
+            result = await self.engine.run(
+                input_value, user_knowledge=user_knowledge, emit=emit
+            )
             emit(
                 {
                     "type": "stage.changed",

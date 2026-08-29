@@ -150,6 +150,7 @@ class _TurnState(TypedDict):
     supplemental_used: int
     executed_queries: tuple[str, ...]
     user_knowledge_retriever: Any
+    emit: Any
 
 
 def _plan_is_deep(plan: TurnResearchPlan | None, question: str) -> bool:
@@ -157,6 +158,14 @@ def _plan_is_deep(plan: TurnResearchPlan | None, question: str) -> bool:
     if plan is not None and plan.research_intensity is not None:
         return plan.research_intensity == "deep"
     return _is_deep_request(question)
+
+
+def _emit_stage(state: _TurnState, stage: str, message: str) -> None:
+    """回环节点进度事件；emit 缺省（测试直跑）时静默跳过。"""
+    emit = state.get("emit")
+    if emit is None:
+        return
+    emit({"type": "stage.changed", "stage": stage, "message": message})
 
 
 def _route_after_review(state: _TurnState) -> str:
@@ -219,18 +228,21 @@ class TurnResearchEngine:
         turn: TurnInput,
         *,
         user_knowledge: EvidenceRetriever | None = None,
+        emit: Any = None,
     ) -> TurnResult:
         """user_knowledge：当前用户的个人知识库检索器（知识库入库方案）。
 
         其结果并入 knowledge 来源分支统一评分排序，DAG 形状不变。
+        emit：可选阶段事件回调（G11 过程展示）。
         """
-        return await self._run(turn, user_knowledge=user_knowledge)
+        return await self._run(turn, user_knowledge=user_knowledge, emit=emit)
 
     async def _run(
         self,
         turn: TurnInput,
         *,
         user_knowledge: EvidenceRetriever | None = None,
+        emit: Any = None,
     ) -> TurnResult:
         state = await self._graph.ainvoke(
             {
@@ -246,6 +258,7 @@ class TurnResearchEngine:
                 "supplemental_used": 0,
                 "executed_queries": (),
                 "user_knowledge_retriever": user_knowledge,
+                "emit": emit,
             },
             # plan+retrieve + (review+supplemental)×(MAX_ROUNDS+1) + synthesize
             # 的安全上限；轮次上限保证正常收敛，这里只兜异常路径。
@@ -362,6 +375,7 @@ class TurnResearchEngine:
 
     async def _review_coverage(self, state: _TurnState) -> dict[str, object]:
         logger.debug("node=review enter rounds=%d", state.get("supplemental_rounds", 0))
+        _emit_stage(state, "review", "正在核对证据覆盖情况")
         if self._coverage_reviewer is None:
             return {"coverage": CoverageDecision()}
         plan = self._require_plan(state)
@@ -466,6 +480,11 @@ class TurnResearchEngine:
 
     async def _retrieve_supplemental(self, state: _TurnState) -> dict[str, object]:
         logger.debug("node=supplemental enter")
+        _emit_stage(
+            state,
+            "supplemental",
+            f"正在补充检索（第 {state.get('supplemental_rounds', 0) + 1} 轮）",
+        )
         coverage = state.get("coverage") or CoverageDecision()
         knowledge = list(state["knowledge"])
         web = list(state["web"])
