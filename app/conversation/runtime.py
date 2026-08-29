@@ -127,6 +127,18 @@ def _history_records(turn: TurnInput) -> list[dict[str, str]]:
     ]
 
 
+def _history_brief(turn: TurnInput) -> list[dict[str, str]]:
+    """审阅器专用历史摘要（H12）：问答各截前 200/300 字符。
+
+    审阅器只需判断"哪些事实已确立"，无需逐字全量历史；
+    planner/synthesizer 保持全量。
+    """
+    return [
+        {"question": question[:200], "answer": answer[:300]}
+        for question, answer in turn.recent_history
+    ]
+
+
 def _current_date_line(now: Any = None) -> str:
     """组装期注入当前日期（ISO + 星期），供所有角色 system prompt 头部使用。
 
@@ -235,7 +247,7 @@ class ModelCoverageReviewerAdapter:
                         {
                             "question": turn.question,
                             "use_web": turn.use_web,
-                            "recent_history": _history_records(turn),
+                            "recent_history": _history_brief(turn),
                             "plan": plan.as_dict(),
                             "evidence": evidence,
                             "limitations": list(limitations),

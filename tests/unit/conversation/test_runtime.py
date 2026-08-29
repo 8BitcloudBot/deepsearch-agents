@@ -646,3 +646,26 @@ def test_settings_parses_per_role_temperature() -> None:
     assert settings.model_temperature_reviewer is None
     default = ConversationSettings.from_env({})
     assert default.model_temperature_planner is None
+
+
+async def test_reviewer_receives_brief_history_while_synthesizer_full() -> None:
+    long_answer = "细" * 5000
+
+    class Model:
+        payloads = []
+
+        async def ainvoke(self, messages):
+            import json as _json
+
+            self.payloads.append(_json.loads(messages[1]["content"]))
+            return type("Response", (), {"content": '{"uncovered_questions":[]}'} )()
+
+    model = Model()
+    evidence = (EvidenceItem("ev-1", "knowledge", "文档", "chunk", "a#b", "原文"),)
+    plan = TurnResearchPlan("目标", (), (), ())
+    turn = TurnInput("问题", False, (), (("问题", long_answer),))
+
+    await ModelCoverageReviewerAdapter(model).review(turn, plan, evidence, ())
+    reviewer_history = model.payloads[0]["recent_history"]
+    assert reviewer_history[0]["answer"] == "细" * 300  # 审阅器吃摘要（H12）
+    assert _history_records(turn)[0]["answer"] == long_answer  # 全量路径不变
