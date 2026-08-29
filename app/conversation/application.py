@@ -32,6 +32,7 @@ class ConversationApplication:
         *,
         stale_turn_seconds: int = 1800,
         max_turns_per_conversation: int = 0,
+        title_generator: Any | None = None,
     ) -> None:
         self.store = store
         self.engine = engine
@@ -50,6 +51,7 @@ class ConversationApplication:
         self.upload_store = upload_store
         self._stale_turn_seconds = stale_turn_seconds
         self._max_turns_per_conversation = max_turns_per_conversation
+        self.title_generator = title_generator
 
     async def submit(
         self,
@@ -169,7 +171,19 @@ class ConversationApplication:
                 }
             )
             completed = self.store.complete_turn(user, conversation_id, turn_id, result)
-            self.store.auto_title_conversation(user, conversation_id, turn.question)
+            renamed = False
+            if self.title_generator is not None:
+                try:
+                    title = await self.title_generator.generate(turn.question)
+                    renamed = self.store.rename_if_untitled(
+                        user, conversation_id, title
+                    )
+                except Exception as exc:
+                    logger.warning("model title generation failed: %s", brief(exc))
+            if not renamed:
+                self.store.auto_title_conversation(
+                    user, conversation_id, turn.question
+                )
             path = self.report.refresh(user, conversation_id)
             emit(
                 {

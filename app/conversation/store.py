@@ -367,6 +367,19 @@ class ConversationStore:
             )
         return self.get_conversation(user, conversation_id)
 
+    def rename_if_untitled(self, user: User, conversation_id: str, title: str) -> bool:
+        """仅当会话仍是占位标题"新研究"时更新（B10-1 模型标题入口）。"""
+        self.get_conversation(user, conversation_id)
+        cleaned = self._title(title)
+        now = _now()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """UPDATE conversations SET title = ?, updated_at = ?
+                WHERE id = ? AND title = '新研究'""",
+                (cleaned, now, conversation_id),
+            )
+            return cursor.rowcount > 0
+
     def auto_title_conversation(
         self, user: User, conversation_id: str, question: str
     ) -> Conversation:

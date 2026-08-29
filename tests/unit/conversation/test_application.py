@@ -331,3 +331,54 @@ async def test_turn_limit_rejects_when_configured(tmp_path: Path) -> None:
             user, conversation.id, question="第二问", use_web=False
         )
     assert first.status == "running"
+
+
+@pytest.mark.asyncio
+async def test_model_title_generation_wins_and_falls_back_to_regex(
+    tmp_path: Path,
+) -> None:
+    class TitleGenerator:
+        def __init__(self, fail: bool = False):
+            self.fail = fail
+            self.asked: list[str] = []
+
+        async def generate(self, question: str) -> str:
+            self.asked.append(question)
+            if self.fail:
+                raise RuntimeError("title model down")
+            return "LangGraph 状态图入门"
+
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    user = store.authenticate("user", "0000")
+    assert user is not None
+
+    success = TitleGenerator()
+    conversation = store.create_conversation(user, "新研究")
+    application = ConversationApplication(
+        store, Engine([]), ConversationReport(tmp_path / "reports", store),
+        title_generator=success,
+    )
+    turn = await application.submit(user, conversation.id, question="请问什么是 LangGraph？", use_web=False)
+    await application.execute(user, conversation.id, turn.id)
+    assert store.get_conversation(user, conversation.id).title == "LangGraph 状态图入门"
+
+    # 模型失败 → 回退正则剥前缀路径
+    fallback = TitleGenerator(fail=True)
+    second = store.create_conversation(user, "新研究")
+    application2 = ConversationApplication(
+        store, Engine([]), ConversationReport(tmp_path / "reports", store),
+        title_generator=fallback,
+    )
+    turn2 = await application2.submit(user, second.id, question="我想了解向量数据库", use_web=False)
+    await application2.execute(user, second.id, turn2.id)
+    assert store.get_conversation(user, second.id).title == "向量数据库"
+
+    # 用户已手动命名 → 模型标题不覆盖
+    third = store.create_conversation(user, "我的专属标题")
+    application3 = ConversationApplication(
+        store, Engine([]), ConversationReport(tmp_path / "reports", store),
+        title_generator=TitleGenerator(),
+    )
+    turn3 = await application3.submit(user, third.id, question="随便问问", use_web=False)
+    await application3.execute(user, third.id, turn3.id)
+    assert store.get_conversation(user, third.id).title == "我的专属标题"

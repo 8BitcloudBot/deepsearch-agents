@@ -27,6 +27,7 @@ from app.conversation.output_schemas import (
 from app.conversation.prompts import (
     COVERAGE_REVIEWER_SYSTEM_PROMPT,
     PLANNER_SYSTEM_PROMPT,
+    TITLE_SYSTEM_PROMPT,
     synthesizer_system_prompt,
 )
 from app.conversation.turn import (
@@ -351,6 +352,35 @@ class ModelSynthesizerAdapter:
             raise ValueError("model response is invalid") from exc
 
 
+class ModelTitleAdapter:
+    """B10-1：首问生成会话标题；任何失败由调用方回退正则路径。"""
+
+    def __init__(self, model: Any):
+        self._model = model
+
+    async def generate(self, question: str) -> str:
+        response = await self._model.ainvoke(
+            [
+                {
+                    "role": "system",
+                    "content": _current_date_line() + "\n" + TITLE_SYSTEM_PROMPT,
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {"question": question}, ensure_ascii=False
+                    ),
+                },
+            ]
+        )
+        log_model_usage(logger, "title", response)
+        payload = _strict_json(response)
+        title = str(payload.get("title", "")).strip()
+        if not title:
+            raise ValueError("model response is invalid")
+        return title[:36]
+
+
 def _normalized_scores(values: list[float]) -> list[float]:
     """Clamp provider scores into [0, 1]; rank-style scales (>1) use batch max."""
     if not values:
@@ -565,6 +595,7 @@ def build_conversation_application(
 
     planner: Any = _UnavailablePlanner()
     synthesizer: Any = _UnavailableSynthesizer()
+    title_generator: Any = None
     model_ready = False
     if settings.model_api_key:
         try:
@@ -574,12 +605,14 @@ def build_conversation_application(
             planner = ModelPlannerAdapter(model)
             synthesizer = ModelSynthesizerAdapter(model)
             coverage_reviewer = ModelCoverageReviewerAdapter(model)
+            title_generator = ModelTitleAdapter(model)
             model_ready = True
         except Exception as exc:
             logger.warning("research model unavailable: %s", brief(exc))
             planner = _UnavailablePlanner()
             synthesizer = _UnavailableSynthesizer()
             coverage_reviewer = None
+            title_generator = None
     else:
         coverage_reviewer = None
 
@@ -691,4 +724,5 @@ def build_conversation_application(
         upload_store=upload_store,
         stale_turn_seconds=settings.turn_stale_seconds,
         max_turns_per_conversation=settings.max_turns_per_conversation,
+        title_generator=title_generator,
     )

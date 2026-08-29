@@ -54,3 +54,10 @@ SYNTHESIZER_SYSTEM_PROMPT_TEMPLATE = (
 
 def synthesizer_system_prompt(answer_budget: str) -> str:
     return SYNTHESIZER_SYSTEM_PROMPT_TEMPLATE.format(answer_budget=answer_budget)
+
+
+TITLE_SYSTEM_PROMPT = (
+    "你是会话标题撰写器。根据研究问题生成一个简短的会话标题。\n"
+    "要求：不超过 16 个中文字符，直接概括研究主题，不加标点、引号或任何前后缀。\n"
+    "只返回 JSON 对象：title。"
+)
