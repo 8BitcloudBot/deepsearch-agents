@@ -235,7 +235,7 @@ def create_app(
         library = getattr(conversation_application, "upload_store", None)
         if library is not None:
             try:
-                library.delete_user(user_id)
+                await asyncio.to_thread(library.delete_user, user_id)
             except Exception as exc:
                 logging.getLogger("deepsearch.api").warning(
                     "cleanup uploads for user failed: %s", brief(exc)
@@ -418,7 +418,11 @@ def create_app(
                 destination = Path(workdir) / f"{secrets.token_hex(8)}-{original}"
                 destination.write_bytes(payload)
                 try:
-                    entry = library.ingest_path(user.id, original, destination)
+                    # 入库含嵌入计算与 Qdrant 写盘（秒级），转工作线程执行
+                    # 避免阻塞事件循环（G8）
+                    entry = await asyncio.to_thread(
+                        library.ingest_path, user.id, original, destination
+                    )
                 except ValueError as exc:
                     raise HTTPException(422, detail=str(exc)) from exc
                 except Exception as exc:
@@ -436,7 +440,9 @@ def create_app(
     async def delete_library_document(
         document_id: str, user: User = Depends(current_user)
     ) -> Response:
-        removed = _library_store().remove(user.id, document_id)
+        removed = await asyncio.to_thread(
+            _library_store().remove, user.id, document_id
+        )
         if not removed:
             raise HTTPException(status_code=404, detail="document not found")
         return Response(status_code=204)

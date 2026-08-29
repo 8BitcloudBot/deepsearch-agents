@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 import shutil
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +57,9 @@ class UploadKnowledgeStore:
         self._min_score = min_score
         self._indexes: dict[str, Any] = {}
         self._metas: dict[str, list[dict[str, str]]] = {}
+        # per-user 写锁（G8）：入库转入工作线程后 Qdrant local 不允许并发写，
+        # 同一用户的 ingest/remove/delete_user 必须互斥。
+        self._user_locks: dict[str, threading.Lock] = {}
 
     # -- 内部 -----------------------------------------------------------
 
@@ -63,6 +67,10 @@ class UploadKnowledgeStore:
         if not _SAFE_USER_RE.fullmatch(str(user_id)):
             raise ValueError("upload store user id is invalid")
         return self._root / user_id
+
+    def _lock_for(self, user_id: str) -> threading.Lock:
+        # dict.setdefault 原子：并发首建时各线程拿到同一把锁
+        return self._user_locks.setdefault(user_id, threading.Lock())
 
     def _index_for(self, user_id: str) -> Any:
         cached = self._indexes.get(user_id)
@@ -129,33 +137,37 @@ class UploadKnowledgeStore:
         )
         if not document.chunks:
             raise ValueError("文档未能切分出任何内容块")
-        index = self._index_for(user_id)
-        index.index_documents((document,))
+        with self._lock_for(user_id):
+            index = self._index_for(user_id)
+            index.index_documents((document,))
 
-        entry = {
-            "document_id": document_id,
-            "name": name[:200],
-            "chunks": str(len(document.chunks)),
-        }
-        meta = [
-            item
-            for item in self._meta(user_id)
-            if item.get("document_id") != document_id
-        ]
-        meta.insert(0, entry)
-        self._metas[user_id] = meta
-        self._save_meta(user_id)
+            entry = {
+                "document_id": document_id,
+                "name": name[:200],
+                "chunks": str(len(document.chunks)),
+            }
+            meta = [
+                item
+                for item in self._meta(user_id)
+                if item.get("document_id") != document_id
+            ]
+            meta.insert(0, entry)
+            self._metas[user_id] = meta
+            self._save_meta(user_id)
         return entry
 
     def remove(self, user_id: str, document_id: str) -> bool:
-        before = self._meta(user_id)
-        after = [item for item in before if item.get("document_id") != document_id]
-        if len(after) == len(before):
-            return False
-        self._index_for(user_id).delete_documents((document_id,))
-        self._metas[user_id] = after
-        self._save_meta(user_id)
-        return True
+        with self._lock_for(user_id):
+            before = self._meta(user_id)
+            after = [
+                item for item in before if item.get("document_id") != document_id
+            ]
+            if len(after) == len(before):
+                return False
+            self._index_for(user_id).delete_documents((document_id,))
+            self._metas[user_id] = after
+            self._save_meta(user_id)
+            return True
 
     def delete_user(self, user_id: str) -> bool:
         """管理员清理用户数据时连带删除其整个个人知识库（G3 数据完整性）。
@@ -163,12 +175,13 @@ class UploadKnowledgeStore:
         清除内存缓存后整目录移除；目录不存在视为已清理，返回 False。
         """
         directory = self._user_dir(user_id)
-        self._indexes.pop(user_id, None)
-        self._metas.pop(user_id, None)
-        if not directory.exists():
-            return False
-        shutil.rmtree(directory)
-        return True
+        with self._lock_for(user_id):
+            self._indexes.pop(user_id, None)
+            self._metas.pop(user_id, None)
+            if not directory.exists():
+                return False
+            shutil.rmtree(directory)
+            return True
 
     def list_documents(self, user_id: str) -> tuple[dict[str, str], ...]:
         return tuple(dict(item) for item in self._meta(user_id))

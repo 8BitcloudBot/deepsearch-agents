@@ -109,3 +109,20 @@ def test_delete_user_removes_collection_directory_and_caches(
 def test_delete_user_without_directory_reports_false(tmp_path: Path) -> None:
     store = make_store(tmp_path)
     assert store.delete_user("never-uploaded") is False
+
+
+def test_concurrent_ingest_same_user_is_serialized(tmp_path: Path) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+
+    store = make_store(tmp_path)
+    documents = [f"doc-{index}.md" for index in range(4)]
+
+    def ingest(name: str) -> dict[str, str]:
+        return store.ingest("user-1", name, f"{name} 的正文内容。")
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        entries = list(pool.map(ingest, documents))
+
+    assert sorted(entry["name"] for entry in entries) == sorted(documents)
+    assert len(store.list_documents("user-1")) == 4
+    assert store.retriever_for("user-1") is not None
