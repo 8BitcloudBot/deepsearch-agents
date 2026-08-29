@@ -77,6 +77,8 @@ class KnowledgeSettings:
     index_path: str = ".data/knowledge-index-beginner-v2"
     collection: str = "deepsearch-beginner-v2"
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    embedding_version: str = "0.8.0"
+    embedding_dimension: int = 384
     min_score: float = 0.40
 
 
@@ -161,5 +163,19 @@ class ConversationSettings:
                     "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
                 ).strip(),
                 min_score=_minimum_score(environ),
+                embedding_version=environ.get(
+                    "EMBEDDING_VERSION",
+                    KnowledgeSettings.embedding_version,
+                ).strip()
+                or KnowledgeSettings.embedding_version,
+                embedding_dimension=max(
+                    1,
+                    int(
+                        environ.get(
+                            "EMBEDDING_DIMENSION",
+                            KnowledgeSettings.embedding_dimension,
+                        )
+                    ),
+                ),
             ),
         )

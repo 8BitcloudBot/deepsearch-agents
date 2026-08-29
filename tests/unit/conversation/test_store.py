@@ -58,9 +58,12 @@ def test_session_tokens_resolve_without_storing_the_raw_token(tmp_path: Path) ->
     assert repository.resolve_session(token) is None
 
 
-def test_removed_attachment_stays_on_completed_turn_but_not_future_turns(
+def test_new_turns_no_longer_fill_dead_attachment_pipeline(
     tmp_path: Path,
 ) -> None:
+    """I1 冻结语义：T1 移除附件端点后新回合恒空；attachments 表与历史
+    行读取保留（存储合同不变），add_attachment 仅可经 store 直接构造
+    模拟存量数据。"""
     repository = store(tmp_path)
     user = repository.authenticate("user", "0000")
     assert user is not None
@@ -74,26 +77,26 @@ def test_removed_attachment_stays_on_completed_turn_but_not_future_turns(
         media_type="text/markdown",
     )
 
-    first = repository.start_turn(
+    new_turn = repository.start_turn(
         user,
         conversation.id,
         question="第一问",
         use_web=False,
     )
-    assert first.attachment_ids == (attachment.id,)
+    # I1：新回合不再填充附件 id（死数据流水线关闭）
+    assert new_turn.attachment_ids == ()
 
-    repository.remove_attachment(user, conversation.id, attachment.id)
-    second = repository.start_turn(
-        user,
-        conversation.id,
-        question="第二问",
-        use_web=True,
-    )
+    # 历史行（手工写入存量形态）读取兼容：attachment_ids 仍可解析
+    import json as _json
 
-    assert repository.get_turn(user, conversation.id, first.id).attachment_ids == (
+    with repository._connect() as connection:
+        connection.execute(
+            "UPDATE turns SET attachment_ids_json = ? WHERE id = ?",
+            (_json.dumps([attachment.id]), new_turn.id),
+        )
+    assert repository.get_turn(user, conversation.id, new_turn.id).attachment_ids == (
         attachment.id,
     )
-    assert second.attachment_ids == ()
 
 
 def test_attachment_lookup_by_ids_returns_only_existing_records(tmp_path: Path) -> None:

@@ -529,9 +529,9 @@ class ConversationStore:
         question = question.strip()
         if not question or len(question) > 10000 or type(use_web) is not bool:
             raise ValueError("turn input is invalid")
-        attachment_ids = tuple(
-            item.id for item in self.list_attachments(user, conversation_id)
-        )
+        # I1：附件路径已由个人知识库取代（T1），新回合不再填充死数据；
+        # 列与 Turn.attachment_ids 字段保留以兼容历史行读取。
+        attachment_ids: tuple[str, ...] = ()
         turn = Turn(
             str(uuid.uuid4()),
             conversation_id,

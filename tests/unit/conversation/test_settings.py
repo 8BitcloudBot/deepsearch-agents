@@ -58,3 +58,16 @@ def test_env_example_only_contains_schema_five_runtime_configuration() -> None:
 def test_conversation_settings_reject_unsafe_knowledge_path(value: str):
     with pytest.raises(ValueError, match="knowledge index path"):
         ConversationSettings.from_env({"KNOWLEDGE_INDEX_PATH": value})
+
+
+def test_embedding_identity_overridable() -> None:
+    from app.conversation.settings import ConversationSettings
+
+    default = ConversationSettings.from_env({}).knowledge
+    assert default.embedding_version == "0.8.0"
+    assert default.embedding_dimension == 384
+    custom = ConversationSettings.from_env(
+        {"EMBEDDING_DIMENSION": "768", "EMBEDDING_VERSION": "1.0.0"}
+    ).knowledge
+    assert custom.embedding_version == "1.0.0"
+    assert custom.embedding_dimension == 768

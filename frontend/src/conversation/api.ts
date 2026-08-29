@@ -6,9 +6,14 @@ export class ApiError extends Error {
   }
 }
 
+const DEFAULT_TIMEOUT_MS = 30_000;
+const UPLOAD_TIMEOUT_MS = 120_000; // 多文件解析入库可达数十秒（I2）
+
 async function request<T>(baseUrl: string, path: string, init?: RequestInit): Promise<T> {
+  const isUpload = init?.body instanceof FormData;
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
+    signal: AbortSignal.timeout(isUpload ? UPLOAD_TIMEOUT_MS : DEFAULT_TIMEOUT_MS),
     credentials: "include",
     headers: init?.body instanceof FormData
       ? init.headers

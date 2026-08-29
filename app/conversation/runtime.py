@@ -652,8 +652,8 @@ def build_conversation_application(
 
         embedder = FastEmbedEmbeddingAdapter(
             model=settings.knowledge.embedding_model,
-            version="0.8.0",
-            dimension=384,
+            version=settings.knowledge.embedding_version,
+            dimension=settings.knowledge.embedding_dimension,
             cache_dir=str(runtime_root / ".cache" / "fastembed"),
         )
     except Exception as exc:
