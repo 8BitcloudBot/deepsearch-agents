@@ -97,3 +97,51 @@
 - 2026-08-27 移除 deepagents 后顶层 examples/ 处置 => 删除 examples/（推荐选项）
 
 ## 最终测试状态：692 passed / 4 skipped / ruff 全通过（baseline 为 735+6 examples 演示测试）
+
+
+## 治理改进轮（2026-08-29，分支 opt/deepsearch）
+
+九视角治理审阅（LLM/数据/前端/多轮对话/上下文/文档入库/配置/技术栈/文档）后，
+与首轮改进清单合并排序执行，一次一任务一 commit：
+
+- [x] G1 CI 修复 (4daf2f2)：删除无 compose 文件的 docker config 步骤（实测必挂）；lint 路径
+  去掉已删除的 examples；移除 format --check（11 文件不合规且 format 非质量门）
+- [x] G2 日志层：app/logging_setup.py（DEEPSEARCH_TRACE 开关、brief 异常安全摘要、
+  log_model_usage usage 计量）；装配降级全程可观测；embedder 独立构造解除主库
+  隐式耦合；DAG 节点 trace 与回合失败诊断日志
+- [x] G3 数据完整性：admin 清数据级联清个人知识库（uploads.delete_user）与报告文件
+  （report.discard）；删会话清报告目录；reports 记相对路径；turn 锁改弱值字典自动回收
+- [x] G4 僵尸 running 回合回收：store.fail_stale_running_turns（阈值
+  TURN_STALE_SECONDS 默认 1800）；submit 前自动回收
+- [x] G5 文档入库治理：xlsx 每工作表入库上限 20→200 行并显式标注截断；
+  文档解析错误文案中文化（直达 422 detail 的用户面消息）
+- [x] G6 补充检索轮接入个人知识库：主库与 uploads 库"库间并行、库内串行"
+  发同一组补充查询，与首轮结构一致
+- [x] G7 runtime 治理：日期注入改服务器本地时区（UTC 在 UTC+8 会差一天）；
+  综合器长度预算采纳规划器 research_intensity 优先；删除 Tavily
+  include_raw_content 请求（响应体无消费白白放大流量）
+- [x] G8 上传并发治理：uploads ingest/remove/delete_user 加 per-user 互斥锁；
+  HTTP 端点转 asyncio.to_thread，入库不再阻塞事件循环
+- [x] G9 错误分类接线（评审稿 docs/design/error-taxonomy-wiring.md，RED-first）：
+  TurnExecutionError 携带稳定枚举 code；plan/synthesize 异常经
+  classify_model_error 映射；turn.failed 事件新增 error_kind（向后兼容）；
+  用户面文案回归 model.py 稳定枚举（红线3 落地）
+- [x] G10 会话列表瘦身：新增 GET /api/conversations/lite（仅元数据），
+  完整端点合同原样保留（向后兼容）
+- [x] G11 过程与连接治理：G11a 后端 review/supplemental 回环节点向 WS 发真实
+  进度（含轮次），事件队列溢出后服务端主动断开 1013 触发重连；G11b 前端
+  指数退避重连 + sequence 跳号告警 + 回合事件单会话增量刷新 + 401 统一拦截
+- [x] G12 历史注入按句子边界截断：_bounded_history 不再拦腰硬切
+- [x] G13 SQLite 最小迁移机制：schema_state 版本表 + 幂等迁移；v2 补
+  conversations/turns/attachments/auth_sessions 查询索引，存量库自动演进
+
+最终测试状态：583 passed（unit）/ integration 11 passed / ruff 全绿 /
+前端 tsc + vitest 9 passed + vite build 通过。
+
+## 治理轮暂缓池（仅在点名时执行）
+- 前后端合同代码生成（openapi-typescript）；CORS/cookie secure 可配置化；
+  提示词外置 prompts.py；证据注入定界（防提示词注入）；Tavily score 保留；
+  dev 依赖双通道合并；requires-python 解封 3.13；会话并行回合语义评审；
+  uploads meta 单点自愈对账工具；个人库容量/文件数上限；readers 死代码
+  （SessionWorkspace/save_uploaded_file，T1 遗留，与既有"勿清理"豁免不是
+  同一批项）处置确认；前端 useConversationApp 的 WS 逻辑单测

@@ -34,9 +34,11 @@ python scripts/index_knowledge.py  # 从 data/knowledge 重建 Qdrant 本地索�
 | `app/conversation/heuristics.py` | 共享轻量助手（is_deep_request 回退 / rank_decay_scores） |
 | `app/conversation/application.py`、`store.py`、`settings.py`、`model.py` | 编排入口 / SQLite 状态机 / 配置 / 模型构造与错误分类 |
 | `app/knowledge/`、`app/providers/tavily.py` | 知识库混合检索（含 readers.py 文档解析器）/ Web 检索 |
-| `app/conversation/uploads.py` | 个人知识库入库服务：per-user Qdrant collection、增量 upsert、同名覆盖 |
+| `app/conversation/uploads.py` | 个人知识库入库服务：per-user Qdrant collection、增量 upsert、同名覆盖、per-user 写锁 |
+| `app/logging_setup.py` | 服务端日志装配：DEEPSEARCH_TRACE 开关、异常安全摘要、模型 usage 计量 |
 | `app/citations/runtime_adapter.py` | 引用校验运行时适配层（ENABLE_CITATION_VALIDATION 控制，默认关；rules 为英文词法设计，中文语料系统性误杀——见 EXECUTION_LOG 验证结论） |
 | `benchmarks/evaluation/` | 评测框架 s0/s1 策略与数据集（独立于运行链路），入口 scripts/evaluate.py |
+| `docs/design/` | 跨模块改动的设计评审稿（先批准后实施，如 error-taxonomy-wiring.md） |
 
 关键开关（`.env`）：`ENABLE_CITATION_VALIDATION`（默认 false）、`MODEL_STRUCTURED_OUTPUT`（默认 false，全角色 json_object 强约束）、`MODEL_TEMPERATURE/MODEL_MAX_RETRIES/MODEL_TOP_P`（默认 0.2/2/None）。
 
@@ -48,9 +50,17 @@ python scripts/index_knowledge.py  # 从 data/knowledge 重建 Qdrant 本地索�
 4. `app/citations` 包不删除、不改其规则语义。
 5. API/WS 响应合同向后兼容。
 
+## 已知问题区（诊断结论防重复查证）
+
+- citations rules 为英文词法设计，中文语料系统性误杀——flag 维持默认关，正式启用须先补中文 tokenizer（触碰红线4，单独拍板）。
+- readers.py 的 SessionWorkspace/save_uploaded_file 为 T1 遗留死代码（app+tests 零消费），处置前须用户确认。
+- uploads 的 uploads-meta.json 是单点真源：损坏时个人库静默失效，无对账工具（暂缓池）。
+- EXECUTION_LOG 封版前的最终 flag 清单中 ENABLE_TAVILY 键不存在于代码（历史漂移，以代码与 .env.example 为准）。
+
 ## 工作纪律
 
 - 一律中文回复。计划书里的 文件:行号 是快照——**动手前先 grep 定位标识符确认**，对不上就停下报告。
+- 红线邻近或安全语义的改动**先写注定失败的敌意测试再实现**（RED-first，G9 惯例）。
 - 当前分支基线是 `main`；改造提交在 `opt/deepsearch` 分支上做（已存在则继续用）。一个任务一个 commit（message 以任务编号开头），**测试全绿才提交**，只做本地提交不推送。
 - 会话每轮结尾输出三行：【已完成】【测试状态】【下一步】。
 
