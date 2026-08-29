@@ -465,23 +465,48 @@ class TurnResearchEngine:
         knowledge = list(state["knowledge"])
         web = list(state["web"])
         limitations = list(state["limitations"])
-        tasks = [
-            self._knowledge.search(query, limit=10)
-            for query in coverage.knowledge_queries
-        ] + [
-            self._web.search(query, limit=10)
-            for query in coverage.web_queries
-            if state["turn"].use_web
-        ]
-        sources = ["knowledge"] * len(coverage.knowledge_queries) + [
-            "web"
-        ] * len(coverage.web_queries if state["turn"].use_web else ())
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 主库与个人知识库"库间并行、库内串行"发同一组补充查询（G6），
+        # 与首轮 retrieve 的结构一致；结果并入同一分支统一评分。
+        async def retrieve_knowledge() -> list[tuple[str, int, object]]:
+            async def one_library(
+                retriever: Any, offset_base: int
+            ) -> list[tuple[str, int, object]]:
+                records: list[tuple[str, int, object]] = []
+                for offset, query in enumerate(coverage.knowledge_queries):
+                    try:
+                        result: object = await retriever.search(query, limit=10)
+                    except Exception as exc:
+                        result = exc
+                    records.append(("knowledge", offset_base + offset, result))
+                return records
+
+            extra = state.get("user_knowledge_retriever")
+            main_task = one_library(self._knowledge, 0)
+            if extra is None:
+                return await main_task
+            main_records, extra_records = await asyncio.gather(
+                main_task,
+                one_library(extra, len(coverage.knowledge_queries)),
+            )
+            return [*main_records, *extra_records]
+
+        async def retrieve_web() -> list[tuple[str, int, object]]:
+            web_queries = coverage.web_queries if state["turn"].use_web else ()
+            results = await asyncio.gather(
+                *(self._web.search(query, limit=10) for query in web_queries),
+                return_exceptions=True,
+            )
+            return [("web", index, result) for index, result in enumerate(results)]
+
+        batches = await asyncio.gather(retrieve_knowledge(), retrieve_web())
         failed = False
-        for source, result in zip(sources, results, strict=True):
+        for source_kind, _query_index, result in [
+            record for batch in batches for record in batch
+        ]:
             if isinstance(result, BaseException):
                 failed = True
-            elif source == "knowledge":
+            elif source_kind == "knowledge":
                 knowledge.extend(result)
             else:
                 web.extend(result)

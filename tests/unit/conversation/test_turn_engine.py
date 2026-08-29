@@ -1273,3 +1273,37 @@ async def test_user_knowledge_results_merge_into_knowledge_branch() -> None:
     assert all(kind == "knowledge" for kind in kinds)
     # 个人库高分证据排前
     assert synthesizer.seen_evidence[0].evidence_id == "ev-knowledge-upload-doc1-abc"
+
+
+@pytest.mark.asyncio
+async def test_supplemental_round_queries_personal_knowledge_library():
+    class Reviewer:
+        calls = 0
+
+        async def review(self, turn, plan, evidence_items, limitations):
+            self.calls += 1
+            if self.calls == 1:
+                return CoverageDecision(
+                    uncovered_questions=("缺口",),
+                    knowledge_queries=("followup-1",),
+                    web_queries=(),
+                )
+            return CoverageDecision()
+
+    knowledge = Retriever((evidence("knowledge", 1),))
+    personal = Retriever((evidence("knowledge", 2),))
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-knowledge-1",)),),
+            limitations=(),
+        )
+    )
+
+    await build_engine(
+        Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer, Reviewer()
+    ).run(TurnInput("问题", False, (), ()), user_knowledge=personal)
+
+    # G6：补充轮与首轮一致，主库与个人知识库都执行同一组补充查询
+    assert knowledge.calls == ["knowledge query", "followup-1"]
+    assert personal.calls == ["knowledge query", "followup-1"]
