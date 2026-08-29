@@ -11,6 +11,8 @@ export interface ConversationWorkspaceState {
   question: string;
   useWeb: boolean;
   stage: string | null;
+  /** B10-4：本轮研究计划子问题（planning 事件携带，回合结束清空） */
+  planSubquestions: string[];
   error: string | null;
   setQuestion: (value: string) => void;
   setUseWeb: (value: boolean) => void;
@@ -247,6 +249,11 @@ export function ConversationWorkspace({ state }: { state: ConversationWorkspaceS
         </div>
         <div className="composer-dock">
           {state.stage && <div className="stage-line" role="status"><span className="stage-pulse" />{state.stage}</div>}
+          {state.stage && state.planSubquestions.length > 0 && (
+            <ul className="stage-subquestions" aria-label="研究计划子问题">
+              {state.planSubquestions.map((item, index) => <li key={index}>{item}</li>)}
+            </ul>
+          )}
           <div className="composer-row">
             <textarea aria-label="研究问题" value={state.question} onChange={(event) => state.setQuestion(event.target.value)} onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void state.submitTurn(); }

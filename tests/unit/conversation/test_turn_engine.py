@@ -1361,3 +1361,28 @@ async def test_synthesis_failure_without_evidence_still_fails():
 
     with pytest.raises(TurnExecutionError):
         await engine.run(TurnInput("问题", False, (), ()))
+
+
+@pytest.mark.asyncio
+async def test_plan_stage_event_carries_subquestions():
+
+    knowledge = Retriever((evidence("knowledge", 1),))
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-knowledge-1",)),),
+            limitations=(),
+        )
+    )
+    events: list[dict] = []
+    await build_engine(
+        Planner(), knowledge, FileRetriever(()), Retriever(()), synthesizer
+    ).run(TurnInput("问题", False, (), ()), emit=events.append)
+
+    plan_events = [
+        event
+        for event in events
+        if event["type"] == "stage.changed"
+        and event.get("data", {}).get("subquestions")
+    ]
+    assert plan_events and plan_events[0]["data"]["subquestions"] == ["问题"]

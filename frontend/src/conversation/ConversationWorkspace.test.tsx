@@ -35,6 +35,7 @@ function state(): ConversationWorkspaceState {
     question: "",
     useWeb: true,
     stage: null,
+    planSubquestions: [],
     error: null,
     adminUsers: [],
     setQuestion: vi.fn(),

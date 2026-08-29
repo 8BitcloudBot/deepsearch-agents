@@ -162,12 +162,21 @@ def _plan_is_deep(plan: TurnResearchPlan | None, question: str) -> bool:
     return _is_deep_request(question)
 
 
-def _emit_stage(state: _TurnState, stage: str, message: str) -> None:
+def _emit_stage(
+    state: _TurnState, stage: str, message: str, data: dict[str, Any] | None = None
+) -> None:
     """回环节点进度事件；emit 缺省（测试直跑）时静默跳过。"""
     emit = state.get("emit")
     if emit is None:
         return
-    emit({"type": "stage.changed", "stage": stage, "message": message})
+    payload: dict[str, Any] = {
+        "type": "stage.changed",
+        "stage": stage,
+        "message": message,
+    }
+    if data:
+        payload["data"] = data
+    emit(payload)
 
 
 def _route_after_review(state: _TurnState) -> str:
@@ -279,6 +288,12 @@ class TurnResearchEngine:
             logger.warning("planner failed: %s", brief(exc))
             raise TurnExecutionError(classify_model_error(exc).code) from exc
         logger.debug("node=plan exit intensity=%s", plan.research_intensity)
+        _emit_stage(
+            state,
+            "planning",
+            "研究计划已生成",
+            data={"subquestions": list(plan.subquestions)},  # B10-4
+        )
         return {"plan": plan}
 
     async def _retrieve_initial(self, state: _TurnState) -> dict[str, object]:

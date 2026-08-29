@@ -28,6 +28,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
   const [libraryDocs, setLibraryDocs] = useState<LibraryDocument[]>([]);
   const [libraryBusy, setLibraryBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
+  const [planSubquestions, setPlanSubquestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [booting, setBooting] = useState(true);
@@ -124,12 +125,20 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
         lastSequenceRef.current = event.sequence;
         if (event.type === "stage.changed" || event.type === "turn.started") {
           setStage(event.message);
+          const subquestions = event.data?.subquestions;
+          if (Array.isArray(subquestions)) {
+            setPlanSubquestions(subquestions.filter((item): item is string => typeof item === "string"));
+          }
         }
         if (event.type === "turn.failed") {
           setStage(null);
+          setPlanSubquestions([]);
           setError(event.message || "本轮研究失败");
         }
-        if (event.type === "turn.completed") setStage(null);
+        if (event.type === "turn.completed") {
+          setStage(null);
+          setPlanSubquestions([]);
+        }
         // G11：回合事件只增量刷新当前会话详情；列表用轻量端点
         if (
           ["answer.delta", "evidence.ready", "report.updated", "turn.completed", "turn.failed"]
@@ -280,6 +289,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
     question,
     useWeb,
     stage,
+    planSubquestions,
     error,
     booting,
     loginError,
