@@ -88,6 +88,9 @@ class ConversationSettings:
     tavily_api_key: str | None = None
     model_timeout_seconds: float = 60.0
     model_temperature: float | None = 0.2
+    model_temperature_planner: float | None = None
+    model_temperature_synthesizer: float | None = None
+    model_temperature_reviewer: float | None = None
     model_top_p: float | None = None
     model_max_retries: int = 2
     enable_citation_validation: bool = False
@@ -115,6 +118,15 @@ class ConversationSettings:
                 else cls.model_temperature
             ),
             model_top_p=_unit_interval_optional(environ, "MODEL_TOP_P"),
+            model_temperature_planner=_unit_interval_optional(
+                environ, "MODEL_TEMPERATURE_PLANNER"
+            ),
+            model_temperature_synthesizer=_unit_interval_optional(
+                environ, "MODEL_TEMPERATURE_SYNTHESIZER"
+            ),
+            model_temperature_reviewer=_unit_interval_optional(
+                environ, "MODEL_TEMPERATURE_REVIEWER"
+            ),
             model_max_retries=_non_negative_int(
                 environ, "MODEL_MAX_RETRIES", cls.model_max_retries
             ),

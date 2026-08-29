@@ -571,6 +571,15 @@ class UserKnowledgeRetriever:
         return await asyncio.to_thread(self.search_sync, query, limit=limit)
 
 
+def _with_temperature(model: Any, temperature: float | None) -> Any:
+    """H10：按角色温度覆写；未设置时原样共享同一模型实例。"""
+    if temperature is None:
+        return model
+    if callable(getattr(model, "model_copy", None)):
+        return model.model_copy(update={"temperature": temperature})
+    return model
+
+
 def build_conversation_application(
     environ: Any,
     *,
@@ -601,11 +610,17 @@ def build_conversation_application(
         try:
             from app.conversation.model import build_agent_model
 
-            model, _ = build_agent_model(settings)
-            planner = ModelPlannerAdapter(model)
-            synthesizer = ModelSynthesizerAdapter(model)
-            coverage_reviewer = ModelCoverageReviewerAdapter(model)
-            title_generator = ModelTitleAdapter(model)
+            base_model, _ = build_agent_model(settings)
+            planner = ModelPlannerAdapter(
+                _with_temperature(base_model, settings.model_temperature_planner)
+            )
+            synthesizer = ModelSynthesizerAdapter(
+                _with_temperature(base_model, settings.model_temperature_synthesizer)
+            )
+            coverage_reviewer = ModelCoverageReviewerAdapter(
+                _with_temperature(base_model, settings.model_temperature_reviewer)
+            )
+            title_generator = ModelTitleAdapter(base_model)
             model_ready = True
         except Exception as exc:
             logger.warning("research model unavailable: %s", brief(exc))

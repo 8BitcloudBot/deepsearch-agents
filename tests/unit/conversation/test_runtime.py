@@ -612,3 +612,37 @@ async def test_synthesizer_budget_prefers_plan_intensity_over_keywords() -> None
         (),
     )
     assert "400～800" in model.messages[0]["content"]
+
+
+def test_with_temperature_overrides_per_role() -> None:
+    from dataclasses import dataclass, replace
+
+    from app.conversation.runtime import _with_temperature
+
+    @dataclass
+    class FakeModel:
+        temperature: float | None = 0.2
+
+        def model_copy(self, update):
+            return replace(self, **update)
+
+    base = FakeModel()
+    assert _with_temperature(base, None).temperature == 0.2
+    assert _with_temperature(base, 0.7).temperature == 0.7
+    assert base.temperature == 0.2  # 原实例不被修改
+
+
+def test_settings_parses_per_role_temperature() -> None:
+    from app.conversation.settings import ConversationSettings
+
+    settings = ConversationSettings.from_env(
+        {
+            "MODEL_TEMPERATURE_PLANNER": "0.0",
+            "MODEL_TEMPERATURE_SYNTHESIZER": "0.6",
+        }
+    )
+    assert settings.model_temperature_planner == 0.0
+    assert settings.model_temperature_synthesizer == 0.6
+    assert settings.model_temperature_reviewer is None
+    default = ConversationSettings.from_env({})
+    assert default.model_temperature_planner is None
