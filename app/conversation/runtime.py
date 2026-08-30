@@ -499,18 +499,7 @@ class TavilyEvidenceRetriever:
         return await asyncio.to_thread(self.search_sync, query, limit=limit)
 
 
-def _web_search_options(query: str, plan: Any = None) -> dict[str, str]:
-    """规划器 search_hints 优先；缺失/非法时回退关键词启发。"""
-    if plan is not None and getattr(plan, "search_hints", None):
-        options: dict[str, str] = {}
-        for key in ("search_depth", "topic", "time_range"):
-            value = plan.hint(key)
-            if isinstance(value, str) and value.strip():
-                options[key] = value.strip()
-        if options:
-            if "search_depth" not in options:
-                options["search_depth"] = "basic"
-            return options
+def _keyword_search_options(query: str) -> dict[str, str]:
     folded = query.casefold()
     current_terms = (
         "最新",
@@ -532,6 +521,23 @@ def _web_search_options(query: str, plan: Any = None) -> dict[str, str]:
     if current:
         result["time_range"] = "month"
     return result
+
+
+def _web_search_options(query: str, plan: Any = None) -> dict[str, str]:
+    """规划器 search_hints 优先；未提供的键由关键词启发补齐（C3）。
+
+    合并语义保证规划器只给 time_range 等部分 hints 时，时效判定
+    （topic=news + time_range=month）不丢失。
+    """
+    fallback = _keyword_search_options(query)
+    if plan is not None and getattr(plan, "search_hints", None):
+        options = dict(fallback)
+        for key in ("search_depth", "topic", "time_range"):
+            value = plan.hint(key)
+            if isinstance(value, str) and value.strip():
+                options[key] = value.strip()
+        return options
+    return fallback
 
 
 def _relevant_excerpt(content: str, query: str) -> str:

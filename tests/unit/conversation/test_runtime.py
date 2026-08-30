@@ -10,6 +10,7 @@ from app.conversation.runtime import (
     ModelPlannerAdapter,
     ModelSynthesizerAdapter,
     TavilyEvidenceRetriever,
+    _web_search_options,
     build_conversation_application,
 )
 from app.conversation.settings import ConversationSettings
@@ -760,3 +761,22 @@ def test_light_model_routes_to_light_roles_and_keeps_synthesizer(monkeypatch) ->
         )
     )
     assert planner_plain._model is base_plain
+
+
+def test_web_search_options_merge_fills_missing_keys_from_keywords() -> None:
+    """C3：hints 只给部分键时，其余键由关键词启发补齐而非缺省 general。"""
+    hinted = TurnResearchPlan(
+        "目标",
+        (),
+        (),
+        (),
+        search_hints=(("time_range", "week"),),
+    )
+
+    # 查询含时效词：hints 未给 topic → 继承关键词启发的 news
+    options = _web_search_options("Tavily 最近的更新是什么", hinted)
+    assert options["time_range"] == "week"  # hints 显式值优先
+    assert options["topic"] == "news"
+
+    # 非时效查询且无 hints：回退原关键词路径
+    assert _web_search_options("LangGraph 是什么")["topic"] == "general"
