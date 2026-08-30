@@ -42,7 +42,6 @@ def _load_env() -> None:
 def _embedder_and_spec():
     from app.conversation.settings import ConversationSettings
     from app.knowledge.contracts import (
-        EmbeddingDescriptor,
         KnowledgeIndexSpec,
         resolve_knowledge_index_path,
     )
