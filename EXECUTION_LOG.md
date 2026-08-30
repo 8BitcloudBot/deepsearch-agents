@@ -99,6 +99,13 @@
   与 token（reviewer high 撞 800 上限有截断风险）；综合器思考版输出超字数预算；
   分段结构优势用零成本提示词指令补齐（2～3 自然段），真机三场景复验全 PASS
 
+## RAG 混合分库测试床（2026-08-30，条件构建完成）
+- [x] 四主题真实文档 8 份（PI Agent/Codex/DeepSeek Harness/RagFlow × 全局 overview + 个人 notes）；
+  分库真实入库：全局 ragmix-* 53 chunks、个人库 regression-ragmix 4 文档 44 chunks；
+  双库召回预检 6/6 命中（绝对分 0.41-0.89）
+- [x] 查询集与轮换剧本（queries.md：单独 6 + 交叉 3 + R2/R3/R4）与实验设计（design.md：五个考察点）
+- [ ] 查询测试执行（按约定暂缓——剧本就绪，下轮执行并回填 design.md 考察点）
+
 ## 待办队列
 - 无必办项。（备选池闭环核对：B10 四项已由 G/H/I/J 轮完成；citations 中文 tokenizer 已由 I6 实施；
   README 个人知识库章节已于阶段 3 补写；C2 limitations 密度已在展示层解决——前端过滤
