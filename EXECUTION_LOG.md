@@ -80,6 +80,13 @@
   证实 B2 通道选型正确）
 - 标定维持：temperature=0.2（官方场景表 Coding 0.0 与 General 1.3 之间，研究任务）；min_score 0.40
 
+## 真机多场景回归轮（2026-08-30，DeepSeek 文档核对后）
+- [x] 三场景全 PASS：流式知识题 11.5s/首字 5.3s/287 partials/引用编号完好；
+  RAG 私域 9.6s/首字 3.7s/证据标题=company-handbook.md/48小时事实准确；
+  时效题 14.8s/首字 9.2s/web 证据绝对分（<0.95 断言过）/"截至2026年7月模型改名"时效内容精准
+- [x] 回归脚本固化为 scripts/regression_e2e.py（可复跑）
+- 组合稳定结论：deepseek-v4-flash + 全角色禁思考 + reviewer json_object + 流式开关，全部叠加无回归
+
 ## 待办队列
 - 备选池：B10 各项（会话标题模型化 / 滚动记忆 / 优雅降级 / 前端过程展示）；
   citations 中文 tokenizer 立项（若要正式启用引用校验）；README 补个人知识库使用说明

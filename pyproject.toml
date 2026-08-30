@@ -47,6 +47,8 @@ select = ["E", "F", "I", "N", "W", "UP"]
 [tool.ruff.lint.per-file-ignores]
 # 提示词原文按计划书草案整句保留（中文长句），不为 lint 缩写
 "app/conversation/runtime.py" = ["E501"]
+# 真机回归脚本：中文输出长句同理
+"scripts/regression_e2e.py" = ["E501"]
 "app/conversation/prompts.py" = ["E501"]
 
 [tool.ruff.format]
