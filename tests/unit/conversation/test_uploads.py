@@ -38,6 +38,47 @@ def make_store(tmp_path: Path) -> UploadKnowledgeStore:
     )
 
 
+class SemanticEmbedder:
+    """按字符 bigram 投影的确定性语义 embedder：共享 bigram 越多分数越高。
+
+    FakeEmbedder 的哈希向量没有语义（任意文本两两近似正交且分数随机），
+    无法用于"相关>无关"类断言；本夹具注入可判序的语义。
+    """
+
+    descriptor = EmbeddingDescriptor(
+        provider="fake",
+        model="semantic-bigram-fixture",
+        version="1.0.0",
+        dimension=256,
+    )
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._vector(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._vector(text)
+
+    @staticmethod
+    def _vector(text: str) -> list[float]:
+        import hashlib
+        import math
+
+        values = [0.0] * 256
+        folded = text.casefold()
+        for index in range(len(folded) - 1):
+            bigram = folded[index : index + 2]
+            digest = int(hashlib.md5(bigram.encode("utf-8")).hexdigest()[:8], 16)
+            values[digest % 256] += 1.0
+        norm = math.sqrt(sum(value * value for value in values)) or 1.0
+        return [value / norm for value in values]
+
+
+def make_semantic_store(tmp_path: Path) -> UploadKnowledgeStore:
+    return UploadKnowledgeStore(
+        tmp_path / "user-uploads", SemanticEmbedder(), min_score=0.40
+    )
+
+
 def test_ingest_creates_meta_and_same_name_overwrites(tmp_path: Path) -> None:
     store = make_store(tmp_path)
 
@@ -191,3 +232,32 @@ def test_repairs_both_directions_of_meta_index_drift(tmp_path: Path) -> None:
     assert report["dropped"] == [entry_b["document_id"]]
     assert store.audit("user-1") == {"meta_only": [], "index_only": []}
     assert len(store.list_documents("user-1")) == 1
+
+
+def test_irrelevant_query_must_not_score_perfect(tmp_path: Path) -> None:
+    """敌意测试（A1）：个人库小文档集中，语义无关的查询不得因库内
+    排名归一而得到高分——score 必须表达绝对相关性，否则用户上传的
+    任何文档都会以满分压制主库真实相关证据。
+
+    旧实现（RRF 融合分库内归一）会让两路 rank=1 的 chunk 恒得 1.0/0.5，
+    本测试在该实现下必然变红。
+    """
+    store = make_semantic_store(tmp_path)
+    store.ingest(
+        "audit-user",
+        "travel.md",
+        "去年夏天我在大理洱海边骑行了一周，环海西路风景特别好，适合慢节奏的自行车旅行。",
+    )
+    retriever = store.retriever_for("audit-user")
+
+    related = retriever.search_sync("环海西路骑行的风景怎么样")
+    unrelated = retriever.search_sync("量子计算机的纠错码原理是什么")
+
+    assert related, "相关查询应命中"
+    # 无关查询含"的"字 lexical 重叠（会进入 sparse_rank 绕过 min_score 的
+    # dense 过滤——真机审计中正是此路径让它以满分进池），因此不得依赖过滤，
+    # 必须靠分数语义本身区分；要么被过滤为空，要么分数远低于相关查询
+    assert not unrelated or unrelated[0].score < related[0].score * 0.5, (
+        f"无关查询得分 {unrelated[0].score if unrelated else '无':.3} "
+        f"不应接近相关查询 {related[0].score:.3f}"
+    )

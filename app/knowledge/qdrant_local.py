@@ -395,7 +395,10 @@ class QdrantLocalKnowledgeIndex:
                 else sparse_payloads[point_id]
             )
             try:
-                score = min(1.0, fused[point_id] / (2 / 61))
+                # score 表达绝对相关性（dense cosine 原始分，0-1），
+                # RRF 融合分只决定库内排序——跨库（主库 vs 个人库）合并
+                # 比较时语义才一致；库内排名归一值会让小文档库恒得满分。
+                score = min(1.0, max(0.0, dense_score))
                 chunk = self._chunk_from_payload(payload, score)
             except (TypeError, ValueError):
                 continue
