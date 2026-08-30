@@ -635,16 +635,24 @@ def build_conversation_application(
             from app.conversation.model import build_agent_model
 
             base_model, _ = build_agent_model(settings)
+            # 分级模型路由（B2 建议）：规划/审阅/标题为小输出任务，
+            # MODEL_NAME_LIGHT 配置时路由到便宜快速模型，综合器保持主模型。
+            if settings.model_name_light:
+                light_model, _ = build_agent_model(
+                    settings, model_name_override=settings.model_name_light
+                )
+            else:
+                light_model = base_model
             planner = ModelPlannerAdapter(
-                _with_temperature(base_model, settings.model_temperature_planner)
+                _with_temperature(light_model, settings.model_temperature_planner)
             )
             synthesizer = ModelSynthesizerAdapter(
                 _with_temperature(base_model, settings.model_temperature_synthesizer)
             )
             coverage_reviewer = ModelCoverageReviewerAdapter(
-                _with_temperature(base_model, settings.model_temperature_reviewer)
+                _with_temperature(light_model, settings.model_temperature_reviewer)
             )
-            title_generator = ModelTitleAdapter(base_model)
+            title_generator = ModelTitleAdapter(light_model)
             model_ready = True
         except Exception as exc:
             logger.warning("research model unavailable: %s", brief(exc))

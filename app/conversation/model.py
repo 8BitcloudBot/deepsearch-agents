@@ -52,14 +52,19 @@ def safe_message_for(code: str) -> str:
 
 def build_agent_model(
     settings: ConversationSettings,
+    *,
+    model_name_override: str | None = None,
 ) -> tuple[Any, ModelDescriptor]:
     if not settings.model_api_key or not settings.model_name:
         raise ModelUnavailable("model-authentication", configuration=True)
 
     from langchain_openai import ChatOpenAI
 
+    # 分级模型路由（B2 建议）：轻量角色可指定独立模型名，
+    # 连接参数（base_url/key/超时/采样）与主模型保持一致。
+    resolved_name = model_name_override or settings.model_name
     kwargs: dict[str, object] = {
-        "model": settings.model_name,
+        "model": resolved_name,
         "api_key": settings.model_api_key,
         "timeout": settings.model_timeout_seconds,
         "max_retries": settings.model_max_retries,
@@ -78,7 +83,7 @@ def build_agent_model(
         model = model.bind(response_format={"type": "json_object"})
     return model, ModelDescriptor(
         provider="openai-compatible",
-        model=settings.model_name,
+        model=resolved_name,
         base_url_configured=settings.model_base_url is not None,
     )
 

@@ -85,3 +85,30 @@ def test_conversation_model_requires_api_key():
         build_agent_model(ConversationSettings.from_env({}))
 
     assert error.value.code == "model-authentication"
+
+
+def test_build_agent_model_supports_name_override(monkeypatch):
+    calls: dict[str, object] = {}
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs):
+            calls.update(kwargs)
+
+    monkeypatch.setattr("langchain_openai.ChatOpenAI", FakeChatOpenAI)
+    settings = ConversationSettings.from_env(
+        {"MODEL_NAME": "main-model", "MODEL_API_KEY": "k"}
+    )
+
+    _, descriptor = build_agent_model(settings, model_name_override="lite-model")
+
+    assert calls["model"] == "lite-model"
+    assert descriptor.model == "lite-model"
+    # 未覆写时保持主模型名
+    _, descriptor_main = build_agent_model(settings)
+    assert descriptor_main.model == "main-model"
+
+
+def test_model_name_light_setting_parses():
+    settings = ConversationSettings.from_env({"MODEL_NAME_LIGHT": "lite-model"})
+    assert settings.model_name_light == "lite-model"
+    assert ConversationSettings.from_env({}).model_name_light is None

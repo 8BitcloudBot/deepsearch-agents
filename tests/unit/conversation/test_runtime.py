@@ -12,6 +12,7 @@ from app.conversation.runtime import (
     TavilyEvidenceRetriever,
     build_conversation_application,
 )
+from app.conversation.settings import ConversationSettings
 from app.conversation.turn import SynthesisDraft, TurnInput
 from app.knowledge.contracts import KnowledgeChunk
 from app.providers.contracts import SearchHit, SearchResult
@@ -251,9 +252,7 @@ async def test_model_coverage_reviewer_uses_bounded_evidence_summary() -> None:
 
 @pytest.mark.asyncio
 async def test_reviewer_and_synthesizer_payloads_carry_recent_history() -> None:
-    empty_review = (
-        '{"uncovered_questions":[],"knowledge_queries":[],"web_queries":[]}'
-    )
+    empty_review = '{"uncovered_questions":[],"knowledge_queries":[],"web_queries":[]}'
     draft_json = (
         '{"answer_sections":[{"text":"答","claim_indexes":[0]}],'
         '"claims":[{"statement":"陈述","evidence_ids":["ev-1"]}],"limitations":[]}'
@@ -660,7 +659,7 @@ async def test_reviewer_receives_brief_history_while_synthesizer_full() -> None:
             import json as _json
 
             self.payloads.append(_json.loads(messages[1]["content"]))
-            return type("Response", (), {"content": '{"uncovered_questions":[]}'} )()
+            return type("Response", (), {"content": '{"uncovered_questions":[]}'})()
 
     model = Model()
     evidence = (EvidenceItem("ev-1", "knowledge", "文档", "chunk", "a#b", "原文"),)
@@ -694,3 +693,70 @@ def test_reviewer_prompt_tightens_covered_judgement() -> None:
 
     assert "不因表述措辞" in COVERAGE_REVIEWER_SYSTEM_PROMPT
     assert "必须为空数组" in COVERAGE_REVIEWER_SYSTEM_PROMPT
+
+
+def test_light_model_routes_to_light_roles_and_keeps_synthesizer(monkeypatch) -> None:
+    """分级模型路由：MODEL_NAME_LIGHT 配置时规划/审阅/标题用轻模型，综合器用主模型。"""
+    from app.conversation import runtime as runtime_module
+
+    class FakeChatOpenAI:
+        def __init__(self, **kwargs):
+            self.model_name = kwargs.get("model")
+            self.model_copy_calls = 0
+
+        def model_copy(self, *, update):
+            self.model_copy_calls += 1
+            clone = FakeChatOpenAI(model=self.model_name)
+            clone.temperature = update.get("temperature")
+            return clone
+
+        def bind(self, **kwargs):
+            return self
+
+    monkeypatch.setattr("langchain_openai.ChatOpenAI", FakeChatOpenAI)
+
+    environ = {
+        "MODEL_NAME": "main-model",
+        "MODEL_NAME_LIGHT": "lite-model",
+        "MODEL_API_KEY": "k",
+        "MODEL_TEMPERATURE_PLANNER": "0.1",
+    }
+    settings = ConversationSettings.from_env(environ)
+    # 直接收紧构造路径：手动复刻装配段，断言三个角色拿到的实例
+    from app.conversation.model import build_agent_model
+
+    base_model, _ = build_agent_model(settings)
+    light_model, _ = build_agent_model(
+        settings, model_name_override=settings.model_name_light
+    )
+    planner = runtime_module.ModelPlannerAdapter(
+        runtime_module._with_temperature(
+            light_model, settings.model_temperature_planner
+        )
+    )
+    synthesizer = runtime_module.ModelSynthesizerAdapter(
+        runtime_module._with_temperature(
+            base_model, settings.model_temperature_synthesizer
+        )
+    )
+    reviewer = runtime_module.ModelCoverageReviewerAdapter(
+        runtime_module._with_temperature(
+            light_model, settings.model_temperature_reviewer
+        )
+    )
+
+    assert planner._model.model_name == "lite-model"
+    assert reviewer._model.model_name == "lite-model"
+    assert synthesizer._model.model_name == "main-model"
+
+    # 未配置 light 时全部共享主模型实例（现行为不变）
+    settings_plain = ConversationSettings.from_env(
+        {"MODEL_NAME": "main-model", "MODEL_API_KEY": "k"}
+    )
+    base_plain, _ = build_agent_model(settings_plain)
+    planner_plain = runtime_module.ModelPlannerAdapter(
+        runtime_module._with_temperature(
+            base_plain, settings_plain.model_temperature_planner
+        )
+    )
+    assert planner_plain._model is base_plain

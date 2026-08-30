@@ -85,6 +85,8 @@ class KnowledgeSettings:
 @dataclass(frozen=True)
 class ConversationSettings:
     model_name: str = "openai:gpt-4.1-mini"
+    # 轻量角色（规划/审阅/标题）模型；None=与主模型一致
+    model_name_light: str | None = None
     model_base_url: str | None = None
     model_api_key: str | None = None
     tavily_api_key: str | None = None
@@ -109,6 +111,7 @@ class ConversationSettings:
             raise ValueError("MODEL_NAME must not be empty")
         return cls(
             model_name=model_name,
+            model_name_light=_optional(environ, "MODEL_NAME_LIGHT"),
             model_base_url=_optional(environ, "MODEL_BASE_URL"),
             model_api_key=_optional(environ, "MODEL_API_KEY"),
             tavily_api_key=_optional(environ, "TAVILY_API_KEY"),
