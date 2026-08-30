@@ -54,6 +54,20 @@ _MAX_TOKENS_PLANNER = 600
 _MAX_TOKENS_REVIEWER = 800
 
 
+def _without_deepseek_thinking(model: Any) -> Any:
+    """审阅器输出长度治理：DeepSeek v4 系默认混合推理，思考 token 不受
+    max_tokens 硬顶约束——短输出角色（规划/审阅/标题）必须显式禁用，
+    否则 reviewer 单次 completion 实测失控到 1896-3060 tokens。
+    非 DeepSeek 模型原样透传；重复禁用幂等。
+    """
+    model_name = str(getattr(model, "model_name", "")).casefold()
+    if "deepseek" not in model_name or not callable(getattr(model, "model_copy", None)):
+        return model
+    extra_body = dict(getattr(model, "extra_body", None) or {})
+    extra_body["thinking"] = {"type": "disabled"}
+    return model.model_copy(update={"extra_body": extra_body})
+
+
 def _bind_max_tokens(model: Any, max_tokens: int) -> Any:
     if callable(getattr(model, "bind", None)):
         return model.bind(max_tokens=max_tokens)
@@ -171,12 +185,10 @@ class ModelPlannerAdapter:
         planner_model = model
         model_name = str(getattr(model, "model_name", "")).casefold()
         if "deepseek" in model_name and callable(getattr(model, "model_copy", None)):
-            extra_body = dict(getattr(model, "extra_body", None) or {})
-            extra_body["thinking"] = {"type": "disabled"}
             model_kwargs = dict(getattr(model, "model_kwargs", None) or {})
             model_kwargs["response_format"] = {"type": "json_object"}
-            planner_model = model.model_copy(
-                update={"extra_body": extra_body, "model_kwargs": model_kwargs}
+            planner_model = _without_deepseek_thinking(model).model_copy(
+                update={"model_kwargs": model_kwargs}
             )
         self._model = _bind_max_tokens(planner_model, _MAX_TOKENS_PLANNER)
 
@@ -804,6 +816,7 @@ def build_conversation_application(
                 )
             else:
                 light_model = base_model
+            light_model = _without_deepseek_thinking(light_model)
             planner = ModelPlannerAdapter(
                 _with_temperature(light_model, settings.model_temperature_planner)
             )

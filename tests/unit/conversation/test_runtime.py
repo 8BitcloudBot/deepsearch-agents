@@ -174,19 +174,29 @@ def test_planner_disables_thinking_only_for_deepseek_model() -> None:
 
     class Model:
         model_name = "deepseek-v4-flash"
+        extra_body: dict = {}
+        model_kwargs: dict = {}
+
+        def __init__(self) -> None:
+            self.copies = copied
 
         def model_copy(self, *, update):
-            copied.append(update)
-            return object()
+            clone = Model()
+            clone.extra_body = {**self.extra_body, **update.get("extra_body", {})}
+            clone.model_kwargs = {**self.model_kwargs, **update.get("model_kwargs", {})}
+            self.copies.append(dict(update))
+            return clone
 
     planner = ModelPlannerAdapter(Model())
 
-    assert planner._model is not None
+    # 两次 copy 链式合并后：thinking 禁用与 response_format 同时就位
+    assert planner._model.extra_body == {"thinking": {"type": "disabled"}}
+    assert planner._model.model_kwargs == {"response_format": {"type": "json_object"}}
+    # thinking 禁用已提升为共享函数（审阅器/标题同享），planner 侧
+    # 叠加 response_format——两次 model_copy，最终语义与原单次等价
     assert copied == [
-        {
-            "extra_body": {"thinking": {"type": "disabled"}},
-            "model_kwargs": {"response_format": {"type": "json_object"}},
-        }
+        {"extra_body": {"thinking": {"type": "disabled"}}},
+        {"model_kwargs": {"response_format": {"type": "json_object"}}},
     ]
 
 
@@ -876,3 +886,40 @@ def test_streamed_flag_off_keeps_json_path() -> None:
         type("M", (), {"astream": lambda self, m: None})()
     )
     assert adapter._streamed is False
+
+
+def test_light_roles_disable_deepseek_thinking(monkeypatch) -> None:
+    """敌意测试（审阅器长度治理）：DeepSeek v4 系默认混合推理，思考 token
+    不受 max_tokens 硬顶约束——审阅器/标题/规划器装配必须显式禁用 thinking，
+    否则真机 reviewer completion 失控（实测 1896-3060 tokens/次）。"""
+    class DeepseekModel:
+        def __init__(self, name: str = "deepseek-v4-flash"):
+            self.model_name = name
+            self.extra_body: dict = {}
+            self.copies: list[dict] = []
+
+        def model_copy(self, *, update):
+            clone = DeepseekModel(self.model_name)
+            clone.extra_body = {**self.extra_body, **update.get("extra_body", {})}
+            clone.temperature = update.get("temperature")
+            self.copies.append(update)
+            return clone
+
+        def bind(self, **kwargs):
+            return self
+
+    from app.conversation import runtime as runtime_module
+
+    base = DeepseekModel()
+    light = DeepseekModel()
+    # 模拟装配：审阅器/标题生成器应拿到禁用 thinking 的实例
+    reviewer_model = runtime_module.ModelCoverageReviewerAdapter(
+        runtime_module._without_deepseek_thinking(light)
+    )._model
+    thinking = reviewer_model.extra_body.get("thinking")
+    assert isinstance(thinking, dict) and thinking["type"] == "disabled"
+
+    # 非 DeepSeek 模型原样透传（不加 thinking 字段）
+    plain = type("M", (), {"model_name": "gpt-compatible"})()
+    assert runtime_module._without_deepseek_thinking(plain) is plain
+    _ = base  # base_model（综合器）不受本修复约束，保持默认推理行为
