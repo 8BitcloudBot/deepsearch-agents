@@ -956,3 +956,30 @@ def test_reviewer_binds_json_object_for_deepseek_only() -> None:
 
 def test_settings_default_model_is_deepseek_v4_flash():
     assert ConversationSettings().model_name == "deepseek-v4-flash"
+
+
+@pytest.mark.asyncio
+async def test_limitation_single_char_fragments_are_dropped() -> None:
+    """防御：思考模式下模型偶发把整句拆成单字条目——碎片必须被剔除。"""
+    class Model:
+        async def ainvoke(self, messages):
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"answer_sections":[{"text":"答","claim_indexes":[0]}],'
+                        '"claims":[{"statement":"陈述","evidence_ids":["ev-1"]}],'
+                        '"limitations": ["现", "有", "证据不足", "", "冲突。"]}'
+                    )
+                },
+            )()
+
+    draft = await ModelSynthesizerAdapter(Model()).synthesize(
+        TurnInput("问题", False, (), ()),
+        TurnResearchPlan("目标", (), (), ()),
+        (EvidenceItem("ev-1", "knowledge", "文档", "chunk", "a#b", "原文"),),
+        (),
+    )
+
+    assert draft.limitations == ("证据不足", "冲突。")

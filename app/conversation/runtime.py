@@ -105,6 +105,19 @@ def _response_text(response: Any) -> str:
     return value.strip()
 
 
+def _clean_limitations(items: list[Any]) -> tuple[str, ...]:
+    """规范化并过滤 limitations 碎片。
+
+    真机实证：思考模式下模型偶发把整句拆成单字符数组（132 条单字），
+    长度不足 2 的条目是解析碎片而非有效声明，一律剔除。
+    """
+    return tuple(
+        normalized
+        for normalized in (_normalize_limitation(item) for item in items)
+        if len(normalized) >= 2
+    )
+
+
 def _normalize_limitation(item: Any) -> str:
     """模型可能把 limitation 返回成 {type, detail} 等对象。
 
@@ -463,7 +476,7 @@ class ModelSynthesizerAdapter:
         return SynthesisDraft(
             tuple(sections),
             tuple(claims),
-            tuple(_normalize_limitation(item) for item in raw_limitations),
+            _clean_limitations(raw_limitations),
         )
 
     async def _synthesize_json(
@@ -545,7 +558,7 @@ class ModelSynthesizerAdapter:
             if not isinstance(raw_limitations, list):
                 raise ValueError
             return SynthesisDraft(
-                sections, claims, tuple(_normalize_limitation(item) for item in raw_limitations)
+                sections, claims, _clean_limitations(raw_limitations)
             )
         except (KeyError, TypeError, ValueError, IndexError) as exc:
             raise ValueError("model response is invalid") from exc
