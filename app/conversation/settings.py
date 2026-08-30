@@ -99,6 +99,7 @@ class ConversationSettings:
     model_max_retries: int = 2
     enable_citation_validation: bool = False
     model_structured_output: bool = False
+    model_streamed_synthesis: bool = False  # B1 方案A：两段式真流式
     turn_stale_seconds: int = 1800
     max_turns_per_conversation: int = 0  # 0 = 不限制（H8 软上限，默认关）
     history_token_budget: int = 12000  # H11：历史注入 token 预算（中文≈1 token/字）
@@ -141,6 +142,9 @@ class ConversationSettings:
             ),
             model_structured_output=_truthy(
                 environ.get("MODEL_STRUCTURED_OUTPUT", "")
+            ),
+            model_streamed_synthesis=_truthy(
+                environ.get("MODEL_STREAMED_SYNTHESIS", "")
             ),
             turn_stale_seconds=_non_negative_int(
                 environ, "TURN_STALE_SECONDS", cls.turn_stale_seconds

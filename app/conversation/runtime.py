@@ -288,10 +288,165 @@ class ModelCoverageReviewerAdapter:
 
 
 class ModelSynthesizerAdapter:
-    def __init__(self, model: Any):
+    def __init__(self, model: Any, streamed: bool = False):
         self._model = model
+        self._streamed = streamed
 
     async def synthesize(
+        self,
+        turn: TurnInput,
+        plan: TurnResearchPlan,
+        evidence_items: tuple[EvidenceItem, ...],
+        limitations: tuple[str, ...],
+        *,
+        on_delta: Any = None,
+    ) -> SynthesisDraft:
+        if self._streamed and on_delta is not None:
+            try:
+                return await self._synthesize_streamed(
+                    turn, plan, evidence_items, limitations, on_delta
+                )
+            except Exception as exc:
+                logger.warning("streamed synthesis failed, fallback: %s", brief(exc))
+        return await self._synthesize_json(
+            turn, plan, evidence_items, limitations
+        )
+
+    async def _synthesize_streamed(
+        self,
+        turn: TurnInput,
+        plan: TurnResearchPlan,
+        evidence_items: tuple[EvidenceItem, ...],
+        limitations: tuple[str, ...],
+        on_delta: Any,
+    ) -> SynthesisDraft:
+        """B1 方案A 两段式：先流式产出正文纯文本，再抽取 claims/limitations。
+
+        正文经 on_delta 增量透传（前端实时渲染）；第二次调用把 claim
+        statement 锚回正文原句并挂证据 ID，构造与 JSON 路径同形的
+        SynthesisDraft，finalize 的引用编号/证据交运算全部复用。
+        任一步失败抛给上层回退 JSON 路径。
+        """
+        evidence = [
+            {
+                "evidence_id": item.evidence_id,
+                "source_kind": item.source_kind,
+                "title": item.title,
+                "quote": item.quote[:_MAX_QUOTE],
+                "locator": item.locator_value,
+                "published_at": item.published_at,
+            }
+            for item in evidence_items
+        ]
+        # 长度预算信号与引擎一致（G7）
+        if plan.research_intensity in ("standard", "deep"):
+            deep = plan.research_intensity == "deep"
+        else:
+            deep = _is_deep_request(turn.question)
+        answer_budget = "800～1400" if deep else "400～800"
+
+        prose_messages = [
+            {
+                "role": "system",
+                "content": _current_date_line()
+                + "\n"
+                + synthesizer_system_prompt(answer_budget)
+                + "\n\n本次输出为纯文本正文：用自然中文分段撰写（段落间用空行分隔），"
+                "不要输出 JSON，不要输出字段名或任何结构标记；"
+                "每段聚焦一个要点；不得引用任何证据编号。",
+            },
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "question": turn.question,
+                        "recent_history": _history_records(turn),
+                        "prior_summary": turn.prior_summary,
+                        "plan": plan.as_dict(),
+                        "evidence": evidence,
+                        "limitations": list(limitations),
+                    },
+                    ensure_ascii=False,
+                ),
+            },
+        ]
+        chunks: list[str] = []
+        async for chunk in self._model.astream(prose_messages):
+            piece = getattr(chunk, "content", chunk)
+            if isinstance(piece, list):
+                piece = "".join(
+                    part.get("text", "") if isinstance(part, dict) else str(part)
+                    for part in piece
+                )
+            if not isinstance(piece, str) or not piece:
+                continue
+            chunks.append(piece)
+            on_delta(piece)
+        prose = "".join(chunks).strip()
+        if not prose:
+            raise ValueError("model response is invalid")
+
+        extraction = await self._model.ainvoke(
+            [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是引用抽取器。给定回答正文与证据列表，"
+                        "从正文中挑选每个依赖证据的事实句（statement 必须是正文原句的连续子串），"
+                        "并标注其依据的证据 ID。仅返回 JSON："
+                        '{"claims": [{"statement": "...", "evidence_ids": ["..."]}], '
+                        '"limitations": ["..."]}。'
+                        "evidence_ids 只能使用给定证据的 evidence_id；"
+                        "无对应证据的句子不要挑。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {"answer": prose, "evidence": evidence},
+                        ensure_ascii=False,
+                    ),
+                },
+            ]
+        )
+        log_model_usage(logger, "synthesizer-extract", extraction)
+        raw = _strict_json(extraction)
+        raw_claims = raw.get("claims")
+        raw_limitations = raw.get("limitations", [])
+        if not isinstance(raw_claims, list) or not isinstance(raw_limitations, list):
+            raise ValueError("model response is invalid")
+
+        sections_text = [part.strip() for part in prose.split("\n\n") if part.strip()]
+        claims: list[SynthesisClaim] = []
+        for item in raw_claims:
+            if not isinstance(item, dict):
+                continue
+            statement = str(item.get("statement", "")).strip()
+            evidence_ids = tuple(
+                eid
+                for eid in (item.get("evidence_ids") or [])
+                if isinstance(eid, str)
+            )
+            if statement and evidence_ids:
+                claims.append(SynthesisClaim(statement, evidence_ids))
+
+        sections = []
+        for text in sections_text:
+            indexes = tuple(
+                index
+                for index, claim in enumerate(claims)
+                if claim.statement in text
+            )
+            sections.append(SynthesisSection(text, indexes))
+        if not sections:
+            raise ValueError("model response is invalid")
+        return SynthesisDraft(
+            tuple(sections),
+            tuple(claims),
+            tuple(_normalize_limitation(item) for item in raw_limitations),
+        )
+
+    async def _synthesize_json(
         self,
         turn: TurnInput,
         plan: TurnResearchPlan,
@@ -653,7 +808,8 @@ def build_conversation_application(
                 _with_temperature(light_model, settings.model_temperature_planner)
             )
             synthesizer = ModelSynthesizerAdapter(
-                _with_temperature(base_model, settings.model_temperature_synthesizer)
+                _with_temperature(base_model, settings.model_temperature_synthesizer),
+                streamed=settings.model_streamed_synthesis,
             )
             coverage_reviewer = ModelCoverageReviewerAdapter(
                 _with_temperature(light_model, settings.model_temperature_reviewer)
@@ -760,6 +916,7 @@ def build_conversation_application(
         synthesizer,
         coverage_reviewer,
         citation_validation=settings.enable_citation_validation,
+        streamed_synthesis=settings.model_streamed_synthesis,
     )
     return ConversationApplication(
         store,

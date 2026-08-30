@@ -11,6 +11,7 @@ export interface ConversationWorkspaceState {
   question: string;
   useWeb: boolean;
   stage: string | null;
+  streamingText: string;
   /** I5：执行中回合 id（存在时显示停止按钮） */
   runningTurnId: string | null;
   /** B10-4：本轮研究计划子问题（planning 事件携带，回合结束清空） */

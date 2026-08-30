@@ -25,6 +25,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
   const [useWeb, setUseWeb] = useState(true);
 
   const [view, setView] = useState<"research" | "library">("research");
+  const [streamingText, setStreamingText] = useState("");
   const [libraryDocs, setLibraryDocs] = useState<LibraryDocument[]>([]);
   const [libraryBusy, setLibraryBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
@@ -135,6 +136,10 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
             setPlanSubquestions(subquestions.filter((item): item is string => typeof item === "string"));
           }
         }
+        if (event.type === "answer.delta" && event.data?.partial) {
+          // B1 方案A：正文增量累积渲染；完成态由详情刷新的正式 answer 覆盖
+          setStreamingText((prev) => prev + String(event.data?.text ?? ""));
+        }
         if (
           event.type === "turn.completed"
           || event.type === "turn.failed"
@@ -142,6 +147,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
         ) {
           setStage(null);
           setPlanSubquestions([]);
+          setStreamingText("");
           setRunningTurnId(null);
         }
         if (event.type === "turn.failed") {
@@ -306,6 +312,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
     question,
     useWeb,
     stage,
+    streamingText,
     runningTurnId,
     planSubquestions,
     error,

@@ -161,8 +161,23 @@ class ConversationApplication:
                     user_knowledge = self.upload_store.retriever_for(user.id)
                 except Exception:
                     user_knowledge = None
+
+            def on_answer_delta(chunk: str) -> None:
+                # B1 方案A：综合器正文增量；完成态仍由下方 answer.delta 全量覆盖
+                emit(
+                    {
+                        "type": "answer.delta",
+                        "stage": "synthesis",
+                        "message": "回答生成中",
+                        "data": {"text": chunk, "partial": True},
+                    }
+                )
+
             result = await self.engine.run(
-                input_value, user_knowledge=user_knowledge, emit=emit
+                input_value,
+                user_knowledge=user_knowledge,
+                emit=emit,
+                on_answer_delta=on_answer_delta,
             )
             emit(
                 {

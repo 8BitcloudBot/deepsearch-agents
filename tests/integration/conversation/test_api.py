@@ -162,7 +162,6 @@ def test_report_download_regenerates_completed_turns_from_sqlite(
     assert "## 证据附录（累计来源索引）" in response.text
 
 
-
 def test_user_cannot_access_admin_conversation(tmp_path: Path) -> None:
     with client(tmp_path) as http:
         login(http, "admin")
@@ -215,7 +214,14 @@ def test_websocket_success_has_one_terminal_event_and_aggregated_stages(
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
 
     class Engine:
-        async def run(self, turn, *, user_knowledge=None, emit=None):
+        async def run(
+            self,
+            turn,
+            *,
+            user_knowledge=None,
+            emit=None,
+            on_answer_delta=None,
+        ):
             item = EvidenceItem(
                 evidence_id="ev-knowledge-1",
                 source_kind="knowledge",
@@ -231,7 +237,6 @@ def test_websocket_success_has_one_terminal_event_and_aggregated_stages(
                 evidence=(item,),
                 limitations=(),
             )
-
 
     application = ConversationApplication(
         store, Engine(), ConversationReport(tmp_path / "reports", store)
@@ -407,9 +412,7 @@ def test_cancel_running_turn_via_delete(tmp_path: Path) -> None:
                 while not self.gate.is_set():
                     await _asyncio.sleep(0.02)
             except _asyncio.CancelledError:
-                self.store.fail_turn(
-                    user, conversation_id, turn_id, "本轮研究已取消。"
-                )
+                self.store.fail_turn(user, conversation_id, turn_id, "本轮研究已取消。")
                 if emit is not None:
                     emit(
                         {
@@ -423,9 +426,7 @@ def test_cancel_running_turn_via_delete(tmp_path: Path) -> None:
             return self.store.get_turn(user, conversation_id, turn_id)
 
     gated = GatedApplication(store, report)
-    with TestClient(
-        create_app(store=store, conversation_application=gated)
-    ) as http:
+    with TestClient(create_app(store=store, conversation_application=gated)) as http:
         login(http)
         conversation = http.post("/api/conversations", json={"title": "取消"}).json()
         started = http.post(
@@ -445,9 +446,7 @@ def test_cancel_running_turn_via_delete(tmp_path: Path) -> None:
         _time.sleep(0.1)
 
         # 取消已终态 → 409；turn 收敛为 failed，带取消文案
-        again = http.delete(
-            f"/api/conversations/{conversation['id']}/turns/{turn_id}"
-        )
+        again = http.delete(f"/api/conversations/{conversation['id']}/turns/{turn_id}")
         assert again.status_code == 409
         turn = http.get(
             f"/api/conversations/{conversation['id']}/turns/{turn_id}"
@@ -465,6 +464,4 @@ def test_cancel_running_turn_via_delete(tmp_path: Path) -> None:
             f"/api/conversations/{conversation['id']}/turns/{zombie.id}"
         )
         assert zombie_delete.status_code == 204
-        assert (
-            store.get_turn(owner, conversation["id"], zombie.id).status == "failed"
-        )
+        assert store.get_turn(owner, conversation["id"], zombie.id).status == "failed"

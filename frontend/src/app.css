@@ -164,3 +164,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .library-row strong { flex: 1; font-size: 14px; }
 .library-row small { color: #66736c; }
+
+/* ── B1 方案A：流式生成气泡 ───────────────────────────── */
+.message-stream-item.streaming {
+  animation: stream-in 0.25s ease-out;
+}
+.streaming-body {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  color: #3c4453;
+  border-left: 3px solid #9db8e8;
+  padding: 10px 14px;
+  background: #f6f8fc;
+  border-radius: 8px;
+  font-size: 14px;
+}
+@keyframes stream-in {
+  from { opacity: 0.4; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}

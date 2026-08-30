@@ -85,6 +85,44 @@ describe("useConversationApp", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("accumulates partial answer deltas and clears on terminal event", async () => {
+    const { result } = renderHook(() => useConversationApp("http://test"));
+    await waitFor(() => expect(result.current.activeConversationId).toBe("c1"));
+    act(() => {
+      lastSocket().onopen?.();
+      for (const [sequence, payload] of [
+        [1, { type: "answer.delta", data: { text: "第一段", partial: true } }],
+        [2, { type: "answer.delta", data: { text: "续写", partial: true } }],
+      ] as const) {
+        lastSocket().onmessage?.({
+          data: JSON.stringify({
+            schema_version: "5.0.0",
+            sequence,
+            conversation_id: "c1",
+            turn_id: "t1",
+            ...payload,
+            timestamp: "2026-08-29T00:00:0" + sequence + "Z",
+          }),
+        });
+      }
+    });
+    expect(result.current.streamingText).toBe("第一段续写");
+    act(() => {
+      lastSocket().onmessage?.({
+        data: JSON.stringify({
+          schema_version: "5.0.0",
+          sequence: 3,
+          conversation_id: "c1",
+          turn_id: "t1",
+          type: "turn.completed",
+          message: "完成",
+          timestamp: "2026-08-29T00:00:03Z",
+        }),
+      });
+    });
+    expect(result.current.streamingText).toBe("");
+  });
+
   it("maps turn.failed events to error state and clears plan subquestions", async () => {
     const { result } = renderHook(() => useConversationApp("http://test"));
     await waitFor(() => expect(result.current.activeConversationId).toBe("c1"));

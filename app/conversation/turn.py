@@ -126,6 +126,8 @@ class TurnSynthesizer(Protocol):
         plan: TurnResearchPlan,
         evidence_items: tuple[EvidenceItem, ...],
         limitations: tuple[str, ...],
+        *,
+        on_delta: Any = None,
     ) -> SynthesisDraft: ...
 
 
@@ -153,6 +155,7 @@ class _TurnState(TypedDict):
     executed_queries: tuple[str, ...]
     user_knowledge_retriever: Any
     emit: Any
+    on_answer_delta: Any
 
 
 def _plan_is_deep(plan: TurnResearchPlan | None, question: str) -> bool:
@@ -200,6 +203,7 @@ class TurnResearchEngine:
         coverage_reviewer: CoverageReviewer | None = None,
         *,
         citation_validation: bool = False,
+        streamed_synthesis: bool = False,
     ) -> None:
         self._planner = planner
         self._knowledge = knowledge
@@ -207,6 +211,7 @@ class TurnResearchEngine:
         self._synthesizer = synthesizer
         self._coverage_reviewer = coverage_reviewer
         self._citation_validation = citation_validation
+        self._streamed_synthesis = streamed_synthesis
         graph = StateGraph(_TurnState)
         graph.add_node("plan", self._plan)
         graph.add_node("retrieve", self._retrieve_initial)
@@ -217,6 +222,7 @@ class TurnResearchEngine:
             partial(
                 self._synthesize,
                 citation_validation=self._citation_validation,
+                streamed_synthesis=self._streamed_synthesis,
             ),
         )
         graph.add_edge(START, "plan")
@@ -240,13 +246,19 @@ class TurnResearchEngine:
         *,
         user_knowledge: EvidenceRetriever | None = None,
         emit: Any = None,
+        on_answer_delta: Any = None,
     ) -> TurnResult:
         """user_knowledge：当前用户的个人知识库检索器（知识库入库方案）。
 
         其结果并入 knowledge 来源分支统一评分排序，DAG 形状不变。
         emit：可选阶段事件回调（G11 过程展示）。
         """
-        return await self._run(turn, user_knowledge=user_knowledge, emit=emit)
+        return await self._run(
+            turn,
+            user_knowledge=user_knowledge,
+            emit=emit,
+            on_answer_delta=on_answer_delta,
+        )
 
     async def _run(
         self,
@@ -254,6 +266,7 @@ class TurnResearchEngine:
         *,
         user_knowledge: EvidenceRetriever | None = None,
         emit: Any = None,
+        on_answer_delta: Any = None,
     ) -> TurnResult:
         state = await self._graph.ainvoke(
             {
@@ -270,6 +283,7 @@ class TurnResearchEngine:
                 "executed_queries": (),
                 "user_knowledge_retriever": user_knowledge,
                 "emit": emit,
+                "on_answer_delta": on_answer_delta,
             },
             # plan+retrieve + (review+supplemental)×(MAX_ROUNDS+1) + synthesize
             # 的安全上限；轮次上限保证正常收敛，这里只兜异常路径。
@@ -586,6 +600,7 @@ class TurnResearchEngine:
         state: _TurnState,
         *,
         citation_validation: bool = False,
+        streamed_synthesis: bool = False,
         resynthesis_hint: str | None = None,
     ) -> dict[str, object]:
         plan = self._require_plan(state)
@@ -607,8 +622,18 @@ class TurnResearchEngine:
         last_error: Exception | None = None
         for _attempt in range(2):
             try:
+                # flag off 时不附加 on_delta——调用形态与旧路径逐字一致
+                stream_kwargs = (
+                    {"on_delta": state.get("on_answer_delta")}
+                    if streamed_synthesis
+                    else {}
+                )
                 draft = await self._synthesizer.synthesize(
-                    state["turn"], plan, evidence_items, state["limitations"]
+                    state["turn"],
+                    plan,
+                    evidence_items,
+                    state["limitations"],
+                    **stream_kwargs,
                 )
                 logger.debug(
                     "node=synthesize exit sections=%d claims=%d",

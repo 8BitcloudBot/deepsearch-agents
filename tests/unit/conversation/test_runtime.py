@@ -780,3 +780,99 @@ def test_web_search_options_merge_fills_missing_keys_from_keywords() -> None:
 
     # 非时效查询且无 hints：回退原关键词路径
     assert _web_search_options("LangGraph 是什么")["topic"] == "general"
+
+
+@pytest.mark.asyncio
+async def test_streamed_synthesis_two_pass_produces_draft_and_deltas() -> None:
+    """B1 方案A：正文流式增量透传，第二次调用抽取 claims 并锚回段落。"""
+    seen_deltas: list[str] = []
+
+    class StreamModel:
+        async def astream(self, messages):
+            for piece in ["LangGraph 管理", "回合状态。\n\n", "检查点支持恢复。"]:
+                yield type("Chunk", (), {"content": piece})()
+
+        async def ainvoke(self, messages):
+            assert "引用抽取器" in messages[0]["content"]
+            assert "LangGraph 管理回合状态。" in messages[1]["content"]
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"claims": ['
+                        '{"statement": "LangGraph 管理回合状态。",'
+                        ' "evidence_ids": ["ev-1"]}], '
+                        '"limitations": [{"type": "t", "detail": "覆盖有限。"}]}'
+                    )
+                },
+            )()
+
+    plan = TurnResearchPlan("目标", (), (), ())
+    evidence_item = EvidenceItem(
+        "ev-1", "knowledge", "文档", "chunk", "doc#1", "LangGraph 原文。"
+    )
+    draft = await ModelSynthesizerAdapter(StreamModel(), streamed=True).synthesize(
+        TurnInput("问题", False, (), ()),
+        plan,
+        (evidence_item,),
+        (),
+        on_delta=seen_deltas.append,
+    )
+
+    assert seen_deltas == ["LangGraph 管理", "回合状态。\n\n", "检查点支持恢复。"]
+    assert [section.text for section in draft.sections] == [
+        "LangGraph 管理回合状态。",
+        "检查点支持恢复。",
+    ]
+    # claim statement 锚回第一段 → claim_indexes=[0]
+    assert draft.sections[0].claim_indexes == (0,)
+    assert draft.claims[0].evidence_ids == ("ev-1",)
+    assert draft.limitations == ("覆盖有限。",)
+
+
+@pytest.mark.asyncio
+async def test_streamed_synthesis_falls_back_to_json_path_on_error() -> None:
+    """流式任一步失败 → 回退 JSON 路径，draft 语义一致。"""
+    calls: list[str] = []
+
+    class BrokenStreamModel:
+        async def astream(self, messages):
+            calls.append("astream")
+            raise RuntimeError("stream boom")
+            yield  # pragma: no cover
+
+        async def ainvoke(self, messages):
+            calls.append("ainvoke")
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"answer_sections":[{"text":"JSON 回答","claim_indexes":[0]}],'
+                        '"claims":[{"statement":"结论","evidence_ids":["ev-1"]}],'
+                        '"limitations":[]}'
+                    )
+                },
+            )()
+
+    draft = await ModelSynthesizerAdapter(
+        BrokenStreamModel(), streamed=True
+    ).synthesize(
+        TurnInput("问题", False, (), ()),
+        TurnResearchPlan("目标", (), (), ()),
+        (EvidenceItem("ev-1", "knowledge", "文档", "chunk", "doc#1", "原文"),),
+        (),
+        on_delta=lambda chunk: None,
+    )
+
+    assert calls == ["astream", "ainvoke"]
+    assert draft.sections[0].text == "JSON 回答"
+
+
+def test_streamed_flag_off_keeps_json_path() -> None:
+    """flag off 时连 astream 都不会被触碰（调用形态与旧路径一致）。"""
+    adapter = ModelSynthesizerAdapter(
+        type("M", (), {"astream": lambda self, m: None})()
+    )
+    assert adapter._streamed is False

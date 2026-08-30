@@ -13,7 +13,14 @@ from app.conversation.store import ConversationStore
 class Engine:
     seen: list[object]
 
-    async def run(self, turn, *, user_knowledge=None, emit=None):
+    async def run(
+        self,
+        turn,
+        *,
+        user_knowledge=None,
+        emit=None,
+        on_answer_delta=None,
+    ):
         self.seen.append(turn)
         item = EvidenceItem(
             evidence_id="ev-knowledge-1",
@@ -85,7 +92,14 @@ async def test_application_marks_safe_failure_and_does_not_publish_report(
     tmp_path: Path,
 ) -> None:
     class FailingEngine:
-        async def run(self, turn, *, user_knowledge=None, emit=None):
+        async def run(
+            self,
+            turn,
+            *,
+            user_knowledge=None,
+            emit=None,
+            on_answer_delta=None,
+        ):
             raise RuntimeError("provider details must not leak")
 
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
@@ -107,7 +121,6 @@ async def test_application_marks_safe_failure_and_does_not_publish_report(
     assert store.get_turn(user, conversation.id, turn.id).status == "failed"
     assert events[-1]["type"] == "turn.failed"
     assert "provider details" not in events[-1]["message"]
-
 
 
 @pytest.mark.asyncio
@@ -248,7 +261,14 @@ async def test_turn_failure_carries_model_error_category(tmp_path: Path) -> None
     from app.conversation.turn import TurnExecutionError
 
     class TimeoutEngine:
-        async def run(self, turn, *, user_knowledge=None, emit=None):
+        async def run(
+            self,
+            turn,
+            *,
+            user_knowledge=None,
+            emit=None,
+            on_answer_delta=None,
+        ):
             raise TurnExecutionError("model-timeout")
 
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
@@ -279,7 +299,14 @@ async def test_unclassified_failure_keeps_legacy_message_and_event_shape(
     tmp_path: Path,
 ) -> None:
     class BrokenEngine:
-        async def run(self, turn, *, user_knowledge=None, emit=None):
+        async def run(
+            self,
+            turn,
+            *,
+            user_knowledge=None,
+            emit=None,
+            on_answer_delta=None,
+        ):
             raise RuntimeError("boom")
 
     store = ConversationStore(tmp_path / "reasonix.sqlite3")
@@ -362,7 +389,9 @@ async def test_model_title_generation_wins_and_falls_back_to_regex(
     success = TitleGenerator()
     conversation = store.create_conversation(user, "新研究")
     application = ConversationApplication(
-        store, Engine([]), ConversationReport(tmp_path / "reports", store),
+        store,
+        Engine([]),
+        ConversationReport(tmp_path / "reports", store),
         title_generator=success,
     )
     turn = await application.submit(
@@ -375,7 +404,9 @@ async def test_model_title_generation_wins_and_falls_back_to_regex(
     fallback = TitleGenerator(fail=True)
     second = store.create_conversation(user, "新研究")
     application2 = ConversationApplication(
-        store, Engine([]), ConversationReport(tmp_path / "reports", store),
+        store,
+        Engine([]),
+        ConversationReport(tmp_path / "reports", store),
         title_generator=fallback,
     )
     turn2 = await application2.submit(
@@ -387,7 +418,9 @@ async def test_model_title_generation_wins_and_falls_back_to_regex(
     # 用户已手动命名 → 模型标题不覆盖
     third = store.create_conversation(user, "我的专属标题")
     application3 = ConversationApplication(
-        store, Engine([]), ConversationReport(tmp_path / "reports", store),
+        store,
+        Engine([]),
+        ConversationReport(tmp_path / "reports", store),
         title_generator=TitleGenerator(),
     )
     turn3 = await application3.submit(
@@ -430,7 +463,14 @@ async def test_same_conversation_turns_execute_serially(tmp_path: Path) -> None:
     peak = 0
 
     class ProbingEngine:
-        async def run(self, turn, *, user_knowledge=None, emit=None):
+        async def run(
+            self,
+            turn,
+            *,
+            user_knowledge=None,
+            emit=None,
+            on_answer_delta=None,
+        ):
             nonlocal running, peak
             running += 1
             peak = max(peak, running)
@@ -514,7 +554,14 @@ async def test_cancelled_turn_fails_with_cancel_message(tmp_path: Path) -> None:
     gate = _asyncio.Event()
 
     class SlowEngine:
-        async def run(self, turn, *, user_knowledge=None, emit=None):
+        async def run(
+            self,
+            turn,
+            *,
+            user_knowledge=None,
+            emit=None,
+            on_answer_delta=None,
+        ):
             await gate.wait()  # 模拟长执行
             raise AssertionError("should be cancelled before here")
 
@@ -537,3 +584,89 @@ async def test_cancelled_turn_fails_with_cancel_message(tmp_path: Path) -> None:
     assert failed.result["error"] == "本轮研究已取消。"
     cancelled = [e for e in events if e["type"] == "turn.cancelled"]
     assert cancelled and cancelled[0]["data"]["turn_id"] == turn.id
+
+
+@pytest.mark.asyncio
+async def test_streamed_partial_deltas_are_emitted_when_engine_reports(
+    tmp_path: Path,
+) -> None:
+    """B1 方案A：engine 触发的正文增量经 application 以 partial answer.delta 推送。"""
+    store = ConversationStore(tmp_path / "app.sqlite3")
+    user = store.authenticate("user", "0000")
+    conversation = store.create_conversation(user, "流式")
+    item = EvidenceItem(
+        evidence_id="ev-knowledge-1",
+        source_kind="knowledge",
+        title="知识文档",
+        locator_kind="chunk",
+        locator_value="guide.md#intro",
+        quote="知识证据",
+    )
+
+    class StreamEngine:
+        def __init__(self):
+            self.deltas_sent = 0
+
+        async def run(
+            self,
+            turn,
+            *,
+            user_knowledge=None,
+            emit=None,
+            on_answer_delta=None,
+        ):
+            assert on_answer_delta is not None
+            on_answer_delta("第一段增量。")
+            on_answer_delta("第二段增量。")
+            self.deltas_sent += 2
+            return TurnResult(
+                schema_version="5.0.0",
+                answer="完整回答。[1]",
+                claims=(Claim("claim-1", "完成结论", ("ev-knowledge-1",)),),
+                evidence=(item,),
+                limitations=(),
+            )
+
+    class Engine:
+        seen: list[object]
+
+        async def run(
+            self,
+            turn,
+            *,
+            user_knowledge=None,
+            emit=None,
+            on_answer_delta=None,
+        ):
+            self.seen.append(turn)
+            return TurnResult(
+                schema_version="5.0.0",
+                answer="完成回答。[1]",
+                claims=(Claim("claim-1", "完成结论", (item.evidence_id,)),),
+                evidence=(item,),
+                limitations=(),
+            )
+
+    engine = StreamEngine()
+    application = ConversationApplication(
+        store, engine, ConversationReport(tmp_path / "reports", store)
+    )
+    turn = await application.submit(
+        user, conversation.id, question="问题", use_web=False
+    )
+    events: list[dict] = []
+    await application.execute(user, conversation.id, turn.id, emit=events.append)
+
+    partials = [
+        event
+        for event in events
+        if event["type"] == "answer.delta" and event.get("data", {}).get("partial")
+    ]
+    assert [p["data"]["text"] for p in partials] == ["第一段增量。", "第二段增量。"]
+    # 完成态全量 answer.delta 仍在（无 partial 标记）
+    finals = [
+        event
+        for event in events
+        if event["type"] == "answer.delta" and not event.get("data", {}).get("partial")
+    ]
+    assert len(finals) == 1 and finals[0]["data"]["text"] == "完整回答。[1]"
