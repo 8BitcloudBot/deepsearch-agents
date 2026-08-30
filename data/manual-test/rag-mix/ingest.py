@@ -94,7 +94,9 @@ def ingest_global() -> None:
     index_path, spec, embedder, _ = _embedder_and_spec()
     index = QdrantLocalKnowledgeIndex(index_path, spec, embedder, min_score=0.0)
 
-    known_ids = [f"{GLOBAL_DOC_PREFIX}{p.stem}" for p in sorted(GLOBAL_DIR.glob("*.md"))]
+    known_ids = [
+        f"{GLOBAL_DOC_PREFIX}{p.stem}" for p in sorted(GLOBAL_DIR.glob("*.md"))
+    ]
     index.delete_documents(known_ids)  # 幂等：清理旧注入后重灌
 
     documents = []
@@ -129,7 +131,9 @@ def ingest_personal(user_id: str) -> None:
         cache_dir=str(ROOT / ".cache" / "fastembed"),
     )
     store = UploadKnowledgeStore(
-        ROOT / ".data" / "user-uploads", embedder, min_score=settings.knowledge.min_score
+        ROOT / ".data" / "user-uploads",
+        embedder,
+        min_score=settings.knowledge.min_score,
     )
     for path in sorted(PERSONAL_DIR.glob("*.md")):
         entry = store.ingest_path(user_id, path.name, path)
