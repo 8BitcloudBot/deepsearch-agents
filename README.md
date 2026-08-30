@@ -59,11 +59,14 @@ python scripts/index_knowledge.py        # 从 data/knowledge 语料构建 Qdran
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| MODEL_NAME / MODEL_BASE_URL / MODEL_API_KEY | — | 模型与端点 |
-| MODEL_TEMPERATURE | 0.2 | 未设置时跟随 provider 默认 |
+| MODEL_NAME | **deepseek-v4-flash** | 模型选型固定 DeepSeek v4 flash（按官方文档核对：thinking/reasoning_effort/json_object 语义均已对齐） |
+| MODEL_NAME_LIGHT | 缺省跟随 MODEL_NAME | 轻量角色（规划/审阅/标题）可路由更便宜快速的模型 |
+| MODEL_BASE_URL / MODEL_API_KEY | — | 端点与密钥 |
+| MODEL_TEMPERATURE | 0.2 | 全角色生效（前提：禁用思考——系统已统一处理） |
 | MODEL_MAX_RETRIES | 2 | 瞬时抖动重试 |
+| MODEL_STREAMED_SYNTHESIS | false | 两段式真流式：正文增量 answer.delta(partial) + claims 二次抽取 |
 | MODEL_STRUCTURED_OUTPUT | false | 开启后全角色强制 provider json_object 模式 |
-| ENABLE_CITATION_VALIDATION | false | 引用校验规则引擎开关（英文词法设计，中文语料误杀率高，保持关闭——见 EXECUTION_LOG） |
+| ENABLE_CITATION_VALIDATION | false | 引用校验规则引擎开关（默认关闭，中文 tokenizer 已支持——见 EXECUTION_LOG I6） |
 | TAVILY_API_KEY | — | 不设则 web 检索不可用（fail-closed） |
 
 ## 测试

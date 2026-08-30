@@ -1,6 +1,6 @@
 # 执行日志
 
-> **阶段封版：2026-08-27（freeze/post-rag）** —— 本文件自此为只读快照。封版时点 main 与 opt/deepsearch 同点，测试 608 passed / 4 skipped / ruff 全绿 / 前端 vite build + vitest 通过；后续工作从新周期开始。
+> **二次封版：2026-08-30（freeze/deepseek-tuned）** —— main 与 opt/deepsearch 同点，测试 695 passed / 4 skipped / ruff 全绿 / 前端 build+vitest 通过。本封版涵盖：DeepSeek 官方文档核对三修正（固定 v4-flash / 全角色禁思考 / reviewer json_object，真机回合 138s→13.1s）、A1 检索分数绝对语义、B2 分级模型路由、B1 两段式真流式、三场景回归全 PASS。首版封版（freeze/post-rag-2026-08-27）记录见下方历史。
 
 ## 基线：2026-08-27
 - 测试入口：`uv run --extra dev python -m pytest -q`（pytest 在 `[project.optional-dependencies].dev`，需 `--extra dev`；另有 `[dependency-groups].dev` 仅含 httpx-ws）
@@ -88,8 +88,9 @@
 - 组合稳定结论：deepseek-v4-flash + 全角色禁思考 + reviewer json_object + 流式开关，全部叠加无回归
 
 ## 待办队列
-- 备选池：B10 各项（会话标题模型化 / 滚动记忆 / 优雅降级 / 前端过程展示）；
-  citations 中文 tokenizer 立项（若要正式启用引用校验）；README 补个人知识库使用说明
+- 无必办项。（备选池闭环核对：B10 四项已由 G/H/I/J 轮完成；citations 中文 tokenizer 已由 I6 实施；
+  README 个人知识库章节已于阶段 3 补写；C2 limitations 密度已在展示层解决——前端过滤
+  内部诊断条目，后端保留完整诊断数据。）
 
 ## 用户决策记录
 - 2026-08-27 移除 deepagents 后顶层 examples/ 处置 => 删除 examples/（推荐选项）
