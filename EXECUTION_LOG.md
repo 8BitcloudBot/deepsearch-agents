@@ -65,8 +65,11 @@
   - 方案 A 两段式 (c4039e9)：MODEL_STREAMED_SYNTHESIS flag（默认关）；正文 astream 流式透传
    partial answer.delta（真机 312 个增量、首字 80.7s vs 全回合 138s）+ claims 二次抽取锚回原句；
    前端"生成中"气泡累积渲染；失败自动回退 JSON 路径
-  - 新观察项：真机回环 3 轮时 coverage-reviewer 单次 completion 达 1896-3060 tokens、
-   回合总时长 138s——审阅器输出长度与回环触发倾向值得下轮优化
+  - 新观察项治理（本轮）：根因=DeepSeek v4 混合推理的思考 token 不受 max_tokens
+   约束且 reviewer/title 未禁用 thinking；提取 _without_deepseek_thinking 共享
+   函数应用到三个短输出角色。真机复跑 reviewer completion 3060→245（-92%）、
+   回合 138s→101s、首字 80.7s→49.4s、review 一轮即收敛
+- [x] B10 盘点：标题模型化/滚动记忆/优雅降级/前端过程展示四项均已由 G/H/I/J 轮完成，无剩余
 - 备注：citations 中文 tokenizer 已由 I6 轮解决（见下方记录），审计报告中该边界已关闭
 
 ## 待办队列
