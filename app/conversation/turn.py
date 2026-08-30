@@ -385,7 +385,12 @@ class TurnResearchEngine:
         )
         # B1 方案 D：检索计数实时进度（前端 stage 行直显 message，零合同变更）
         found = len(grouped["knowledge"]) + len(grouped["web"])
-        _emit_stage(state, "retrieval", f"已找到 {found} 条证据", data={"evidence_count": found})
+        _emit_stage(
+            state,
+            "retrieval",
+            f"已找到 {found} 条证据",
+            data={"evidence_count": found},
+        )
         return {
             "knowledge": tuple(grouped["knowledge"]),
             "web": _apply_global_rank_decay(tuple(grouped["web"])),
