@@ -87,6 +87,12 @@
 - [x] 回归脚本固化为 scripts/regression_e2e.py（可复跑）
 - 组合稳定结论：deepseek-v4-flash + 全角色禁思考 + reviewer json_object + 流式开关，全部叠加无回归
 
+## 思考水平实验轮（2026-08-30）
+- [x] 48 次真机调用矩阵实验（3 角色 × disabled/low/high/max × 2 问题 × 2 轮）：
+  三角色均维持 thinking disabled 为最优——思考纯增延迟（1.3-3.8s → 4.7-26.6s）
+  与 token（reviewer high 撞 800 上限有截断风险）；综合器思考版输出超字数预算；
+  分段结构优势用零成本提示词指令补齐（2～3 自然段），真机三场景复验全 PASS
+
 ## 待办队列
 - 无必办项。（备选池闭环核对：B10 四项已由 G/H/I/J 轮完成；citations 中文 tokenizer 已由 I6 实施；
   README 个人知识库章节已于阶段 3 补写；C2 limitations 密度已在展示层解决——前端过滤
