@@ -60,7 +60,13 @@
 - [x] A1 检索分数语义修复 (265aa47)：KnowledgeChunk.score 改 dense cosine 绝对分，消除个人库跨库满分压制；敌意测试 RED→GREEN 验证；min_score=0.40 标定复核维持
 - [x] B2 分级模型路由 (b5dcca5)：MODEL_NAME_LIGHT 使规划/审阅/标题路由便宜模型，综合器保持主模型；缺省行为不变
 - [x] C3 web 搜索选项合并语义 (b1207f5)：hints 优先+关键词启发补缺，时效链路不再因部分 hints 丢失 news 判定
-- [ ] B1 真流式：评审稿 docs/design/streaming-answer.md 待拍板（推荐先做零风险的方案 D 进度增强，方案 A 两段式挂二期）
+- [x] B1 真流式（用户拍板"都做"）：
+  - 方案 D 收尾 (88db019)：核对发现子问题预览/补充轮进度已被 G11 实现，本轮补齐检索计数进度事件（88db019）
+  - 方案 A 两段式 (c4039e9)：MODEL_STREAMED_SYNTHESIS flag（默认关）；正文 astream 流式透传
+   partial answer.delta（真机 312 个增量、首字 80.7s vs 全回合 138s）+ claims 二次抽取锚回原句；
+   前端"生成中"气泡累积渲染；失败自动回退 JSON 路径
+  - 新观察项：真机回环 3 轮时 coverage-reviewer 单次 completion 达 1896-3060 tokens、
+   回合总时长 138s——审阅器输出长度与回环触发倾向值得下轮优化
 - 备注：citations 中文 tokenizer 已由 I6 轮解决（见下方记录），审计报告中该边界已关闭
 
 ## 待办队列
