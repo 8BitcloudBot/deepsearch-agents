@@ -1386,3 +1386,55 @@ async def test_plan_stage_event_carries_subquestions():
         and event.get("data", {}).get("subquestions")
     ]
     assert plan_events and plan_events[0]["data"]["subquestions"] == ["问题"]
+
+
+@pytest.mark.asyncio
+async def test_retrieval_progress_events_carry_evidence_counts() -> None:
+    """B1 方案 D：首轮与每轮补充检索完成后推送'已找到 N 条证据'进度。"""
+    knowledge = Retriever((evidence("knowledge", 1),))
+
+    class Reviewer:
+        calls = 0
+
+        async def review(self, turn, plan, evidence_items, limitations):
+            self.calls += 1
+            done = self.calls >= 2
+            return CoverageDecision(
+                uncovered_questions=() if done else ("缺口",),
+                knowledge_queries=() if done else ("followup",),
+                web_queries=(),
+            )
+
+    knowledge_results = [evidence("knowledge", 2)]
+
+    class CountingRetriever(Retriever):
+        async def search(self, query: str, *, limit: int = 10):
+            items = await super().search(query, limit=limit)
+            return (*items, *knowledge_results)[: len(items) + 1]
+
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-knowledge-1",)),),
+            limitations=(),
+        )
+    )
+    events: list[dict] = []
+
+    await build_engine(
+        Planner(),
+        knowledge,
+        None,
+        Retriever(()),
+        synthesizer,
+        Reviewer(),
+    ).run(TurnInput("问题", False, (), ()), emit=events.append)
+
+    counts = [
+        event.get("data", {}).get("evidence_count")
+        for event in events
+        if "已找到" in event.get("message", "")
+    ]
+    assert counts, "检索进度事件缺失"
+    assert counts == sorted(counts, reverse=False), "证据计数应随回环递增"
+    assert counts[0] >= 1
