@@ -72,6 +72,14 @@
 - [x] B10 盘点：标题模型化/滚动记忆/优雅降级/前端过程展示四项均已由 G/H/I/J 轮完成，无剩余
 - 备注：citations 中文 tokenizer 已由 I6 轮解决（见下方记录），审计报告中该边界已关闭
 
+## DeepSeek 官方文档核对轮（2026-08-30）
+- [x] 默认 MODEL_NAME 固定 deepseek-v4-flash（官方 model 枚举确认）
+- [x] 全角色统一禁 thinking——文档证实'思考默认开启'且'思考模式下 temperature/top_p 无效'，
+  此前综合器温度设置一直无效；真机回合 101.3s→13.1s、首字 49.4s→5.3s
+- [x] reviewer 绑 response_format json_object（DeepSeek 唯一结构化通道，不支持 json_schema——
+  证实 B2 通道选型正确）
+- 标定维持：temperature=0.2（官方场景表 Coding 0.0 与 General 1.3 之间，研究任务）；min_score 0.40
+
 ## 待办队列
 - 备选池：B10 各项（会话标题模型化 / 滚动记忆 / 优雅降级 / 前端过程展示）；
   citations 中文 tokenizer 立项（若要正式启用引用校验）；README 补个人知识库使用说明
