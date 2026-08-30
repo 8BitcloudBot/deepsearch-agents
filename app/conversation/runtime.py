@@ -238,7 +238,15 @@ class ModelPlannerAdapter:
 
 class ModelCoverageReviewerAdapter:
     def __init__(self, model: Any):
-        self._model = _bind_max_tokens(model, _MAX_TOKENS_REVIEWER)
+        reviewer_model = model
+        model_name = str(getattr(model, "model_name", "")).casefold()
+        if "deepseek" in model_name and callable(getattr(model, "model_copy", None)):
+            # json_object 是 DeepSeek 唯一结构化通道（文档：response_format
+            # 仅 [text, json_object]）；system prompt 已要求仅返回 JSON
+            reviewer_model = model.model_copy(
+                update={"model_kwargs": {"response_format": {"type": "json_object"}}}
+            )
+        self._model = _bind_max_tokens(reviewer_model, _MAX_TOKENS_REVIEWER)
 
     async def review(
         self,
@@ -808,6 +816,10 @@ def build_conversation_application(
             from app.conversation.model import build_agent_model
 
             base_model, _ = build_agent_model(settings)
+            # DeepSeek v4 默认开启思考（文档：thinking 默认 enabled），且思考
+            # 模式下 temperature/top_p 参数无效——统一禁用使全局温度真正生效，
+            # 并避免思考 token 混入 completion（真机实证 reviewer 3060→245）。
+            base_model = _without_deepseek_thinking(base_model)
             # 分级模型路由（B2 建议）：规划/审阅/标题为小输出任务，
             # MODEL_NAME_LIGHT 配置时路由到便宜快速模型，综合器保持主模型。
             if settings.model_name_light:

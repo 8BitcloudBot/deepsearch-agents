@@ -923,3 +923,36 @@ def test_light_roles_disable_deepseek_thinking(monkeypatch) -> None:
     plain = type("M", (), {"model_name": "gpt-compatible"})()
     assert runtime_module._without_deepseek_thinking(plain) is plain
     _ = base  # base_model（综合器）不受本修复约束，保持默认推理行为
+
+
+def test_reviewer_binds_json_object_for_deepseek_only() -> None:
+    """文档核对：DeepSeek response_format 仅 [text, json_object]——审阅器
+    （严格 JSON 合同）在 DeepSeek 端点绑定该模式，非 DeepSeek 端点不绑。"""
+    class DeepseekModel:
+        model_name = "deepseek-v4-flash"
+        model_kwargs: dict = {}
+
+        def model_copy(self, *, update):
+            clone = DeepseekModel()
+            clone.model_kwargs = {**self.model_kwargs, **update.get("model_kwargs", {})}
+            return clone
+
+        def bind(self, **kwargs):
+            return self
+
+    reviewer = ModelCoverageReviewerAdapter(DeepseekModel())
+    assert reviewer._model.model_kwargs == {"response_format": {"type": "json_object"}}
+
+    class PlainModel:
+        model_name = "gpt-compatible"
+
+        def bind(self, **kwargs):
+            return self
+
+    plain = PlainModel()
+    ModelCoverageReviewerAdapter(plain)
+    assert not hasattr(plain, "model_kwargs")
+
+
+def test_settings_default_model_is_deepseek_v4_flash():
+    assert ConversationSettings().model_name == "deepseek-v4-flash"

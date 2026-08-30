@@ -84,7 +84,8 @@ class KnowledgeSettings:
 
 @dataclass(frozen=True)
 class ConversationSettings:
-    model_name: str = "openai:gpt-4.1-mini"
+    # 固定使用 DeepSeek v4 flash（产品选型；评测侧 citations 模型独立不受此影响）
+    model_name: str = "deepseek-v4-flash"
     # 轻量角色（规划/审阅/标题）模型；None=与主模型一致
     model_name_light: str | None = None
     model_base_url: str | None = None
