@@ -16,7 +16,7 @@ def test_conversation_model_uses_openai_compatible_configuration(monkeypatch):
         {
             "MODEL_NAME": "gpt-compatible",
             "MODEL_BASE_URL": "https://gateway.example/v1",
-            "MODEL_API_KEY": "model-secret",
+            "MODEL_API_KEY": "model-secret",  # pragma: allowlist secret — 测试假值
             "MODEL_TIMEOUT_SECONDS": "17",
         }
     )
@@ -26,7 +26,7 @@ def test_conversation_model_uses_openai_compatible_configuration(monkeypatch):
     assert isinstance(model, FakeChatOpenAI)
     assert calls == {
         "model": "gpt-compatible",
-        "api_key": "model-secret",
+        "api_key": "model-secret",  # pragma: allowlist secret
         "base_url": "https://gateway.example/v1",
         "timeout": 17.0,
         "max_retries": 2,
@@ -47,7 +47,7 @@ def test_conversation_model_sampling_parameters_are_env_overridable(monkeypatch)
     settings = ConversationSettings.from_env(
         {
             "MODEL_NAME": "gpt-compatible",
-            "MODEL_API_KEY": "model-secret",
+            "MODEL_API_KEY": "model-secret",  # pragma: allowlist secret — 测试假值
             "MODEL_TEMPERATURE": "0.7",
             "MODEL_TOP_P": "0.9",
             "MODEL_MAX_RETRIES": "5",
@@ -64,7 +64,7 @@ def test_conversation_model_sampling_parameters_are_env_overridable(monkeypatch)
 def test_conversation_model_omits_optional_params_when_none():
     settings = ConversationSettings(
         model_name="gpt-compatible",
-        model_api_key="model-secret",
+        model_api_key="model-secret",  # pragma: allowlist secret
         model_temperature=None,
         model_top_p=None,
     )
@@ -96,7 +96,7 @@ def test_build_agent_model_supports_name_override(monkeypatch):
 
     monkeypatch.setattr("langchain_openai.ChatOpenAI", FakeChatOpenAI)
     settings = ConversationSettings.from_env(
-        {"MODEL_NAME": "main-model", "MODEL_API_KEY": "k"}
+        {"MODEL_NAME": "main-model", "MODEL_API_KEY": "k"}  # pragma: allowlist secret
     )
 
     _, descriptor = build_agent_model(settings, model_name_override="lite-model")

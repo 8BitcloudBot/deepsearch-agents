@@ -45,7 +45,8 @@ def client(tmp_path: Path) -> TestClient:
 
 def login(client: TestClient, username: str = "user") -> None:
     response = client.post(
-        "/api/auth/login", json={"username": username, "password": "0000"}
+        "/api/auth/login",
+        json={"username": username, "password": "0000"},  # pragma: allowlist secret
     )
     assert response.status_code == 200
 

@@ -10,8 +10,8 @@ def test_conversation_settings_only_load_active_provider_configuration():
         {
             "MODEL_NAME": "gpt-test",
             "MODEL_BASE_URL": "https://gateway.example/v1",
-            "MODEL_API_KEY": "model-secret",
-            "TAVILY_API_KEY": "tavily-secret",
+            "MODEL_API_KEY": "model-secret",  # pragma: allowlist secret
+            "TAVILY_API_KEY": "tavily-secret",  # pragma: allowlist secret
             "MODEL_TIMEOUT_SECONDS": "12.5",
             "KNOWLEDGE_INDEX_PATH": ".data/index",
             "KNOWLEDGE_COLLECTION": "research-v2",
@@ -23,8 +23,8 @@ def test_conversation_settings_only_load_active_provider_configuration():
 
     assert settings.model_name == "gpt-test"
     assert settings.model_base_url == "https://gateway.example/v1"
-    assert settings.model_api_key == "model-secret"
-    assert settings.tavily_api_key == "tavily-secret"
+    assert settings.model_api_key == "model-secret"  # pragma: allowlist secret
+    assert settings.tavily_api_key == "tavily-secret"  # pragma: allowlist secret
     assert settings.model_timeout_seconds == 12.5
     assert settings.knowledge.index_path == ".data/index"
     assert settings.knowledge.collection == "research-v2"
@@ -47,7 +47,10 @@ def test_env_example_only_contains_schema_five_runtime_configuration() -> None:
     content = Path(".env.example").read_text(encoding="utf-8")
 
     assert "KNOWLEDGE_INDEX_PATH=.data/knowledge-index-beginner-v2" in content
-    assert "KNOWLEDGE_COLLECTION=deepsearch-beginner-v2" in content
+    content_has_collection = (
+        "KNOWLEDGE_COLLECTION=deepsearch-beginner-v2" in content  # pragma: allowlist secret
+    )
+    assert content_has_collection
     assert "MYSQL_" not in content
     assert "APP_PROFILE" not in content
     assert "TUTORIAL_RUNTIME" not in content

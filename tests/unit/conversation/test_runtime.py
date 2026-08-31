@@ -729,7 +729,7 @@ def test_light_model_routes_to_light_roles_and_keeps_synthesizer(monkeypatch) ->
     environ = {
         "MODEL_NAME": "main-model",
         "MODEL_NAME_LIGHT": "lite-model",
-        "MODEL_API_KEY": "k",
+        "MODEL_API_KEY": "k",  # pragma: allowlist secret — 测试假值
         "MODEL_TEMPERATURE_PLANNER": "0.1",
     }
     settings = ConversationSettings.from_env(environ)
@@ -762,7 +762,10 @@ def test_light_model_routes_to_light_roles_and_keeps_synthesizer(monkeypatch) ->
 
     # 未配置 light 时全部共享主模型实例（现行为不变）
     settings_plain = ConversationSettings.from_env(
-        {"MODEL_NAME": "main-model", "MODEL_API_KEY": "k"}
+        {
+            "MODEL_NAME": "main-model",
+            "MODEL_API_KEY": "k",  # pragma: allowlist secret — 测试假值
+        }
     )
     base_plain, _ = build_agent_model(settings_plain)
     planner_plain = runtime_module.ModelPlannerAdapter(

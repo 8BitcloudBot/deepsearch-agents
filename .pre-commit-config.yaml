@@ -11,3 +11,6 @@ repos:
     hooks:
       - id: detect-secrets
         args: [--baseline, .secrets.baseline]
+        # 语料 content_sha256 指纹与 lockfile 完整性哈希为公开内容寻址
+        # 标识，非秘密（ragmix 发布审计逐条核对后排除）
+        exclude: '(^|/)(data/|frontend/pnpm-lock[.]yaml$|[.]secrets[.]baseline$)'

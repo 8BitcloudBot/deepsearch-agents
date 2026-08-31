@@ -82,13 +82,17 @@ def test_structured_output_flag_binds_json_object_mode(monkeypatch) -> None:
     from app.conversation.model import build_agent_model
 
     settings_on = ConversationSettings.from_env(
-        {"MODEL_NAME": "m", "MODEL_API_KEY": "k", "MODEL_STRUCTURED_OUTPUT": "true"}
+        {
+            "MODEL_NAME": "m",
+            "MODEL_API_KEY": "k",  # pragma: allowlist secret — 测试假值
+            "MODEL_STRUCTURED_OUTPUT": "true",
+        }
     )
     build_agent_model(settings_on)
     assert bound_calls == [{"response_format": {"type": "json_object"}}]
 
     settings_off = ConversationSettings.from_env(
-        {"MODEL_NAME": "m", "MODEL_API_KEY": "k"}
+        {"MODEL_NAME": "m", "MODEL_API_KEY": "k"}  # pragma: allowlist secret — 测试假值
     )
     _, descriptor_off = build_agent_model(settings_off)
     assert len(bound_calls) == 1  # 关闭态不发生绑定
