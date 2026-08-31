@@ -263,9 +263,14 @@ class ConversationApplication:
                 }
             )
             logger.info(
-                "turn completed turn_id=%s elapsed=%.1fs",
+                "turn completed turn_id=%s elapsed=%.1fs q=%r claims=%d evidence=%d limits=%d answer_len=%d",
                 turn_id,
                 time.monotonic() - started_at,
+                (turn.question or "")[:40],
+                len(completed.result.get("claims", []) if completed.result else []),
+                len(completed.result.get("evidence", []) if completed.result else []),
+                len(completed.result.get("limitations", []) if completed.result else []),
+                len(completed.answer or ""),
             )
             return completed
         except asyncio.CancelledError:
