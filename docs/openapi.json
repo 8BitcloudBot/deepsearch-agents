@@ -301,6 +301,41 @@
         "title": "LoginResponse",
         "type": "object"
       },
+      "ReadinessResponse": {
+        "description": "3.8 readiness：反映真实研究能力状态，与 liveness（/health）分离。\n\nready = 核心能力（model）可用；degraded = 核心可用但部分证据源缺失；\nnot_ready = 模型不可用（无法完成任何研究回合）。",
+        "properties": {
+          "capabilities": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Capabilities",
+            "type": "object"
+          },
+          "service": {
+            "default": "deepsearch-conversation",
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "degraded",
+              "not_ready"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "capabilities"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
       "TurnResponse": {
         "properties": {
           "answer": {
@@ -1106,6 +1141,24 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ready"
       }
     }
   }

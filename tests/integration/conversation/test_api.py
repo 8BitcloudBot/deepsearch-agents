@@ -466,3 +466,63 @@ def test_cancel_running_turn_via_delete(tmp_path: Path) -> None:
         )
         assert zombie_delete.status_code == 204
         assert store.get_turn(owner, conversation["id"], zombie.id).status == "failed"
+
+
+def test_ready_reflects_capability_states(tmp_path: Path) -> None:
+    """3.8：/ready 按 model/证据源状态分级 ready/degraded/not_ready。"""
+    store = ConversationStore(tmp_path / "reasonix.sqlite3")
+    report = ConversationReport(tmp_path / "reports", store)
+
+    class Application(NoopApplication):
+        def __init__(self, caps):
+            super().__init__(store, report)
+            self.capabilities = caps
+
+    # model 不可用 → not_ready
+    with TestClient(
+        create_app(
+            store=store,
+            conversation_application=Application(
+                {
+                    "model": {"status": "unavailable"},
+                    "knowledge": {"status": "ready"},
+                    "web": {"status": "unavailable"},
+                }
+            ),
+        )
+    ) as http:
+        login(http)
+        assert http.get("/ready").json()["status"] == "not_ready"
+
+    # model 可用但证据源全缺 → degraded
+    with TestClient(
+        create_app(
+            store=store,
+            conversation_application=Application(
+                {
+                    "model": {"status": "ready"},
+                    "knowledge": {"status": "unavailable"},
+                    "web": {"status": "unavailable"},
+                }
+            ),
+        )
+    ) as http:
+        login(http)
+        assert http.get("/ready").json()["status"] == "degraded"
+
+    # model+knowledge 可用 → ready
+    with TestClient(
+        create_app(
+            store=store,
+            conversation_application=Application(
+                {
+                    "model": {"status": "ready"},
+                    "knowledge": {"status": "ready"},
+                    "web": {"status": "unavailable"},
+                }
+            ),
+        )
+    ) as http:
+        login(http)
+        body = http.get("/ready").json()
+        assert body["status"] == "ready"

@@ -33,6 +33,7 @@ from app.api.schemas import (
     ConversationSummary,
     HealthResponse,
     LibraryDocument,
+    ReadinessResponse,
     LoginRequest,
     LoginResponse,
     TurnResponse,
@@ -168,6 +169,28 @@ def create_app(
             raise HTTPException(
                 status_code=404, detail="conversation not found"
             ) from exc
+
+    @app.get("/ready", response_model=ReadinessResponse)
+    async def ready() -> ReadinessResponse:
+        # 3.8：readiness 反映真实研究能力，不执行真实 LLM 调用。
+        # model 不可用 → not_ready；model 可用但证据源缺失 → degraded。
+        caps = getattr(conversation_application, "capabilities", {}) or {}
+        model_status = caps.get("model", {}).get("status", "unavailable")
+        evidence_ready = [
+            key
+            for key in ("knowledge", "web")
+            if caps.get(key, {}).get("status") == "ready"
+        ]
+        if model_status != "ready":
+            status = "not_ready"
+        elif evidence_ready:
+            status = "ready"
+        else:
+            status = "degraded"
+        return ReadinessResponse(
+            status=status,
+            capabilities=caps,
+        )
 
     @app.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:

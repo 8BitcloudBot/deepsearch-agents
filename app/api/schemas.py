@@ -101,6 +101,18 @@ class HealthResponse(BaseModel):
     capabilities: dict[str, dict[str, str]]
 
 
+class ReadinessResponse(BaseModel):
+    """3.8 readiness：反映真实研究能力状态，与 liveness（/health）分离。
+
+    ready = 核心能力（model）可用；degraded = 核心可用但部分证据源缺失；
+    not_ready = 模型不可用（无法完成任何研究回合）。
+    """
+
+    status: Literal["ready", "degraded", "not_ready"]
+    service: str = "deepsearch-conversation"
+    capabilities: dict[str, dict[str, str]]
+
+
 class LibraryDocument(BaseModel):
     document_id: str
     name: str
