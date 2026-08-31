@@ -94,9 +94,14 @@ def cleanup_main_library() -> None:
 
     index_path, spec, embedder, _ = _embedder_and_spec()
     index = QdrantLocalKnowledgeIndex(index_path, spec, embedder, min_score=0.0)
-    known_ids = [
-        f"{GLOBAL_DOC_PREFIX}{p.stem}" for p in sorted(CORPUS_DIR.glob("../docs/global/*.md"))
-    ]  # 旧版主库注入清理（ragmix-*）
+    # 旧版主库注入清理（ragmix-*，id 由旧版文档名派生）
+    legacy_stems = (
+        "pi-agent-overview",
+        "codex-harness-overview",
+        "deepseek-harness-overview",
+        "ragflow-overview",
+    )
+    known_ids = [f"{GLOBAL_DOC_PREFIX}{stem}" for stem in legacy_stems]
     index.delete_documents(known_ids)
     print(f"[main-library] cleaned {len(known_ids)} legacy ragmix documents (if any)")
 
