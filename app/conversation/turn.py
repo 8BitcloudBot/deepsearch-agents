@@ -669,7 +669,7 @@ class TurnResearchEngine:
                             "证据可支撑的表述：" + "；".join(unsupported)
                         )
                         logger.warning(
-                            "fidelity check: %d unsupported section(s)", len(unsupported)
+                            "fidelity check: unsupported=%d", len(unsupported)
                         )
                         continue
                 if citation_validation:
@@ -1035,8 +1035,6 @@ def _finalize_draft_with_validation(
 
 def _unsupported_section_texts(draft: SynthesisDraft) -> tuple[str, ...]:
     """R1：无任何有效 claim 挂接的段落文本（截断）——伪覆盖编造通道。"""
-    known_evidence = set()  # 由调用侧判定：此处以 draft.claims 的 evidence_ids 是否为空近似
-    _ = known_evidence
     unsupported: list[str] = []
     for section in draft.sections:
         if section.claim_indexes:
