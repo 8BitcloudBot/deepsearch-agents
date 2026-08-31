@@ -1720,3 +1720,30 @@ async def test_citation_drops_trigger_hinted_resynthesis() -> None:
     assert "无证据支撑" in hint and "加密货币" in hint
     # 最终回答已不含编造内容
     assert "翻倍" not in result.answer
+
+
+@pytest.mark.asyncio
+async def test_unofficial_web_hostnames_surface_limitation_hint() -> None:
+    """R3：引用非官方 web 域名时 limitations 提示甄别；官方 docs 域不提示。"""
+    unofficial = EvidenceItem(
+        "ev-web-1", "web", "农场文", "url", "https://tech-insider.org/x",
+        quote="RagFlow 支持自托管。", hostname="tech-insider.org", score=0.8,
+    )
+    official = EvidenceItem(
+        "ev-web-2", "web", "官方文档", "url", "https://docs.ragflow.io/y",
+        quote="RagFlow 文档说明。", hostname="docs.ragflow.io", score=0.7,
+    )
+    draft = SynthesisDraft(
+        sections=(SynthesisSection("回答。", (0,)),),
+        claims=(SynthesisClaim("RagFlow 支持自托管。", ("ev-web-1", "ev-web-2")),),
+        limitations=(),
+    )
+
+    from app.conversation.turn import _finalize_draft
+
+    result = _finalize_draft(draft, (unofficial, official), ())
+    assert any("非官方文档来源" in item for item in result.limitations)
+    assert "tech-insider.org" in "".join(result.limitations)
+    assert "docs.ragflow.io" not in "".join(
+        item for item in result.limitations if "非官方" in item
+    )

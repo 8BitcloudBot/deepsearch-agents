@@ -1167,6 +1167,31 @@ def _finalize_draft(
                 )
             )
         )
+    # R3 web 声誉分层：非官方文档域名的 web 证据提醒用户甄别
+    web_hosts = {
+        item.hostname
+        for item in cited_evidence
+        if item.source_kind == "web" and item.hostname
+    }
+    unofficial = sorted(
+        host
+        for host in web_hosts
+        if not any(
+            marker in host
+            for marker in ("docs.", "developer.", "github.", ".gov", ".edu")
+        )
+    )
+    if unofficial:
+        limitations = tuple(
+            dict.fromkeys(
+                (
+                    *limitations,
+                    "本轮引用了非官方文档来源（"
+                    + "、".join(unofficial[:3])
+                    + "），请自行甄别内容可靠性。",
+                )
+            )
+        )
     return TurnResult(
         schema_version=SCHEMA_VERSION,
         answer="\n\n".join(paragraphs),
