@@ -17,11 +17,7 @@ def _response(content: str) -> object:
 
 
 def test_strict_json_extracts_payload_with_surrounding_noise() -> None:
-    raw = (
-        "好的，以下是计划。\n"
-        '```json\n{"objective":"x"}\n```\n'
-        "补充说明完毕。"
-    )
+    raw = '好的，以下是计划。\n```json\n{"objective":"x"}\n```\n补充说明完毕。'
 
     assert _strict_json(_response(raw)) == {"objective": "x"}
 

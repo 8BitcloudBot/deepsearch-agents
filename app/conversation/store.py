@@ -207,9 +207,7 @@ class ConversationStore:
         for version in range(current + 1, _SCHEMA_VERSION + 1):
             for statement in migrations.get(version, ()):
                 connection.execute(statement)
-            connection.execute(
-                "UPDATE schema_state SET version = ?", (version,)
-            )
+            connection.execute("UPDATE schema_state SET version = ?", (version,))
 
     def authenticate(self, username: str, password: str) -> User | None:
         with self._connect() as connection:

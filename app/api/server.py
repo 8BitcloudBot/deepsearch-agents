@@ -269,9 +269,7 @@ def create_app(
             conversation_response(user, item) for item in store.list_conversations(user)
         ]
 
-    @app.get(
-        "/api/conversations/lite", response_model=list[ConversationSummary]
-    )
+    @app.get("/api/conversations/lite", response_model=list[ConversationSummary])
     async def list_conversations_lite(
         user: User = Depends(current_user),
     ) -> list[ConversationSummary]:
@@ -388,9 +386,7 @@ def create_app(
         except LookupError as exc:
             raise HTTPException(status_code=404, detail="turn not found") from exc
 
-    @app.delete(
-        "/api/conversations/{conversation_id}/turns/{turn_id}", status_code=204
-    )
+    @app.delete("/api/conversations/{conversation_id}/turns/{turn_id}", status_code=204)
     async def cancel_turn(
         conversation_id: str,
         turn_id: str,
@@ -408,9 +404,7 @@ def create_app(
         if task is not None:
             task.cancel()
         else:
-            store.fail_turn(
-                user, conversation_id, turn_id, "本轮研究已取消。"
-            )
+            store.fail_turn(user, conversation_id, turn_id, "本轮研究已取消。")
             events.emit(
                 conversation_id,
                 turn_id,
@@ -515,9 +509,7 @@ def create_app(
     async def delete_library_document(
         document_id: str, user: User = Depends(current_user)
     ) -> Response:
-        removed = await asyncio.to_thread(
-            _library_store().remove, user.id, document_id
-        )
+        removed = await asyncio.to_thread(_library_store().remove, user.id, document_id)
         if not removed:
             raise HTTPException(status_code=404, detail="document not found")
         return Response(status_code=204)

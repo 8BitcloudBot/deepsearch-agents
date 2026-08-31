@@ -24,4 +24,3 @@ def test_full_conversation_response_keeps_legacy_fields() -> None:
     response = schema["components"]["schemas"]["ConversationResponse"]
     # 向后兼容：完整端点合同不得移除既有字段
     assert {"turns", "attachments"} <= set(response["properties"])
-

@@ -19,7 +19,9 @@ def test_cors_origins_default_and_override(monkeypatch) -> None:
     default = server_module._cors_origins()
     assert "http://127.0.0.1:5181" in default
 
-    monkeypatch.setenv("DEEPSEARCH_CORS_ORIGINS", "https://a.example, https://b.example")
+    monkeypatch.setenv(
+        "DEEPSEARCH_CORS_ORIGINS", "https://a.example, https://b.example"
+    )
     assert server_module._cors_origins() == ["https://a.example", "https://b.example"]
 
 

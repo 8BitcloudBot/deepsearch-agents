@@ -687,9 +687,7 @@ class TurnResearchEngine:
                                 if not report.supported
                             ]
                         except Exception as exc:  # noqa: E501 — 异常兜底行
-                            logger.warning(
-                                "citation preview failed: %s", brief(exc)
-                            )
+                            logger.warning("citation preview failed: %s", brief(exc))
                     if unsupported or citation_drops:
                         hint_parts: list[str] = []
                         if citation_drops:

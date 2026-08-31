@@ -895,6 +895,7 @@ def test_light_roles_disable_deepseek_thinking(monkeypatch) -> None:
     """敌意测试（审阅器长度治理）：DeepSeek v4 系默认混合推理，思考 token
     不受 max_tokens 硬顶约束——审阅器/标题/规划器装配必须显式禁用 thinking，
     否则真机 reviewer completion 失控（实测 1896-3060 tokens/次）。"""
+
     class DeepseekModel:
         def __init__(self, name: str = "deepseek-v4-flash"):
             self.model_name = name
@@ -931,6 +932,7 @@ def test_light_roles_disable_deepseek_thinking(monkeypatch) -> None:
 def test_reviewer_binds_json_object_for_deepseek_only() -> None:
     """文档核对：DeepSeek response_format 仅 [text, json_object]——审阅器
     （严格 JSON 合同）在 DeepSeek 端点绑定该模式，非 DeepSeek 端点不绑。"""
+
     class DeepseekModel:
         model_name = "deepseek-v4-flash"
         model_kwargs: dict = {}
@@ -964,6 +966,7 @@ def test_settings_default_model_is_deepseek_v4_flash():
 @pytest.mark.asyncio
 async def test_limitation_single_char_fragments_are_dropped() -> None:
     """防御：思考模式下模型偶发把整句拆成单字条目——碎片必须被剔除。"""
+
     class Model:
         async def ainvoke(self, messages):
             return type(
@@ -992,6 +995,7 @@ async def test_limitation_single_char_fragments_are_dropped() -> None:
 async def test_planner_truncates_over_limit_fields_instead_of_failing() -> None:
     """ragmix X1 实证：多主题对比题下模型常给 3+ 条知识库查询（每主题一条），
     合同上限 2 条——超限应截断降级而非整轮失败。"""
+
     class Model:
         async def ainvoke(self, messages):
             return type(
@@ -1046,6 +1050,7 @@ def test_shared_knowledge_user_constant() -> None:
 
 def test_long_query_is_truncated_before_index_search() -> None:
     """ragmix F1：长查询 dense 语义稀释致零命中——检索前截断规范化。"""
+
     class RecordingIndex:
         def __init__(self):
             self.queries: list[str] = []

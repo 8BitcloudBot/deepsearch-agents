@@ -72,6 +72,8 @@ def _bind_max_tokens(model: Any, max_tokens: int) -> Any:
     if callable(getattr(model, "bind", None)):
         return model.bind(max_tokens=max_tokens)
     return model
+
+
 _MAX_QUOTE = 2000
 _EXCERPT_PARAGRAPHS = 2  # 每次摘录取查询词密度最高的前 N 个段落
 _MAX_WEB_HITS_PER_QUERY = 5  # 每条 web 查询交付证据数上限（providers 层有同值兜底）
@@ -86,6 +88,8 @@ def _normalize_query(query: str) -> str:
     """
     normalized = re.sub(r"\s+", " ", query).strip()
     return normalized[:_MAX_QUERY_CHARS]
+
+
 _MAX_COVERAGE_QUOTE = 300
 
 
@@ -254,9 +258,7 @@ class ModelPlannerAdapter:
                 research_intensity=(
                     intensity if intensity in ("standard", "deep") else None
                 ),
-                search_hints=(
-                    tuple(hints.items()) if isinstance(hints, dict) else ()
-                ),
+                search_hints=(tuple(hints.items()) if isinstance(hints, dict) else ()),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError("model response is invalid") from exc
@@ -354,9 +356,7 @@ class ModelSynthesizerAdapter:
                 )
             except Exception as exc:
                 logger.warning("streamed synthesis failed, fallback: %s", brief(exc))
-        return await self._synthesize_json(
-            turn, plan, evidence_items, limitations
-        )
+        return await self._synthesize_json(turn, plan, evidence_items, limitations)
 
     async def _synthesize_streamed(
         self,
@@ -469,9 +469,7 @@ class ModelSynthesizerAdapter:
                 continue
             statement = str(item.get("statement", "")).strip()
             evidence_ids = tuple(
-                eid
-                for eid in (item.get("evidence_ids") or [])
-                if isinstance(eid, str)
+                eid for eid in (item.get("evidence_ids") or []) if isinstance(eid, str)
             )
             if statement and evidence_ids:
                 claims.append(SynthesisClaim(statement, evidence_ids))
@@ -479,9 +477,7 @@ class ModelSynthesizerAdapter:
         sections = []
         for text in sections_text:
             indexes = tuple(
-                index
-                for index, claim in enumerate(claims)
-                if claim.statement in text
+                index for index, claim in enumerate(claims) if claim.statement in text
             )
             sections.append(SynthesisSection(text, indexes))
         if not sections:
@@ -570,9 +566,7 @@ class ModelSynthesizerAdapter:
                 raise ValueError
             if not isinstance(raw_limitations, list):
                 raise ValueError
-            return SynthesisDraft(
-                sections, claims, _clean_limitations(raw_limitations)
-            )
+            return SynthesisDraft(sections, claims, _clean_limitations(raw_limitations))
         except (KeyError, TypeError, ValueError, IndexError) as exc:
             raise ValueError("model response is invalid") from exc
 
@@ -592,9 +586,7 @@ class ModelTitleAdapter:
                 },
                 {
                     "role": "user",
-                    "content": json.dumps(
-                        {"question": question}, ensure_ascii=False
-                    ),
+                    "content": json.dumps({"question": question}, ensure_ascii=False),
                 },
             ]
         )
@@ -686,11 +678,11 @@ class TavilyEvidenceRetriever:
                     title=hit.title or hostname or "Web 来源",
                     locator_kind="url",
                     locator_value=hit.url,
-                quote=_relevant_excerpt(hit.content, query),
-                hostname=hostname,
-                score=score,
-                published_at=getattr(hit, "published_date", None),
-            )
+                    quote=_relevant_excerpt(hit.content, query),
+                    hostname=hostname,
+                    score=score,
+                    published_at=getattr(hit, "published_date", None),
+                )
             )
         return tuple(items)
 
@@ -988,9 +980,7 @@ def build_conversation_application(
         try:
             from app.providers.tavily import TavilyWebProvider
 
-            web = TavilyEvidenceRetriever(
-                TavilyWebProvider(settings.tavily_api_key)
-            )
+            web = TavilyEvidenceRetriever(TavilyWebProvider(settings.tavily_api_key))
             web_ready = True
         except Exception as exc:
             logger.warning("web provider unavailable: %s", brief(exc))
@@ -1018,9 +1008,7 @@ def build_conversation_application(
         report,
         capabilities={
             "model": {"status": "ready" if model_ready else "unavailable"},
-            "knowledge": {
-                "status": "ready" if knowledge_ready else "unavailable"
-            },
+            "knowledge": {"status": "ready" if knowledge_ready else "unavailable"},
             "web": {"status": "ready" if web_ready else "unavailable"},
             # 会话附件路径已由知识库入库方案取代（T1）；键保留维持 WS 合同稳定
             "session_file": {"status": "unavailable"},

@@ -248,9 +248,7 @@ def test_schema_migration_creates_indexes_and_tracks_version(tmp_path) -> None:
 
     repository = ConversationStore(tmp_path / "state.sqlite3")
     with sqlite3.connect(repository.path) as connection:
-        version = connection.execute(
-            "SELECT version FROM schema_state"
-        ).fetchone()[0]
+        version = connection.execute("SELECT version FROM schema_state").fetchone()[0]
         names = {
             row[0]
             for row in connection.execute(
@@ -335,17 +333,12 @@ def test_create_session_purges_expired_rows(tmp_path) -> None:
         connection.execute(
             "UPDATE auth_sessions SET expires_at = '2000-01-01T00:00:00+00:00' "
             "WHERE token_hash = ?",
-            (
-                __import__("hashlib")
-                .sha256(stale.encode("utf-8"))
-                .hexdigest(),
-            ),
+            (__import__("hashlib").sha256(stale.encode("utf-8")).hexdigest(),),
         )
     repository.create_session(user)  # 触发顺带清理
     with sqlite3.connect(repository.path) as connection:
         remaining = {
-            row[0]
-            for row in connection.execute("SELECT token_hash FROM auth_sessions")
+            row[0] for row in connection.execute("SELECT token_hash FROM auth_sessions")
         }
     stale_hash = __import__("hashlib").sha256(stale.encode("utf-8")).hexdigest()
     fresh_hash = __import__("hashlib").sha256(fresh.encode("utf-8")).hexdigest()

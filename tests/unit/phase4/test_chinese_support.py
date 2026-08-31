@@ -126,7 +126,11 @@ def test_adapter_routes_to_chinese_path_only_when_both_flags_on(
         "claim-1", "月度团队预算超出部分要走下季度追加审批流程", ("ev-1",)
     )
     conv_evidence = ConvEvidence(
-        "ev-1", "knowledge", "政策", "chunk", "policy#1",
+        "ev-1",
+        "knowledge",
+        "政策",
+        "chunk",
+        "policy#1",
         "月度团队预算上限 6000 万 token，超出部分走下季度追加审批流程。",
     )
 

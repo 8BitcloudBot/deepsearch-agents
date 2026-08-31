@@ -141,9 +141,7 @@ class ConversationSettings:
             enable_citation_validation=_truthy(
                 environ.get("ENABLE_CITATION_VALIDATION", "")
             ),
-            model_structured_output=_truthy(
-                environ.get("MODEL_STRUCTURED_OUTPUT", "")
-            ),
+            model_structured_output=_truthy(environ.get("MODEL_STRUCTURED_OUTPUT", "")),
             model_streamed_synthesis=_truthy(
                 environ.get("MODEL_STREAMED_SYNTHESIS", "")
             ),

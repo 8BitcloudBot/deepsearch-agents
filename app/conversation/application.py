@@ -73,9 +73,7 @@ class ConversationApplication:
         # 弱值字典：锁仅在被等待/持有时存活，回合结束后自动回收。
         # H13：锁粒度为会话级——同会话多个回合串行执行，避免并行回合
         # 互见的历史快照不一致与 updated_at 竞写。
-        self._turn_locks: WeakValueDictionary[str, asyncio.Lock] = (
-            WeakValueDictionary()
-        )
+        self._turn_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
         self.upload_store = upload_store
         self._stale_turn_seconds = stale_turn_seconds
         self._max_turns_per_conversation = max_turns_per_conversation
@@ -242,9 +240,7 @@ class ConversationApplication:
                 except Exception as exc:
                     logger.warning("model title generation failed: %s", brief(exc))
             if not renamed:
-                self.store.auto_title_conversation(
-                    user, conversation_id, turn.question
-                )
+                self.store.auto_title_conversation(user, conversation_id, turn.question)
             path = self.report.refresh(user, conversation_id)
             emit(
                 {
@@ -306,9 +302,7 @@ class ConversationApplication:
             else:
                 error_kind = None
                 safe_message = "本轮研究未能完成，请稍后重试。"
-            failed = self.store.fail_turn(
-                user, conversation_id, turn_id, safe_message
-            )
+            failed = self.store.fail_turn(user, conversation_id, turn_id, safe_message)
             emit(
                 {
                     "type": "turn.failed",

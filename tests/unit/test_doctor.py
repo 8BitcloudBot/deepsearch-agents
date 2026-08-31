@@ -50,9 +50,7 @@ def test_doctor_reports_unknown_env_keys(tmp_path, monkeypatch, capsys):
     doctor = importlib.import_module("scripts.doctor")
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "MODEL_NAME=deepseek\n"
-        "TYPO_MODEL_KEY=x\n"
-        "MYSQL_HOST=legacy\n",
+        "MODEL_NAME=deepseek\nTYPO_MODEL_KEY=x\nMYSQL_HOST=legacy\n",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)

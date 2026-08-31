@@ -53,9 +53,7 @@ def tokenize_chinese(text: str) -> tuple[str, ...]:
     tokens: list[str] = list(_ENGLISH_TOKEN_RE.findall(folded))
     for segment in _CJK_SEGMENT_RE.findall(folded):
         tokens.extend(segment)
-        tokens.extend(
-            segment[index : index + 2] for index in range(len(segment) - 1)
-        )
+        tokens.extend(segment[index : index + 2] for index in range(len(segment) - 1))
     return tuple(tokens)
 
 
@@ -115,7 +113,8 @@ def check_chinese(claim: dict, evidence: dict) -> ChineseJudgment:
             Verdict.CONTRADICTED,
             0.0,
             reasons=(
-                "证据原文引入了声明中不存在的否定表述：" + "、".join(new_negations)
+                "证据原文引入了声明中不存在的否定表述："
+                + "、".join(new_negations)
                 + "（r6 否定冲突，中文路径）",
             ),  # 尾逗号：单元素 tuple（I6 修正：缺逗号实为 str，迭代会逐字符展开）
         )
@@ -128,7 +127,8 @@ def check_chinese(claim: dict, evidence: dict) -> ChineseJudgment:
             Verdict.UNSUPPORTED,
             0.0,
             reasons=(
-                "声明中的数字 " + "、".join(missing_digits)
+                "声明中的数字 "
+                + "、".join(missing_digits)
                 + " 未出现在证据原文中（数字锚点，中文路径）",
             ),  # 尾逗号：单元素 tuple
         )

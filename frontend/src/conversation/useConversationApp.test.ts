@@ -168,7 +168,7 @@ describe("useConversationApp", () => {
     const backoffCalls: (number | undefined)[] = [];
     const setTimeoutSpy = vi
       .spyOn(window, "setTimeout")
-      .mockImplementation(((fn: () => void, ms?: number, ...rest: unknown[]) => {
+      .mockImplementation(((fn: () => void, ms?: number) => {
         backoffCalls.push(ms);
         return originalSetTimeout(fn as Parameters<typeof originalSetTimeout>[0], ms);
       }) as unknown as typeof window.setTimeout);

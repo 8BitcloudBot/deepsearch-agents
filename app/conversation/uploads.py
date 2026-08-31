@@ -47,11 +47,7 @@ def _section_chunks(content: str) -> tuple[KnowledgeDocumentChunk, ...]:
     ]
     parts: list[str] = []
     for part in raw_parts:
-        is_bare_heading = (
-            part.startswith("#")
-            and "\n" not in part
-            and len(part) <= 120
-        )
+        is_bare_heading = part.startswith("#") and "\n" not in part and len(part) <= 120
         if is_bare_heading and parts:
             parts[-1] = f"{parts[-1]}\n{part}"
         elif is_bare_heading:
@@ -205,9 +201,7 @@ class UploadKnowledgeStore:
     def remove(self, user_id: str, document_id: str) -> bool:
         with self._lock_for(user_id):
             before = self._meta(user_id)
-            after = [
-                item for item in before if item.get("document_id") != document_id
-            ]
+            after = [item for item in before if item.get("document_id") != document_id]
             if len(after) == len(before):
                 return False
             self._index_for(user_id).delete_documents((document_id,))

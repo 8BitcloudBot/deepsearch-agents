@@ -59,8 +59,6 @@ def validate_upload_file(path: Path) -> None:
         )
 
 
-
-
 # ── Text readers ──────────────────────────────────────────────────────────────
 
 

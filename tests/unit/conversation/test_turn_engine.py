@@ -1403,7 +1403,6 @@ async def test_synthesis_failure_without_evidence_still_fails():
 
 @pytest.mark.asyncio
 async def test_plan_stage_event_carries_subquestions():
-
     knowledge = Retriever((evidence("knowledge", 1),))
     synthesizer = Synthesizer(
         SynthesisDraft(
@@ -1726,12 +1725,24 @@ async def test_citation_drops_trigger_hinted_resynthesis() -> None:
 async def test_unofficial_web_hostnames_surface_limitation_hint() -> None:
     """R3：引用非官方 web 域名时 limitations 提示甄别；官方 docs 域不提示。"""
     unofficial = EvidenceItem(
-        "ev-web-1", "web", "农场文", "url", "https://tech-insider.org/x",
-        quote="RagFlow 支持自托管。", hostname="tech-insider.org", score=0.8,
+        "ev-web-1",
+        "web",
+        "农场文",
+        "url",
+        "https://tech-insider.org/x",
+        quote="RagFlow 支持自托管。",
+        hostname="tech-insider.org",
+        score=0.8,
     )
     official = EvidenceItem(
-        "ev-web-2", "web", "官方文档", "url", "https://docs.ragflow.io/y",
-        quote="RagFlow 文档说明。", hostname="docs.ragflow.io", score=0.7,
+        "ev-web-2",
+        "web",
+        "官方文档",
+        "url",
+        "https://docs.ragflow.io/y",
+        quote="RagFlow 文档说明。",
+        hostname="docs.ragflow.io",
+        score=0.7,
     )
     draft = SynthesisDraft(
         sections=(SynthesisSection("回答。", (0,)),),

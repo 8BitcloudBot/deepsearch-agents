@@ -106,9 +106,11 @@ def test_ten_turn_report_has_one_deduplicated_evidence_appendix(
             ),
         )
 
-    markdown = ConversationReport(tmp_path / "reports", repository).refresh(
-        user, conversation.id
-    ).read_text(encoding="utf-8")
+    markdown = (
+        ConversationReport(tmp_path / "reports", repository)
+        .refresh(user, conversation.id)
+        .read_text(encoding="utf-8")
+    )
 
     assert markdown.count("## 证据附录（累计来源索引）") == 1
     assert markdown.count("Checkpointers persist graph state") == 1

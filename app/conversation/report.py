@@ -181,9 +181,7 @@ def _append_evidence(
         "web": "实时网络",
     }
     locator = (
-        f"<{item.locator_value}>"
-        if item.locator_kind == "url"
-        else item.locator_value
+        f"<{item.locator_value}>" if item.locator_kind == "url" else item.locator_value
     )
     hostname = f"；主机：{item.hostname}" if item.hostname else ""
     rounds_label = "、".join(str(value) for value in rounds)

@@ -203,8 +203,7 @@ def test_audit_detects_meta_and_index_drift(tmp_path: Path) -> None:
     import hashlib
 
     expected = [
-        "upload-"
-        + hashlib.sha256("a.md".casefold().encode("utf-8")).hexdigest()[:16]
+        "upload-" + hashlib.sha256("a.md".casefold().encode("utf-8")).hexdigest()[:16]
     ]
     assert report["index_only"] == expected
 
