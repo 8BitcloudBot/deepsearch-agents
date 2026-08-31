@@ -389,82 +389,46 @@ def test_search_order_is_stable_for_equal_scores(tmp_path: Path) -> None:
 
 
 def test_fused_mode_survives_long_query_dense_collapse(tmp_path: Path) -> None:
-    """ragmix 新语料实测：长查询使 dense 绝对分整体崩塌（全部 <阈值），
-    dense 口径零命中；fused 口径下库内相对排名保持，相关 chunk 正常召回。"""
+    """ragmix 新语料实测：长查询（语义同义改写、词面零重叠）使 dense 绝对
+    分崩塌且 lexical 零命中，dense 口径零命中；fused 口径下库内相对排名
+    保持，相关 chunk 正常召回。"""
 
-    def collapse(text: str) -> str:
-        # 模拟 planner 长查询：原句堆叠大量无关内容稀释 dense 语义
-        return text + " " + "。".join(["无关填充"] * 12)
+    class BigramEmbedder:
+        descriptor = EmbeddingDescriptor(
+            provider="fake",
+            model="bigram-fixture",
+            version="1.0.0",
+            dimension=256,
+        )
 
-    related_doc = KnowledgeDocument(
-        collection_id="fixture-knowledge",
-        document_id="document-related",
-        title="LangGraph state guide",
-        version="1.0.0",
-        chunks=(
-            KnowledgeDocumentChunk(
-                chunk_id="chunk-rel",
-                content="LangGraph state management with checkpoint persistence.",
-                section_path="Overview",
-            ),
-        ),
-    )
-    unrelated_doc = KnowledgeDocument(
-        collection_id="fixture-knowledge",
-        document_id="document-other",
-        title="Other notes",
-        version="1.0.0",
-        chunks=(
-            KnowledgeDocumentChunk(
-                chunk_id="chunk-other",
-                content="Grocery list and weekend plans.",
-                section_path="Notes",
-            ),
-        ),
-    )
+        def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            return [self._vector(t) for t in texts]
 
-class BigramEmbedder:
-    """字符 bigram 投影的确定性语义 embedder：相关文本余弦高、无关文本低，
-    且长查询稀释后绝对分下降但相对序保持——用于对照 dense/fused 两种口径。"""
+        def embed_query(self, text: str) -> list[float]:
+            return self._vector(text)
 
-    descriptor = EmbeddingDescriptor(
-        provider="fake",
-        model="bigram-fixture",
-        version="1.0.0",
-        dimension=256,
-    )
+        @staticmethod
+        def _vector(text: str) -> list[float]:
+            import hashlib
+            import math
 
-    def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [self._vector(t) for t in texts]
+            values = [0.0] * 256
+            folded = text.casefold()
+            for i in range(len(folded) - 1):
+                digest = int(
+                    hashlib.md5(folded[i : i + 2].encode("utf-8")).hexdigest()[:8], 16
+                )
+                values[digest % 256] += 1.0
+            norm = math.sqrt(sum(v * v for v in values)) or 1.0
+            return [v / norm for v in values]
 
-    def embed_query(self, text: str) -> list[float]:
-        return self._vector(text)
-
-    @staticmethod
-    def _vector(text: str) -> list[float]:
-        import hashlib
-        import math
-
-        values = [0.0] * 256
-        folded = text.casefold()
-        for i in range(len(folded) - 1):
-            digest = int(hashlib.md5(folded[i : i + 2].encode("utf-8")).hexdigest()[:8], 16)
-            values[digest % 256] += 1.0
-        norm = math.sqrt(sum(v * v for v in values)) or 1.0
-        return [v / norm for v in values]
-
-
-def bigram_spec() -> KnowledgeIndexSpec:
-    return KnowledgeIndexSpec(
+    bigram_spec = KnowledgeIndexSpec(
         collection_id="fixture-knowledge",
         embedding=BigramEmbedder.descriptor,
         distance="cosine",
         chunking_version="fixture-v1",
     )
-
-
-def bigram_docs() -> tuple[KnowledgeDocument, ...]:
-    return (
+    docs = (
         KnowledgeDocument(
             collection_id="fixture-knowledge",
             document_id="document-related",
@@ -493,40 +457,22 @@ def bigram_docs() -> tuple[KnowledgeDocument, ...]:
         ),
     )
 
-
-def collapse(text: str) -> str:
-    """模拟 planner 长查询：语义同义改写（词面零重叠）+ 长尾填充——
-    dense 绝对分崩塌且 lexical 零命中，与真机零命中场景同构。"""
-    synonyms = {
-        "LangGraph": "图编排框架",
-        "state": "状态体系",
-        "management": "管控机制",
-        "checkpoint": "断点存档",
-        "persistence": "持久化存储",
-        "recovery": "故障还原",
-    }
-    rewritten = text
-    for src, dst in synonyms.items():
-        rewritten = rewritten.replace(src, dst)
-    return rewritten + " " + " ".join(["背景补充说明"] * 20)
-
-
-def test_fused_mode_survives_long_query_dense_collapse(tmp_path: Path) -> None:
-
     index = QdrantLocalKnowledgeIndex(
         tmp_path / "fused-index",
-        bigram_spec(),
+        bigram_spec,
         BigramEmbedder(),
         min_score=0.25,
         min_score_mode="fused",
     )
-    index.index_documents(bigram_docs())
+    index.index_documents(docs)
 
-    query = collapse("LangGraph state management checkpoint")
-    hits = index.search(query, limit=5)
+    # planner 长查询形态：语义同义改写（词面与 chunk 零重叠）+ 长尾填充
+    long_query = (
+        "图编排框架的状态体系与管控机制 断点存档与持久化存储 故障还原 "
+        + " ".join(["背景补充说明"] * 20)
+    )  # noqa: E501 — 模拟 planner 长查询形态，行长为场景所需
+    hits = index.search(long_query, limit=5)
 
-    # dense 口径下长查询全部 chunk 绝对分 <0.25 → 零命中；
-    # fused 口径下库内相对排名保持 → 相关文档召回
-    assert hits and any(h.document_id == "document-related" for h in hits)
-
-
+    assert hits and any(h.document_id == "document-related" for h in hits), (
+        "fused 口径下长查询应保持库内相对排名，相关 chunk 应召回"
+    )
