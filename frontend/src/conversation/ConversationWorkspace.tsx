@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AdminUserSummary, Conversation, EvidenceItem, Turn } from "./contracts";
 
 export interface ConversationWorkspaceState {
@@ -16,6 +16,8 @@ export interface ConversationWorkspaceState {
   runningTurnId: string | null;
   /** B10-4：本轮研究计划子问题（planning 事件携带，回合结束清空） */
   planSubquestions: string[];
+  /** zcode 式过程时间线：stage 事件消息序列（回合结束清空） */
+  stageLog: string[];
   cancelTurn: () => void | Promise<void>;
   error: string | null;
   setQuestion: (value: string) => void;
@@ -230,6 +232,16 @@ function LibraryPage({ state }: { state: ConversationWorkspaceState }) {
 }
 
 export function ConversationWorkspace({ state }: { state: ConversationWorkspaceState }) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && state.runningTurnId) {
+        event.preventDefault();
+        void state.cancelTurn();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [state]);
   const active =
     state.activeConversation ??
     state.conversations.find((item) => item.id === state.activeConversationId) ??
@@ -265,6 +277,14 @@ export function ConversationWorkspace({ state }: { state: ConversationWorkspaceS
           {!activeDetail ? <div className="empty-conversation"><h3>从一个问题开始</h3><p>本地知识库始终参与；需要最新资料时再打开实时网络。</p></div> : activeDetail.turns.length === 0 ? <div className="empty-conversation"><h3>这是一段新的研究</h3><p>试着问一个你正在学习的技术问题。</p></div> : activeDetail.turns.map((turn) => <TurnMessage key={turn.id} turn={turn} />)}
         </div>
         <div className="composer-dock">
+          <details className="stage-timeline" aria-label="过程时间线">
+            <summary>过程 {state.stageLog.length} 步</summary>
+            <ol>
+              {(state.stageLog.length > 0 ? state.stageLog : ["（等待开始）"]).map(
+                (item, index) => <li key={`${index}-${item}`}>{item}</li>,
+              )}
+            </ol>
+          </details>
           {state.stage && <div className="stage-line" role="status"><span className="stage-pulse" />{state.stage}
             {state.runningTurnId && <button type="button" className="cancel-turn" aria-label="停止本轮研究" onClick={() => void state.cancelTurn()}>停止</button>}
           </div>}

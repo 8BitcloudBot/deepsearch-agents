@@ -37,6 +37,7 @@ function state(): ConversationWorkspaceState {
     stage: null,
     runningTurnId: null,
     planSubquestions: [],
+    stageLog: [],
     cancelTurn: vi.fn(),
     error: null,
     adminUsers: [],

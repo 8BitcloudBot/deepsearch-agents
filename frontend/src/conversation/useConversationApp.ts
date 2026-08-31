@@ -30,6 +30,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
   const [libraryBusy, setLibraryBusy] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
   const [runningTurnId, setRunningTurnId] = useState<string | null>(null);
+  const [stageLog, setStageLog] = useState<string[]>([]);
   const [planSubquestions, setPlanSubquestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -118,6 +119,8 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
       socketRef.current = socket;
       socket.onopen = () => {
         attempts = 0;
+        // 重连成功后清除陈旧的连接错误（后端重启期间的提示已过时）
+        setError(null);
       };
       socket.onmessage = (message) => {
         const event = parseConversationEvent(String(message.data));
@@ -131,6 +134,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
         }
         if (event.type === "stage.changed" || event.type === "turn.started") {
           setStage(event.message);
+          setStageLog((prev) => [...prev, event.message]);
           const subquestions = event.data?.subquestions;
           if (Array.isArray(subquestions)) {
             setPlanSubquestions(subquestions.filter((item): item is string => typeof item === "string"));
@@ -146,6 +150,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
           || event.type === "turn.cancelled"
         ) {
           setStage(null);
+          setStageLog([]);
           setPlanSubquestions([]);
           setStreamingText("");
           setRunningTurnId(null);
@@ -312,6 +317,7 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
     question,
     useWeb,
     stage,
+    stageLog,
     streamingText,
     runningTurnId,
     planSubquestions,
