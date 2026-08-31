@@ -24,9 +24,9 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-DOCS_DIR = Path(__file__).resolve().parent / "docs"
-GLOBAL_DIR = DOCS_DIR / "global"
-PERSONAL_DIR = DOCS_DIR / "personal"
+CORPUS_DIR = Path(__file__).resolve().parent / "corpus"
+SHARED_DIR = CORPUS_DIR / "shared"
+PERSONAL_DIR = CORPUS_DIR / "personal"
 GLOBAL_DOC_PREFIX = "ragmix-"
 
 
@@ -95,20 +95,31 @@ def cleanup_main_library() -> None:
     index_path, spec, embedder, _ = _embedder_and_spec()
     index = QdrantLocalKnowledgeIndex(index_path, spec, embedder, min_score=0.0)
     known_ids = [
-        f"{GLOBAL_DOC_PREFIX}{p.stem}" for p in sorted(GLOBAL_DIR.glob("*.md"))
-    ]
+        f"{GLOBAL_DOC_PREFIX}{p.stem}" for p in sorted(CORPUS_DIR.glob("../docs/global/*.md"))
+    ]  # 旧版主库注入清理（ragmix-*）
     index.delete_documents(known_ids)
     print(f"[main-library] cleaned {len(known_ids)} legacy ragmix documents (if any)")
 
 
 def ingest_shared(store, shared_user: str) -> None:
-    for path in sorted(GLOBAL_DIR.glob("*.md")):
+    # 清理该用户下不在新语料清单中的旧文档（同名覆盖 + 异名清除 = 全量同步）
+    new_names = {p.name for p in sorted(SHARED_DIR.glob("*.md"))}
+    for existing in store.list_documents(shared_user):
+        if existing["name"] not in new_names:
+            store.remove(shared_user, existing["document_id"])
+            print(f"[shared] removed stale: {existing['name']}")
+    for path in sorted(SHARED_DIR.glob("*.md")):
         entry = store.ingest_path(shared_user, path.name, path)
         print(f"[shared] {entry['name']} chunks={entry['chunks']}")
     print(f"[shared] total documents: {len(store.list_documents(shared_user))}")
 
 
 def ingest_personal(store, user_id: str) -> None:
+    new_names = {p.name for p in sorted(PERSONAL_DIR.glob("*.md"))}
+    for existing in store.list_documents(user_id):
+        if existing["name"] not in new_names:
+            store.remove(user_id, existing["document_id"])
+            print(f"[personal] removed stale: {existing['name']}")
     for path in sorted(PERSONAL_DIR.glob("*.md")):
         entry = store.ingest_path(user_id, path.name, path)
         print(f"[personal:{user_id[:12]}] {entry['name']} chunks={entry['chunks']}")

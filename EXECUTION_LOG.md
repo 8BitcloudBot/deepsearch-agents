@@ -121,7 +121,15 @@
 - [x] L3 忠实度提示词规则 9：枚举类问题只列证据可支撑条目——S3 五次编造后首次零编造
  （模型如实声明"证据仅支持其中部分信息"），与 L1 裁剪/citation 校验组合成完整防线
 
-## 待办队列
+## 测试床语料重建（2026-08-31，用户审计驱动）
+- [x] 承认旧测试床缺陷：8 份 15KB 系官方文档摘要而非真实文档；重建为
+  9 份 226KB 原文全量（raw 通道，含 codex config-reference 92.6KB/
+  pi 设计文章 41.5KB/ragflow 中英 README/dsh architecture 等）
+- [x] 入库实测 shared 488 + personal 232 chunks；S1/S5 召回质量质变
+ （设计哲学/sessions 路径/steering 排队等深度内容全部来自新语料）
+- [x] 新发现：**长查询 dense 崩塌**——planner 生成长查询使全部 chunk
+  dense 低于 uploads 阈值 0.25 → 零命中（短查询 0.533 正常）；
+  方向=min_score 过滤基准改 fused 归一分（对查询长度稳定），下轮实施
 - 无必办项。（备选池闭环核对：B10 四项已由 G/H/I/J 轮完成；citations 中文 tokenizer 已由 I6 实施；
   README 个人知识库章节已于阶段 3 补写；C2 limitations 密度已在展示层解决——前端过滤
   内部诊断条目，后端保留完整诊断数据。）

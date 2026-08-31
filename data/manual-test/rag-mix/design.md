@@ -78,6 +78,25 @@ R4 四轮三主题轮换后总结题（t4）回答正确综合四者分工。
    误把已覆盖内容当缺口（回环预算消耗是否合理）
 5. **个人库更新语义**：同名 notes 文件重传覆盖后，旧 chunk 是否被正确清除（delete_documents 路径）
 
+## 语料重建（2026-08-31，第二次迭代）
+
+用户审计指出旧测试床 8 份文档共 15KB 系"官方文档摘要"而非真实文档
+（RagFlow 单个 README 即 17.7KB）。重建：
+- 全部走 raw.githubusercontent.com 抓取原文全量：9 份 226KB
+ （pi coding-agent README 32.8KB、codex config-reference 92.6KB、
+  dsh AGENTS.md 16.5KB + architecture 13KB、ragflow 中英 README 35.6KB、
+  deepdoc 6.9KB、Mario 设计文章 41.5KB 等），shared 9 份/个人 3 份
+- 入库实测：shared 488 chunks + personal 232 chunks（业务语料成为主体，
+  冻结语料 134 chunks 降为少数）
+- 召回质变：S1 设计哲学（可观测性/plan mode 设计原因）、S5（sessions
+  路径/continue/resume/branching/steering 排队）深度内容全部来自新语料
+
+**新发现（第三个真问题）**：长查询 dense 崩塌——"RagFlow 自托管硬件要求"
+（短）命中硬件 chunk（dense 0.533），"RagFlow 核心特性有哪些 自托管硬件条件"
+（长，planner 生成形态）全部 chunk dense < 0.25 → min_score 过滤后**零命中**。
+绝对阈值 min_score 对长查询过度过滤。方向：过滤基准改用 fused 归一分
+（对查询长度分布稳定）或查询长度归一；主库语义不变，仅 uploads 系先行。
+
 ## 执行方式
 
 - 入库（幂等）：`uv run --extra dev python data/manual-test/rag-mix/ingest.py`
