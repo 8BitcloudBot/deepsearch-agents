@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
-from pathlib import Path
+
 
 def main() -> None:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
