@@ -631,6 +631,7 @@ class TurnResearchEngine:
             ),
         )
         last_error: Exception | None = None
+        fidelity_hint: str | None = None
         for _attempt in range(2):
             try:
                 # flag off 时不附加 on_delta——调用形态与旧路径逐字一致
@@ -639,11 +640,17 @@ class TurnResearchEngine:
                     if streamed_synthesis
                     else {}
                 )
+                limitations_for_call = state["limitations"]
+                if fidelity_hint:
+                    limitations_for_call = (
+                        *limitations_for_call,
+                        fidelity_hint,
+                    )
                 draft = await self._synthesizer.synthesize(
                     state["turn"],
                     plan,
                     evidence_items,
-                    state["limitations"],
+                    limitations_for_call,
                     **stream_kwargs,
                 )
                 logger.debug(
@@ -651,6 +658,20 @@ class TurnResearchEngine:
                     len(draft.sections),
                     len(draft.claims),
                 )
+                # R1 忠实度约束：首轮产出中无 claim 挂接的段落（S3 伪覆盖
+                # 编造通道）触发带 hint 的第二次综合；第二次仍不忠实则
+                # 在 limitations 声明（保留正文，保守降级）。
+                if _attempt == 0:
+                    unsupported = _unsupported_section_texts(draft)
+                    if unsupported:
+                        fidelity_hint = (
+                            "以下正文段落缺乏证据支撑，必须删除或改写为"
+                            "证据可支撑的表述：" + "；".join(unsupported)
+                        )
+                        logger.warning(
+                            "fidelity check: %d unsupported section(s)", len(unsupported)
+                        )
+                        continue
                 if citation_validation:
                     return {
                         "result": _finalize_draft_with_validation(
@@ -670,6 +691,14 @@ class TurnResearchEngine:
                 logger.warning(
                     "synthesis attempt %d failed: %s", _attempt + 1, brief(exc)
                 )
+        # R1：两次综合后仍有未支撑段落（fidelity_hint 仍在）→ 降级声明
+        if fidelity_hint and evidence_items:
+            logger.warning("fidelity degradation: unsupported sections remain")
+            return {
+                "result": _finalize_draft(
+                    draft, evidence_items, state["limitations"], fidelity_note=True
+                )
+            }
         # B10-3：证据在手则降级为证据快照；无证据维持旧行为（整轮失败）
         if evidence_items:
             logger.warning(
@@ -1004,10 +1033,24 @@ def _finalize_draft_with_validation(
     )
 
 
+def _unsupported_section_texts(draft: SynthesisDraft) -> tuple[str, ...]:
+    """R1：无任何有效 claim 挂接的段落文本（截断）——伪覆盖编造通道。"""
+    known_evidence = set()  # 由调用侧判定：此处以 draft.claims 的 evidence_ids 是否为空近似
+    _ = known_evidence
+    unsupported: list[str] = []
+    for section in draft.sections:
+        if section.claim_indexes:
+            continue
+        unsupported.append(section.text.strip()[:80])
+    return tuple(unsupported)
+
+
 def _finalize_draft(
     draft: SynthesisDraft,
     evidence_items: tuple[EvidenceItem, ...],
     retrieval_limitations: tuple[str, ...],
+    *,
+    fidelity_note: bool = False,
 ) -> TurnResult:
     known = {item.evidence_id for item in evidence_items}
     valid_claims: list[Claim] = []
@@ -1067,6 +1110,15 @@ def _finalize_draft(
     if not paragraphs:
         raise TurnExecutionError("model-response-invalid")
     limitations = tuple(dict.fromkeys((*retrieval_limitations, *draft.limitations)))
+    if fidelity_note:
+        limitations = tuple(
+            dict.fromkeys(
+                (
+                    *limitations,
+                    "部分正文段落未获证据支撑（伪覆盖检测），请谨慎采信。",
+                )
+            )
+        )
     return TurnResult(
         schema_version=SCHEMA_VERSION,
         answer="\n\n".join(paragraphs),

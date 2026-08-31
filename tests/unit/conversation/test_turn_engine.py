@@ -1470,3 +1470,55 @@ async def test_planner_failure_is_retried_once_before_turn_fails() -> None:
 
     assert attempts["n"] == 2
     assert result.answer.startswith("回答。")
+
+
+@pytest.mark.asyncio
+async def test_unsupported_sections_trigger_hinted_resynthesis() -> None:
+    """R1 忠实度约束：无 claim 挂接的段落（S3 伪覆盖编造通道）触发
+    带修正 hint 的第二次综合；修正后正常产出。"""
+    good_item = EvidenceItem(
+        "ev-knowledge-1", "knowledge", "文档", "chunk", "doc#1",
+        quote="LangGraph 是一个用于构建智能体的框架，支持状态管理。",
+    )
+
+    class HintedSynthesizer:
+        def __init__(self):
+            self.calls: list[tuple[tuple[str, ...] | None]] = []
+            self.hints: list[str] = []
+
+        async def synthesize(
+            self, turn, plan, evidence_items, limitations, *, on_delta=None
+        ):
+            self.calls.append(tuple(limitations))
+            if len(self.calls) == 1:
+                # 第一次：两段——有支撑段 + 编造段（无任何 claim 挂接）
+                return SynthesisDraft(
+                    sections=(
+                        SynthesisSection("有支撑的正文。", (0,)),
+                        SynthesisSection("无支撑的编造段落。", ()),
+                    ),
+                    claims=(SynthesisClaim("有支撑的结论。", ("ev-knowledge-1",)),),
+                    limitations=(),
+                )
+            self.hints.append(limitations[-1] if limitations else "")
+            return SynthesisDraft(
+                sections=(SynthesisSection("修正后的正文。", (0,)),),
+                claims=(SynthesisClaim("有支撑的结论。", ("ev-knowledge-1",)),),
+                limitations=(),
+            )
+
+    synth = HintedSynthesizer()
+    result = await build_engine(
+        Planner(),
+        Retriever((good_item,)),
+        None,
+        Retriever(()),
+        synth,
+    ).run(TurnInput("问题", False, (), ()))
+
+    assert len(synth.calls) == 2, "应触发第二次综合"
+    assert "无支撑的编造段落" in synth.hints[0], "重综合 hint 应携带未支撑段落文本"
+    assert "无支撑的编造段落" not in result.answer
+    assert any("未获证据支撑" in item for item in result.limitations) is False, (
+        "第二次综合已修正，不应残留降级声明"
+    )
