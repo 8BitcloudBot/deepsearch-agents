@@ -45,17 +45,44 @@ uv run --extra dev python -m pytest -q   # 全量测试（integration 无外部�
 ruff check app tests benchmarks scripts
 ```
 
-知识库重建（首次运行需要）：
+### 本地知识库构建（首次运行可选）
+
+`.data` 不入库，干净 clone 默认**没有**本地知识库索引——不构建也能启动
+（knowledge 能力标记不可用，个人知识库 RAG 与 Web 检索不受影响）。
+构建需要原始语料源（`.data/knowledge-corpus/beginner-v2/sources`，
+可从原仓库获取或按 `build-catalog.json` 的 source_url 自行抓取）：
 
 ```bash
-python scripts/index_knowledge.py        # 从 data/knowledge 语料构建 Qdrant 本地索引
+# 1) 由抓取语料构建分块 manifest（--validate-only 可先校验）
+uv run python scripts/build_showcase_knowledge.py \
+    --catalog data/knowledge/beginner-v2/build-catalog.json \
+    --source-root .data/knowledge-corpus/beginner-v2/sources \
+    --output .data/knowledge-corpus/beginner-v2/manifest.json
+
+# 2) 写入本地 Qdrant 索引（完整管道见 data/knowledge/beginner-v2/README.md）
+uv run python scripts/index_knowledge.py \
+    --manifest .data/knowledge-corpus/beginner-v2/manifest.json \
+    --index-path .data/knowledge-index-beginner-v2 \
+    --collection deepsearch-beginner-v2
 ```
 
-启动：`uv run uvicorn app.main:app --reload`（FastAPI + WebSocket）；前端在 `frontend/` 下 `pnpm install && pnpm dev`。
+### 启动
+
+```bash
+uv run uvicorn app.main:app --port 8000    # 后端 FastAPI + WebSocket
+cd frontend && pnpm install && pnpm dev    # 前端 http://localhost:5173
+```
+
+### 已知限制
+
+- 面向**单机、单进程、个人部署**：不支持多 worker/多实例（进程内事件
+  总线与会话锁），公网部署需自行补齐认证加固与限流（见下文认证边界）；
+- 预置账号 `user/0000`、`admin/0000` 仅用于本地演示，公网暴露前必须改密；
+- 离线环境（无 MODEL_API_KEY）下可运行全量测试，回答与 Web 能力不可用。
 
 ## 配置
 
-模型走 OpenAI 兼容协议（默认 `openai:gpt-4.1-mini`），全部键见 `.env.example`，常用的：
+模型走 OpenAI 兼容协议（默认 **`deepseek-v4-flash`**），全部键见 `.env.example`，常用的：
 
 | 键 | 默认 | 说明 |
 |---|---|---|
@@ -68,6 +95,9 @@ python scripts/index_knowledge.py        # 从 data/knowledge 语料构建 Qdran
 | MODEL_STRUCTURED_OUTPUT | false | 开启后全角色强制 provider json_object 模式 |
 | ENABLE_CITATION_VALIDATION | false | 引用校验规则引擎开关（默认关闭，中文 tokenizer 已支持——见 EXECUTION_LOG I6） |
 | TAVILY_API_KEY | — | 不设则 web 检索不可用（fail-closed） |
+
+> **部署边界**：仅支持单机、单进程部署（事件总线与会话锁在进程内）。
+> 认证为本地演示级（预置口令、无登录限流）——请勿原样暴露公网。
 
 ## 测试
 
