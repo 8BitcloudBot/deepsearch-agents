@@ -983,3 +983,30 @@ async def test_limitation_single_char_fragments_are_dropped() -> None:
     )
 
     assert draft.limitations == ("证据不足", "冲突。")
+
+
+@pytest.mark.asyncio
+async def test_planner_truncates_over_limit_fields_instead_of_failing() -> None:
+    """ragmix X1 实证：多主题对比题下模型常给 3+ 条知识库查询（每主题一条），
+    合同上限 2 条——超限应截断降级而非整轮失败。"""
+    class Model:
+        async def ainvoke(self, messages):
+            return type(
+                "Response",
+                (),
+                {
+                    "content": (
+                        '{"objective":"对比","subquestions":["a","b","c","d"],'
+                        '"knowledge_queries":["q1","q2","q3"],'
+                        '"web_queries":["w1","w2","w3","w4"],'
+                        '"research_intensity":"deep"}'
+                    )
+                },
+            )()
+
+    plan = await ModelPlannerAdapter(Model()).plan(TurnInput("问题", True, (), ()))
+
+    assert len(plan.subquestions) == 3
+    assert len(plan.knowledge_queries) == 2
+    assert len(plan.web_queries) == 3
+    assert plan.research_intensity == "deep"

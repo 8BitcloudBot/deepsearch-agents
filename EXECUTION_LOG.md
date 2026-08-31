@@ -104,7 +104,10 @@
   分库真实入库：全局 ragmix-* 53 chunks、个人库 regression-ragmix 4 文档 44 chunks；
   双库召回预检 6/6 命中（绝对分 0.41-0.89）
 - [x] 查询集与轮换剧本（queries.md：单独 6 + 交叉 3 + R2/R3/R4）与实验设计（design.md：五个考察点）
-- [ ] 查询测试执行（按约定暂缓——剧本就绪，下轮执行并回填 design.md 考察点）
+- [x] 查询测试执行（18 回合首轮 + 6 定向重跑 + 2 X1 复验）：修复 2 项
+ （planner 超限截断降级——X1 两次失败根因；测试床个人库 user_id 归属错位重灌）；
+  确认 4 项问题（综合器伪覆盖幻觉 S3 两次复现、跨主题干扰、plan 无重试、
+  判据设计教训）——详见 data/manual-test/rag-mix/design.md 回填
 
 ## 待办队列
 - 无必办项。（备选池闭环核对：B10 四项已由 G/H/I/J 轮完成；citations 中文 tokenizer 已由 I6 实施；

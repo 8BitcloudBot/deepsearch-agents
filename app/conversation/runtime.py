@@ -231,12 +231,14 @@ class ModelPlannerAdapter:
         try:
             intensity = payload.get("research_intensity")
             hints = payload.get("search_hints")
+            # 复杂多主题题下模型常给出超限字段（如三主题各一条知识库查询）——
+            # 截断到合同上限降级，而非让整轮失败（ragmix 实测 X1 两次失败根因）。
             return TurnResearchPlan(
                 objective=payload["objective"],
-                subquestions=tuple(payload.get("subquestions", ())),
-                knowledge_queries=tuple(payload.get("knowledge_queries", ())),
+                subquestions=tuple(payload.get("subquestions", ()))[:3],
+                knowledge_queries=tuple(payload.get("knowledge_queries", ()))[:2],
                 web_queries=(
-                    tuple(payload.get("web_queries", ())) if turn.use_web else ()
+                    tuple(payload.get("web_queries", ()))[:3] if turn.use_web else ()
                 ),
                 research_intensity=(
                     intensity if intensity in ("standard", "deep") else None
