@@ -110,9 +110,18 @@ def _render(
             for index, item in enumerate(result.evidence, start=1)
             if _source_key(item) in source_numbers
         }
+        # 与前端展示过滤对齐（J1）：内部诊断条目（证据 id 前缀/词法重叠
+        # 阈值明细）不进入用户可下载的报告。
+        user_limitations = [
+            limitation
+            for limitation in result.limitations
+            if not limitation.startswith("ev-")
+            and "词法重叠" not in limitation
+            and "token 重叠" not in limitation
+        ]
         limit_lines = (
-            [f"- {limitation}" for limitation in result.limitations]
-            if result.limitations
+            [f"- {limitation}" for limitation in user_limitations]
+            if user_limitations
             else ["- 暂无明确限制。"]
         )
         lines.extend(
