@@ -40,9 +40,14 @@ def main() -> None:
                 srcs.append("personal/shared-doc")
             else:
                 srcs.append("main-library")
-        print(f"=== {row['created_at'][:19]} [{row['status']}] {row['question'][:60]}")
-        print(f"  回答({len(row['answer'] or '')}字): {(row['answer'] or '')[:160].replace(chr(10), ' | ')}")
-        print(f"  claims={len(result.get('claims', []) or [])} limitations={len(result.get('limitations', []) or [])}")
+        answer = row["answer"] or ""
+        created = row["created_at"][:19]
+        question = row["question"][:60]
+        print(f"=== {created} [{row['status']}] {question}")
+        print(f"  回答({len(answer)}字): {answer[:160].replace(chr(10), ' | ')}")
+        claims_n = len(result.get("claims", []) or [])
+        limits_n = len(result.get("limitations", []) or [])
+        print(f"  claims={claims_n} limitations={limits_n}")
         for item in (result.get("limitations", []) or [])[:4]:
             print(f"    L: {str(item)[:90]}")
         print(f"  证据来源: {srcs}")
