@@ -99,7 +99,7 @@ def classify_model_error(exc: Exception) -> ModelUnavailable:
             RateLimitError,
         )
 
-        if isinstance(exc, (TimeoutError, APITimeoutError)):
+        if isinstance(exc, TimeoutError | APITimeoutError):
             code: ModelErrorCode = "model-timeout"
         elif isinstance(exc, AuthenticationError):
             code = "model-authentication"

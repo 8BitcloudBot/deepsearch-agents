@@ -35,6 +35,7 @@ function state(): ConversationWorkspaceState {
     question: "",
     useWeb: true,
     stage: null,
+    streamingText: "",
     runningTurnId: null,
     planSubquestions: [],
     stageLog: [],
