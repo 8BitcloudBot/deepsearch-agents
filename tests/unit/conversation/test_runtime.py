@@ -1010,3 +1010,30 @@ async def test_planner_truncates_over_limit_fields_instead_of_failing() -> None:
     assert len(plan.knowledge_queries) == 2
     assert len(plan.web_queries) == 3
     assert plan.research_intensity == "deep"
+
+
+@pytest.mark.asyncio
+async def test_combined_knowledge_retriever_merges_and_tolerates_failure() -> None:
+    """R2：共享业务库+个人库聚合——两库结果串联，单库异常静默跳过。"""
+    from app.conversation.runtime import CombinedKnowledgeRetriever
+
+    class OkRetriever:
+        async def search(self, query: str, *, limit: int = 10):
+            return (
+                EvidenceItem("ev-a", "knowledge", "业务库", "chunk", "doc#a", "内容A", score=0.8),
+            )
+
+    class BrokenRetriever:
+        async def search(self, query: str, *, limit: int = 10):
+            raise RuntimeError("sub-retriever down")
+
+    combined = CombinedKnowledgeRetriever((OkRetriever(), BrokenRetriever()))
+    items = await combined.search("查询")
+
+    assert [i.evidence_id for i in items] == ["ev-a"]
+
+
+def test_shared_knowledge_user_constant() -> None:
+    from app.conversation.uploads import SHARED_KNOWLEDGE_USER
+
+    assert SHARED_KNOWLEDGE_USER == "shared"

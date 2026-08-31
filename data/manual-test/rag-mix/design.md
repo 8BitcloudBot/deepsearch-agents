@@ -32,10 +32,15 @@
 重灌后个人库证据出现 11 次，R4t2/X1 出现跨库并存（deepseek-harness-notes
 + deepseek-harness-overview 同回合）。A1 绝对分语义下两库公平竞争成立。
 
-### 考察点 2：跨主题干扰 → **确认为真实问题**
-RagFlow 题混入冻结语料证据：S4 引入 FastEmbed×2、R4-t4 引入
-Prompt-Injection-Cheat-Sheet——冻结语料与业务语料同库互不筛除。
-最佳实践候选：业务语料独立 collection 或按主题 namespace 过滤。
+### 考察点 2：跨主题干扰 → **冻结语料干扰已修复（R2），链路残余三层**
+修复链：① ragmix-* 迁出主库至 shared 业务库（uploads/shared 用户），
+CombinedKnowledgeRetriever 聚合召回——S4 的 FastEmbed/Ragas 冻结干扰消失；
+② 切块修复：标题行被切成孤立 chunk（"## 自托管要求"无内容语义），
+已合并标题与紧随内容；③ uploads 阈值独立标定 0.25（规格型内容天然低分）。
+**遗留（S4 仍缺硬件 chunk）**：_select_evidence 全局排序无库级配额——
+shared 库 top2（含硬件 0.381）进池后被主库 0.4-0.6 chunks 挤出 top6。
+方向：select 级按 evidence_id 前缀的库配额（B4 排序语义邻近改动，
+需评审后实施）；另 shared 库内四主题互为稀释（单主题子库可再分）。
 
 ### 考察点 3：多轮承接 → **通过**
 R2-t2/R3-t3 承接前轮主语（"它/那"指代正确）；R3-t3 必含 3/3。

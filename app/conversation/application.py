@@ -14,8 +14,10 @@ from weakref import WeakValueDictionary
 
 from app.conversation.model import safe_message_for
 from app.conversation.report import ConversationReport
+from app.conversation.runtime import CombinedKnowledgeRetriever
 from app.conversation.store import ConversationStore, Turn, User
 from app.conversation.turn import TurnExecutionError, TurnInput, TurnResearchEngine
+from app.conversation.uploads import SHARED_KNOWLEDGE_USER
 from app.logging_setup import brief
 
 EventEmitter = Callable[[dict[str, Any]], None]
@@ -155,12 +157,27 @@ class ConversationApplication:
             }
         )
         try:
-            user_knowledge = None
+            # 注入型知识库聚合：个人库（per-user）+ 共享业务库（shared）。
+            # 冻结语料主库由引擎的 knowledge 检索器承担，三者物理隔离。
+            retrievers: list[Any] = []
             if self.upload_store is not None:
                 try:
-                    user_knowledge = self.upload_store.retriever_for(user.id)
+                    personal = self.upload_store.retriever_for(user.id)
+                    if personal is not None:
+                        retrievers.append(personal)
                 except Exception:
-                    user_knowledge = None
+                    pass
+                try:
+                    shared = self.upload_store.retriever_for(SHARED_KNOWLEDGE_USER)
+                    if shared is not None:
+                        retrievers.append(shared)
+                except Exception:
+                    pass
+            user_knowledge = (
+                CombinedKnowledgeRetriever(tuple(retrievers))
+                if len(retrievers) > 1
+                else (retrievers[0] if retrievers else None)
+            )
 
             def on_answer_delta(chunk: str) -> None:
                 # B1 方案A：综合器正文增量；完成态仍由下方 answer.delta 全量覆盖

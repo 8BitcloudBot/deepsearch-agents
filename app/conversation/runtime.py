@@ -800,6 +800,49 @@ def _with_temperature(model: Any, temperature: float | None) -> Any:
     return model
 
 
+class CombinedKnowledgeRetriever:
+    """多知识源聚合检索器：各库并行发同一查询，结果按库顺序串联。
+
+    库间采用**每库保底配额**（各库 top2 必进结果，其余按分数全局合并填满）：
+    小型业务库的绝对分天然低于大型冻结语料库（ragmix S4 实证：硬件规格
+    chunk 0.38 在全局排序中被挤出 top6，综合器答"资料未给出"），纯分数
+    合并会让小库系统性沉默。单库失败静默跳过，不拖垮其余库。
+    """
+
+    PER_SUB_LIBRARY_FLOOR = 2
+
+    def __init__(self, retrievers: tuple[Any, ...]):
+        self._retrievers = retrievers
+
+    async def search(self, query: str, *, limit: int = 10) -> tuple[EvidenceItem, ...]:
+        import asyncio
+
+        results = await asyncio.gather(
+            *(r.search(query, limit=limit) for r in self._retrievers),
+            return_exceptions=True,
+        )
+        ok: list[tuple[EvidenceItem, ...]] = []
+        for result in results:
+            if isinstance(result, BaseException):
+                logger.warning("knowledge sub-retriever failed: %s", brief(result))
+                continue
+            ok.append(result)
+        if not ok:
+            return ()
+        if len(ok) == 1:
+            return ok[0][:limit]
+
+        floor: list[EvidenceItem] = []
+        for items in ok:
+            floor.extend(items[: self.PER_SUB_LIBRARY_FLOOR])
+        rest = sorted(
+            (item for items in ok for item in items[self.PER_SUB_LIBRARY_FLOOR :]),
+            key=lambda item: -(item.score if item.score is not None else 0.0),
+        )
+        merged = floor + rest
+        return tuple(merged[:limit])
+
+
 def build_conversation_application(
     environ: Any,
     *,

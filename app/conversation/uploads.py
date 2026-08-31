@@ -20,18 +20,47 @@ from typing import Any
 from app.knowledge.contracts import KnowledgeDocument, KnowledgeDocumentChunk
 
 CHUNKING_VERSION = "heading-section-v1"
+# 共享业务知识库的用户标识：与个人库共用同一套 uploads 基础设施，
+# 物理上与冻结语料主库、个人库三分隔离（ragmix 审计：跨主题干扰修复）。
+SHARED_KNOWLEDGE_USER = "shared"
+# uploads 系（shared/个人）独立召回阈值：小型混合业务库的绝对分分布
+# （ragmix 实测 0.25-0.62，规格/列表型内容天然低分）显著低于主库冻结
+# 语料（0.51-0.66 相关 vs 0.27 无关），沿用主库 0.40 会把规格型内容
+# 整体过滤（ragmix S4 实证：硬件要求 chunk 0.299 被滤后综合器答"资料未给出"）。
+UPLOADS_MIN_SCORE = 0.25
 _META_NAME = "uploads-meta.json"
 MAX_DOCUMENTS_PER_USER = 50  # 每用户文档数上限（H6；同名覆盖不占新名额）
 _SAFE_USER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
 def _section_chunks(content: str) -> tuple[KnowledgeDocumentChunk, ...]:
-    """按 Markdown 标题与空行切段，chunk_id 用内容哈希保持稳定。"""
-    parts = [
+    """按 Markdown 标题与空行切段，chunk_id 用内容哈希保持稳定。
+
+    标题行与其紧随的内容合并为同一 chunk：标题被切成孤立 chunk 后
+    只有语义没有内容（ragmix 实测"## 自托管要求"下的硬件规格因
+    无标题语义被 min_score 过滤，综合器据此答"资料未给出"）。
+    """
+    raw_parts = [
         part.strip()
         for part in re.split(r"\n\s*\n|(?=^#{1,6} )", content, flags=re.MULTILINE)
         if part.strip()
     ]
+    parts: list[str] = []
+    for part in raw_parts:
+        is_bare_heading = (
+            part.startswith("#")
+            and "\n" not in part
+            and len(part) <= 120
+        )
+        if is_bare_heading and parts:
+            parts[-1] = f"{parts[-1]}\n{part}"
+        elif is_bare_heading:
+            parts.append(part)
+        elif parts and parts[-1].startswith("#") and "\n" not in parts[-1]:
+            # 前一 part 是孤立标题（首个 chunk 即标题）：并进来
+            parts[-1] = f"{parts[-1]}\n{part}"
+        else:
+            parts.append(part)
     values: list[KnowledgeDocumentChunk] = []
     for index, part in enumerate(parts, 1):
         digest = hashlib.sha256(part.encode("utf-8")).hexdigest()[:16]

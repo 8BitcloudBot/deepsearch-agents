@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""RAG 混合分库测试床：把四主题文档按"全局/个人"分库真实入库。
+"""RAG 混合分库测试床：四主题文档按"共享业务库/个人"分库真实入库。
 
-全局库 = 主语料 Qdrant 索引（.data/knowledge-index-beginner-v2），
-        以 ragmix- 前缀 document_id 追加；默认先清理旧注入（幂等）。
+共享业务库 = UploadKnowledgeStore 的 shared 用户（.data/user-uploads/shared），
+            与冻结语料主库（.data/knowledge-index-beginner-v2）物理隔离
+           （ragmix 审计：跨主题干扰修复）；旧版曾注入主库，本脚本负责清理。
 个人库 = UploadKnowledgeStore（.data/user-uploads/{user_id}）。
 
 用法：
@@ -87,40 +88,50 @@ def _section_chunks(content: str):
     return chunks
 
 
-def ingest_global() -> None:
-    from app.knowledge.contracts import KnowledgeDocument
+def cleanup_main_library() -> None:
+    """清理旧版注入主库的 ragmix-* 文档（跨主题干扰修复的迁移步骤）。"""
     from app.knowledge.qdrant_local import QdrantLocalKnowledgeIndex
 
     index_path, spec, embedder, _ = _embedder_and_spec()
     index = QdrantLocalKnowledgeIndex(index_path, spec, embedder, min_score=0.0)
-
     known_ids = [
         f"{GLOBAL_DOC_PREFIX}{p.stem}" for p in sorted(GLOBAL_DIR.glob("*.md"))
     ]
-    index.delete_documents(known_ids)  # 幂等：清理旧注入后重灌
+    index.delete_documents(known_ids)
+    print(f"[main-library] cleaned {len(known_ids)} legacy ragmix documents (if any)")
 
-    documents = []
+
+def ingest_shared(store, shared_user: str) -> None:
     for path in sorted(GLOBAL_DIR.glob("*.md")):
-        content = path.read_text(encoding="utf-8")
-        documents.append(
-            KnowledgeDocument(
-                collection_id=spec.collection_id,
-                document_id=f"{GLOBAL_DOC_PREFIX}{path.stem}",
-                title=path.stem,
-                version="1.0.0",
-                chunks=tuple(_section_chunks(content)),
-            )
-        )
-    report = index.index_documents(tuple(documents))
-    print(
-        f"[global] collection={spec.collection_id} "
-        f"indexed={report.indexed_chunks} skipped={report.skipped_chunks}"
+        entry = store.ingest_path(shared_user, path.name, path)
+        print(f"[shared] {entry['name']} chunks={entry['chunks']}")
+    print(f"[shared] total documents: {len(store.list_documents(shared_user))}")
+
+
+def ingest_personal(store, user_id: str) -> None:
+    for path in sorted(PERSONAL_DIR.glob("*.md")):
+        entry = store.ingest_path(user_id, path.name, path)
+        print(f"[personal:{user_id[:12]}] {entry['name']} chunks={entry['chunks']}")
+    print(f"[personal] total documents: {len(store.list_documents(user_id))}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--user-id",
+        default=None,
+        help="个人库归属用户 id；缺省自动使用预置 user 账号的 uuid",
     )
+    args = parser.parse_args()
+    _load_env()
 
-
-def ingest_personal(user_id: str) -> None:
     from app.conversation.settings import ConversationSettings
-    from app.conversation.uploads import UploadKnowledgeStore
+    from app.conversation.store import ConversationStore
+    from app.conversation.uploads import (
+        SHARED_KNOWLEDGE_USER,
+        UPLOADS_MIN_SCORE,
+        UploadKnowledgeStore,
+    )
     from app.knowledge.embeddings import FastEmbedEmbeddingAdapter
 
     settings = ConversationSettings.from_env(os.environ)
@@ -133,25 +144,16 @@ def ingest_personal(user_id: str) -> None:
     store = UploadKnowledgeStore(
         ROOT / ".data" / "user-uploads",
         embedder,
-        min_score=settings.knowledge.min_score,
+        min_score=UPLOADS_MIN_SCORE,
     )
-    for path in sorted(PERSONAL_DIR.glob("*.md")):
-        entry = store.ingest_path(user_id, path.name, path)
-        print(f"[personal:{user_id[:12]}] {entry['name']} chunks={entry['chunks']}")
-    print(f"[personal] total documents: {len(store.list_documents(user_id))}")
 
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--user-id",
-        default="regression-ragmix",
-        help="个人库归属用户 id（默认回归专用 id）",
-    )
-    args = parser.parse_args()
-    _load_env()
-    ingest_global()
-    ingest_personal(args.user_id)
+    cleanup_main_library()
+    ingest_shared(store, SHARED_KNOWLEDGE_USER)
+    user_id = args.user_id
+    if user_id is None:
+        boot_store = ConversationStore(ROOT / ".data" / "smoke-ragmix.sqlite3")
+        user_id = boot_store.authenticate("user", "0000").id
+    ingest_personal(store, user_id)
 
 
 if __name__ == "__main__":
