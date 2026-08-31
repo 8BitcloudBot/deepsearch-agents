@@ -305,9 +305,13 @@ class TurnResearchEngine:
                 break
             except Exception as exc:
                 last_error = exc
-                logger.warning("planner attempt %d failed: %s", _attempt + 1, brief(exc))
+                logger.warning(
+                    "planner attempt %d failed: %s", _attempt + 1, brief(exc)
+                )
         else:
-            raise TurnExecutionError(classify_model_error(last_error).code) from last_error
+            raise TurnExecutionError(
+                classify_model_error(last_error).code
+            ) from last_error
         logger.debug("node=plan exit intensity=%s", plan.research_intensity)
         _emit_stage(
             state,
