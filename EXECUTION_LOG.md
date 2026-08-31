@@ -130,6 +130,17 @@
 - [x] 新发现：**长查询 dense 崩塌**——planner 生成长查询使全部 chunk
   dense 低于 uploads 阈值 0.25 → 零命中（短查询 0.533 正常）；
   方向=min_score 过滤基准改 fused 归一分（对查询长度稳定），下轮实施
+
+## F 轮：fused 基准 + ragmix 全剧本重跑 + 三场景回归（2026-08-31）
+- [x] F1 fused 双模式（qdrant_local min_score_mode：dense=主库不变 /
+  fused=uploads）+ 查询规范化截断 ≤64 字符（dense 稀释直接修复）；
+  注意 fused gate 对"rank 也崩"的深崩塌场景不足，截断才是有效修复
+- [x] F2 ragmix 全剧本 18 回合重跑（新语料 720 chunks）：忠实度质变——
+  S2/S3/X1/X3 等 previously-编造回合全部如实声明证据不足，零幻觉；
+  planner 超限截断修复验证（X1 completed claims=6）；R2/R3/R4 轮换承接正常
+- [x] F3 三场景回归全 PASS（流式 14.4s / RAG 9.5s / 时效 27.3s，组合稳定）
+- 新暴露（下轮候选）：语料覆盖缺口（dsh 官方博客"四种运行模式"节、
+  codex 实现语言深度未抓取）与 planner 查询生成盲区（不知库内有什么）
 - 无必办项。（备选池闭环核对：B10 四项已由 G/H/I/J 轮完成；citations 中文 tokenizer 已由 I6 实施；
   README 个人知识库章节已于阶段 3 补写；C2 limitations 密度已在展示层解决——前端过滤
   内部诊断条目，后端保留完整诊断数据。）
