@@ -32,7 +32,7 @@ const { conversationApi, ApiError } = vi.hoisted(() => {
   };
 });
 
-vi.mock("./api", () => ({ conversationApi, ApiError, eventSocketUrl: () => "ws://test/events", parseConversationEvent: (value: string) => JSON.parse(value) }));
+vi.mock("./api", () => ({ conversationApi, ApiError, eventSocketUrl: () => "ws://test.local/events", parseConversationEvent: (value: string) => JSON.parse(value) }));
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];

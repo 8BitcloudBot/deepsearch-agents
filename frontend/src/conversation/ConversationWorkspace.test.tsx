@@ -57,7 +57,7 @@ function state(): ConversationWorkspaceState {
     uploadLibraryDocuments: vi.fn(),
     deleteLibraryDocument: vi.fn(),
     logout: vi.fn(),
-    reportUrl: () => "http://test/api/conversations/c1/report",
+    reportUrl: () => "http://test.local/api/conversations/c1/report",
   };
 }
 
@@ -96,7 +96,7 @@ describe("ConversationWorkspace", () => {
   it("offers only the cumulative Markdown report", () => {
     render(<ConversationWorkspace state={state()} />);
     expect(screen.getByRole("link", { name: "下载研究报告" })).toHaveAttribute(
-      "href", "http://test/api/conversations/c1/report",
+      "href", "http://test.local/api/conversations/c1/report",
     );
     expect(screen.queryByText(/PDF|JSON/)).not.toBeInTheDocument();
   });
