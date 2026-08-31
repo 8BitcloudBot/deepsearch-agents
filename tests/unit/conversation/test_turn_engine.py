@@ -1557,3 +1557,37 @@ async def test_validation_strict_mode_prunes_unclaimed_fabricated_section() -> N
     assert "有支撑" in result.answer
     assert len(result.claims) == 1
     assert any("未获证据支持" in item for item in result.limitations)
+
+
+def test_select_evidence_reserves_quota_for_personal_uploads() -> None:
+    """ragmix S4 实证（L2）：uploads 系证据绝对分（0.3x）在主库高分池
+    （0.4-0.6）中被全局排序挤出 top6——select 级为 uploads 系保底 2 条。"""
+    from app.conversation.turn import _select_evidence
+
+    def main_item(number: int, score: float) -> EvidenceItem:
+        return EvidenceItem(
+            f"ev-knowledge-guide-{number}", "knowledge", f"主库 {number}",
+            "chunk", f"guide#{number}", quote=f"主库证据 {number}", score=score,
+        )
+
+    def upload_item(number: int, score: float) -> EvidenceItem:
+        return EvidenceItem(
+            f"ev-knowledge-upload-{number}", "knowledge", f"个人库 {number}",
+            "chunk", f"upload-{number}", quote=f"个人库证据 {number}", score=score,
+        )
+
+    knowledge = (
+        main_item(1, 0.9), main_item(2, 0.85), main_item(3, 0.8),
+        main_item(4, 0.75), main_item(5, 0.7), main_item(6, 0.65),
+        main_item(7, 0.6),
+        upload_item(1, 0.35), upload_item(2, 0.3),
+    )
+
+    selected = _select_evidence(knowledge, (), (), limit=6)
+
+    ids = [item.evidence_id for item in selected]
+    upload_kept = [i for i in ids if i.startswith("ev-knowledge-upload-")]
+    # uploads 系保底 2 条进入 top6（纯分数序下 0.35/0.3 会被挤出）
+    assert len(upload_kept) == 2, f"uploads 配额未生效：{ids}"
+    # 主库高分仍占前位（全局分数序保持）
+    assert ids[0] == "ev-knowledge-guide-1"

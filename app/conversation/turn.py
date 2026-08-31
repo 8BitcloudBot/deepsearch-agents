@@ -867,11 +867,27 @@ def _select_evidence(
         taken.add(item.evidence_id)
         selected.append(item)
 
+    # L2 库级配额：uploads 系（个人/共享业务库）绝对分低于主库（独立阈值
+    # 标定的差异），纯全局排序会让其系统性沉默（ragmix S4 实证）——保底
+    # 2 条进入候选池，剩余名额仍按全局分数竞争。
+    uploads_floor: list[EvidenceItem] = []
+    uploads_rest: list[EvidenceItem] = []
+    for item in ranked["knowledge"]:
+        if item.evidence_id.startswith("ev-knowledge-upload-"):
+            (uploads_floor if len(uploads_floor) < 2 else uploads_rest).append(item)
+    for item in uploads_floor:
+        if len(selected) < limit:
+            take(item)
+    if uploads_rest:
+        ranked["knowledge"] = uploads_rest
+
     # 每来源保底：只要来源非空且尚未入选，为其保留至少 1 条最高分证据
     for source_kind in _SOURCE_ORDER:
         if len(selected) == limit:
             break
         for item in ranked[source_kind]:
+            if item.evidence_id in taken:
+                continue
             take(item)
             break
 
