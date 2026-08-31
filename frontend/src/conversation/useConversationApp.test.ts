@@ -190,3 +190,31 @@ describe("useConversationApp", () => {
     }
   });
 });
+
+
+it("reconciles state after websocket reconnect by refetching detail", async () => {
+  conversationApi.conversationsLite.mockResolvedValue([summary]);
+  conversationApi.conversation.mockResolvedValue(detail);
+  conversationApi.me.mockResolvedValue({ id: "u1", username: "user", role: "user" });
+  const { result } = renderHook(() => useConversationApp("http://test"));
+  await waitFor(() => expect(result.current.activeConversationId).toBe("c1"));
+  await waitFor(() => expect(lastSocket()).toBeDefined());
+
+  const first = lastSocket();
+  const fetchCountBefore = conversationApi.conversation.mock.calls.length;
+  expect(fetchCountBefore).toBeGreaterThanOrEqual(1);
+
+  // 断线 → 重连：onopen 触发状态对账（重新拉取服务端持久化详情）
+  await act(async () => {
+    first.onclose?.();
+  });
+  const reconnected = lastSocket();
+  await act(async () => {
+    reconnected.onopen?.();
+  });
+  await waitFor(() =>
+    expect(conversationApi.conversation.mock.calls.length).toBeGreaterThan(
+      fetchCountBefore,
+    ),
+  );
+});

@@ -121,6 +121,9 @@ export function useConversationApp(baseUrl: string): ConversationAppState {
         attempts = 0;
         // 重连成功后清除陈旧的连接错误（后端重启期间的提示已过时）
         setError(null);
+        // 3.2 重连状态对账：以服务端持久化状态为事实源——断线期间
+        // 错过 turn.completed/failed 时，重连立即用落库结果覆盖前端临时状态
+        void refreshActiveConversation(activeConversationId);
       };
       socket.onmessage = (message) => {
         const event = parseConversationEvent(String(message.data));
