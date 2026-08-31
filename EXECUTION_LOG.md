@@ -367,3 +367,15 @@ bluewhale-project.md（多轮记忆素材）。服务四能力全 ready，DEEPSE
 
 最终测试状态：前端 tsc + vitest 13 passed + vite build 通过；后端无改动
 （626 unit passed 基线不变）。
+
+## 用户手动测试复盘（2026-08-31，Dify 五轮 UI 实测）
+- [x] 5/5 回合完成、全程流式；三源融合实锤（web+shared+personal 同回合并存）；
+  忠实度防线全部生效（fidelity check 每轮触发 unsupported=1/1/2/3/2、
+  I6 中文路径判定、B9 裁剪+声明）；轮 3 跨库对比（Dify 父子分块 vs
+  RagFlow 深度文档理解）为最佳实践样例；轮 5 零编造（有 web[8]+个人库[9] 双支撑）
+- [x] 修复：研究报告过滤内部诊断 limitations（对齐前端 J1 过滤）
+- [ ] 待排期问题 3 项：
+  1. 纯中文查询×英文文档召回失败（轮 1 dify-readme-en 不可达，轮 2 混合词面可达）——
+     方向=双语查询改写或入库中文锚点
+  2. B9 裁剪后无重综合（轮 4 Dify 侧被裁后回答只剩 RagFlow 单侧）
+  3. web 来源可信度分层（内容农场类来源进入证据，无声誉标注）
