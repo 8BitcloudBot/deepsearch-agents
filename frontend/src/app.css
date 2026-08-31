@@ -221,3 +221,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .stage-timeline[open] summary::before { content: "▾"; }
 .stage-timeline ol { padding: 2px 13px 9px 34px; margin: 0; color: var(--text-faint); font-family: var(--mono); font-size: 11px; line-height: 1.9; }
 .stage-timeline ol li::marker { color: var(--accent); font-size: 10px; }
+
+/* ── 3.1 真流式回答渲染 ─────────────────────────────── */
+.streaming-answer { min-width: 0; }
+.streaming-answer .streaming-body { font-size: 16px; color: var(--text); background: var(--bg-panel); }
+.streaming-answer .streaming-body::after {
+  content: "▍";
+  color: var(--accent);
+  animation: cursor-blink 0.9s steps(2) infinite;
+}
+@keyframes cursor-blink { 50% { opacity: 0; } }

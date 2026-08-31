@@ -185,3 +185,19 @@ describe("ConversationWorkspace", () => {
     expect(value.resetUserData).toHaveBeenCalledWith("u1");
   });
 });
+
+
+it("renders streaming prose while a turn is running and clears after completion", () => {
+  const running = state();
+  running.runningTurnId = "turn-running";
+  running.streamingText = "LangGraph 的图状态是";
+  const view = render(<ConversationWorkspace state={running} />);
+
+  const bubble = screen.getByLabelText("回答生成中");
+  expect(bubble.textContent).toContain("LangGraph 的图状态是");
+
+  // 完成态：runningTurnId 清空后由正式 answer 覆盖，不再显示流式气泡
+  const done = state();
+  view.rerender(<ConversationWorkspace state={done} />);
+  expect(screen.queryByLabelText("回答生成中")).not.toBeInTheDocument();
+});

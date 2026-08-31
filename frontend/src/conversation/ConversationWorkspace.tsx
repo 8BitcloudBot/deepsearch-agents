@@ -275,6 +275,15 @@ export function ConversationWorkspace({ state }: { state: ConversationWorkspaceS
         {state.error && <div role="alert" className="notice notice-error">{state.error}</div>}
         <div className="message-stream">
           {!activeDetail ? <div className="empty-conversation"><h3>从一个问题开始</h3><p>本地知识库始终参与；需要最新资料时再打开实时网络。</p></div> : activeDetail.turns.length === 0 ? <div className="empty-conversation"><h3>这是一段新的研究</h3><p>试着问一个你正在学习的技术问题。</p></div> : activeDetail.turns.map((turn) => <TurnMessage key={turn.id} turn={turn} />)}
+          {/* 3.1 真流式渲染：运行中回合的正文增量优先展示，完成态由详情刷新的正式 answer 覆盖 */}
+          {state.runningTurnId && state.streamingText && (
+            <article className="message-stream-item streaming" aria-live="polite" aria-label="回答生成中">
+              <div className="message-answer streaming-answer">
+                <span className="message-label">助手</span>
+                <div className="streaming-body">{state.streamingText}</div>
+              </div>
+            </article>
+          )}
         </div>
         <div className="composer-dock">
           <details className="stage-timeline" aria-label="过程时间线">
