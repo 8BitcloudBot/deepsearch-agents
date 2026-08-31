@@ -1020,7 +1020,9 @@ async def test_combined_knowledge_retriever_merges_and_tolerates_failure() -> No
     class OkRetriever:
         async def search(self, query: str, *, limit: int = 10):
             return (
-                EvidenceItem("ev-a", "knowledge", "业务库", "chunk", "doc#a", "内容A", score=0.8),
+                EvidenceItem(
+                    "ev-a", "knowledge", "业务库", "chunk", "doc#a", "内容A", score=0.8
+                ),
             )
 
     class BrokenRetriever:
