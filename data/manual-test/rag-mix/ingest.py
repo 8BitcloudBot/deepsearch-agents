@@ -153,7 +153,7 @@ def main() -> None:
         ROOT / ".data" / "user-uploads",
         embedder,
         min_score=UPLOADS_MIN_SCORE,
-    )
+    )  # noqa: E501 — 阈值常量名较长
 
     cleanup_main_library()
     ingest_shared(store, SHARED_KNOWLEDGE_USER)
