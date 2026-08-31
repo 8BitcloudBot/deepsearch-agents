@@ -13,7 +13,6 @@ def create_app() -> FastAPI:
     from app.api.server import create_app as create_server
     from app.conversation.runtime import build_conversation_application
 
-
     root = Path.cwd()
     application = build_conversation_application(
         os.environ,
