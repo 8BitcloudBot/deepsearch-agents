@@ -993,6 +993,9 @@ def _finalize_draft_with_validation(
         item.evidence_id: index for index, item in enumerate(cited_evidence, start=1)
     }
     paragraphs: list[str] = []
+    # 严格裁剪：本轮已判定存在编造 claim（ragmix S3 实证）时，
+    # 无 claim 挂接的段落一并裁剪——它们是同一次编造行为的另一通道。
+    strict_pruning = bool(unsupported)
     for section in draft.sections:
         section_claims = [
             claim
@@ -1001,6 +1004,8 @@ def _finalize_draft_with_validation(
             if claim is not None and claim.statement in keep_statements
         ]
         if section.claim_indexes and not section_claims:
+            continue
+        if strict_pruning and not section_claims:
             continue
         citations: list[int] = []
         for claim in section_claims:

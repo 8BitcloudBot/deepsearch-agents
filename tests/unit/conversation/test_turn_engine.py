@@ -1522,3 +1522,38 @@ async def test_unsupported_sections_trigger_hinted_resynthesis() -> None:
     assert any("未获证据支撑" in item for item in result.limitations) is False, (
         "第二次综合已修正，不应残留降级声明"
     )
+
+
+@pytest.mark.asyncio
+async def test_validation_strict_mode_prunes_unclaimed_fabricated_section() -> None:
+    """ragmix S3 实证对齐：存在 UNSUPPORTED claim 时，无 claim 挂接的
+    编造段落必须一并裁剪——否则正文残留纯编造文本。"""
+    from app.conversation.turn import _finalize_draft_with_validation
+
+    evidence_item = EvidenceItem(
+        "ev-knowledge-1",
+        "knowledge",
+        "文档",
+        "chunk",
+        "doc#1",
+        quote="LangGraph 是一个用于构建智能体的框架，支持状态管理与检查点恢复。",
+    )
+    good_claim = SynthesisClaim("LangGraph 用于构建智能体框架。", ("ev-knowledge-1",))
+    fabricated_claim = SynthesisClaim(
+        "某加密货币价格明天必然翻倍。", ("ev-knowledge-1",)
+    )
+    draft = SynthesisDraft(
+        sections=(
+            SynthesisSection("有支撑的正文。", (0,)),
+            SynthesisSection("编造的段落：币价翻倍预言。", ()),
+        ),
+        claims=(good_claim, fabricated_claim),
+        limitations=(),
+    )
+
+    result = _finalize_draft_with_validation(draft, (evidence_item,), ())
+
+    assert "编造" not in result.answer, f"编造段落应被裁剪：{result.answer}"
+    assert "有支撑" in result.answer
+    assert len(result.claims) == 1
+    assert any("未获证据支持" in item for item in result.limitations)
