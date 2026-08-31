@@ -115,11 +115,8 @@ def ingest_shared(store, shared_user: str) -> None:
 
 
 def ingest_personal(store, user_id: str) -> None:
-    new_names = {p.name for p in sorted(PERSONAL_DIR.glob("*.md"))}
-    for existing in store.list_documents(user_id):
-        if existing["name"] not in new_names:
-            store.remove(user_id, existing["document_id"])
-            print(f"[personal] removed stale: {existing['name']}")
+    # 个人库是用户数据：脚本只做同名覆盖入库，**永不删除**任何已有文档
+    # （fail-safe；此前 stale 清理会误删用户经 UI 上传的文档）。
     for path in sorted(PERSONAL_DIR.glob("*.md")):
         entry = store.ingest_path(user_id, path.name, path)
         print(f"[personal:{user_id[:12]}] {entry['name']} chunks={entry['chunks']}")
