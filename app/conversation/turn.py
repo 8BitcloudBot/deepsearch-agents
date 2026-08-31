@@ -296,11 +296,18 @@ class TurnResearchEngine:
 
     async def _plan(self, state: _TurnState) -> dict[str, object]:
         logger.debug("node=plan enter")
-        try:
-            plan = await self._planner.plan(state["turn"])
-        except Exception as exc:
-            logger.warning("planner failed: %s", brief(exc))
-            raise TurnExecutionError(classify_model_error(exc).code) from exc
+        # 与 _synthesize 对称的 2 次尝试：planner 偶发 JSON 漂移（ragmix X1
+        # 单次漂移即整轮挂）不应比综合更脆弱。
+        last_error: Exception | None = None
+        for _attempt in range(2):
+            try:
+                plan = await self._planner.plan(state["turn"])
+                break
+            except Exception as exc:
+                last_error = exc
+                logger.warning("planner attempt %d failed: %s", _attempt + 1, brief(exc))
+        else:
+            raise TurnExecutionError(classify_model_error(last_error).code) from last_error
         logger.debug("node=plan exit intensity=%s", plan.research_intensity)
         _emit_stage(
             state,

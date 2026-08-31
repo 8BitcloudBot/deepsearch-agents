@@ -1438,3 +1438,35 @@ async def test_retrieval_progress_events_carry_evidence_counts() -> None:
     assert counts, "检索进度事件缺失"
     assert counts == sorted(counts, reverse=False), "证据计数应随回环递增"
     assert counts[0] >= 1
+
+
+@pytest.mark.asyncio
+async def test_planner_failure_is_retried_once_before_turn_fails() -> None:
+    """ragmix X1 实证：planner 偶发 JSON 漂移一次即整轮失败——补对称重试。"""
+    attempts = {"n": 0}
+
+    class FlakyPlanner:
+        async def plan(self, turn: TurnInput) -> TurnResearchPlan:
+            attempts["n"] += 1
+            if attempts["n"] == 1:
+                raise ValueError("model response is invalid")
+            return TurnResearchPlan(turn.question, (), (turn.question,), ())
+
+    synthesizer = Synthesizer(
+        SynthesisDraft(
+            sections=(SynthesisSection("回答。", (0,)),),
+            claims=(SynthesisClaim("结论。", ("ev-knowledge-1",)),),
+            limitations=(),
+        )
+    )
+
+    result = await build_engine(
+        FlakyPlanner(),
+        Retriever((evidence("knowledge", 1),)),
+        None,
+        Retriever(()),
+        synthesizer,
+    ).run(TurnInput("问题", False, (), ()))
+
+    assert attempts["n"] == 2
+    assert result.answer.startswith("回答。")
