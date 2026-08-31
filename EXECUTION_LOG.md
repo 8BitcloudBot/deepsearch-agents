@@ -1,6 +1,11 @@
 # 执行日志
 
-> **二次封版：2026-08-30（freeze/deepseek-tuned）** —— main 与 opt/deepsearch 同点，测试 695 passed / 4 skipped / ruff 全绿 / 前端 build+vitest 通过。本封版涵盖：DeepSeek 官方文档核对三修正（固定 v4-flash / 全角色禁思考 / reviewer json_object，真机回合 138s→13.1s）、A1 检索分数绝对语义、B2 分级模型路由、B1 两段式真流式、三场景回归全 PASS。首版封版（freeze/post-rag-2026-08-27）记录见下方历史。
+> **三次封版：2026-08-31（freeze/dark-theme）** —— main 与 opt/deepsearch 同点，
+> 后端 705 passed / 前端 14 tests + build 通过 / ruff 全绿。本封版涵盖：
+> L1-L3 遗留优化（B9 裁剪重综合/select 库配额/忠实度规则 9——S3 幻觉根除、
+> S4 硬件链路全通）、ragmix 测试床重建（226KB 官方语料）、用户实测复盘
+> 三项修复（数据安全原则/B9 重综合/报告过滤）、前端深色主题改造。
+> 历史封版记录见下方横幅。 —— main 与 opt/deepsearch 同点，测试 695 passed / 4 skipped / ruff 全绿 / 前端 build+vitest 通过。本封版涵盖：DeepSeek 官方文档核对三修正（固定 v4-flash / 全角色禁思考 / reviewer json_object，真机回合 138s→13.1s）、A1 检索分数绝对语义、B2 分级模型路由、B1 两段式真流式、三场景回归全 PASS。首版封版（freeze/post-rag-2026-08-27）记录见下方历史。
 
 ## 基线：2026-08-27
 - 测试入口：`uv run --extra dev python -m pytest -q`（pytest 在 `[project.optional-dependencies].dev`，需 `--extra dev`；另有 `[dependency-groups].dev` 仅含 httpx-ws）
@@ -367,6 +372,14 @@ bluewhale-project.md（多轮记忆素材）。服务四能力全 ready，DEEPSE
 
 最终测试状态：前端 tsc + vitest 13 passed + vite build 通过；后端无改动
 （626 unit passed 基线不变）。
+
+## 前端深色主题改造轮（2026-08-31，用户委托）
+- [x] app.css 全量重写为 CSS 变量深色主题（zcode 风格：#0d1117 底/单
+  一绿色 accent/等宽字体点缀），全组件一致
+- [x] 过程时间线（stageLog 折叠面板）+ Esc 中断接线 + WS 重连清陈旧错误
+- [x] 浏览器截图验证：登录页与 Dify 会话工作区深色渲染确认；
+  陈旧连接错误提示残留修复（WS onopen 清 error）
+- [x] 方案文档 docs/design/frontend-polish.md 同步更新为已批准实施
 
 ## 用户手动测试复盘（2026-08-31，Dify 五轮 UI 实测）
 - [x] 5/5 回合完成、全程流式；三源融合实锤（web+shared+personal 同回合并存）；
