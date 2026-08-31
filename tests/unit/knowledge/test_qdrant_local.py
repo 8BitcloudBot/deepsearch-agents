@@ -437,7 +437,10 @@ def test_fused_mode_survives_long_query_dense_collapse(tmp_path: Path) -> None:
             chunks=(
                 KnowledgeDocumentChunk(
                     chunk_id="chunk-rel",
-                    content="LangGraph state management with checkpoint persistence and recovery.",
+                    content=(
+                        "LangGraph state management with checkpoint "
+                        "persistence and recovery."
+                    ),
                     section_path="Overview",
                 ),
             ),
