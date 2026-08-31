@@ -74,3 +74,12 @@ def test_embedding_identity_overridable() -> None:
     ).knowledge
     assert custom.embedding_version == "1.0.0"
     assert custom.embedding_dimension == 768
+
+
+def test_demo_password_gate_recognized():
+    """3.6：DEEPSEARCH_ALLOW_DEMO_PASSWORD 门控值解析（与 _truthy 同规则）。"""
+    truthy = {"1", "true", "yes", "on"}
+    for raw in ("1", "true", "yes", "on", "TRUE"):
+        assert raw.strip().casefold() in truthy
+    for raw in ("", "0", "false", "off"):
+        assert raw.strip().casefold() not in truthy
