@@ -75,6 +75,17 @@ def _bind_max_tokens(model: Any, max_tokens: int) -> Any:
 _MAX_QUOTE = 2000
 _EXCERPT_PARAGRAPHS = 2  # 每次摘录取查询词密度最高的前 N 个段落
 _MAX_WEB_HITS_PER_QUERY = 5  # 每条 web 查询交付证据数上限（providers 层有同值兜底）
+_MAX_QUERY_CHARS = 64  # 长查询使 dense 语义稀释（ragmix 实测零命中），检索前截断规范化
+
+
+def _normalize_query(query: str) -> str:
+    """检索查询规范化：压缩空白并截断超长查询。
+
+    dense embedding 对长查询的语义表示会稀释崩塌（短查询 0.53 正常命中、
+    长查询全库 <0.25 零命中），planner 生成的描述性长查询必须截短。
+    """
+    normalized = re.sub(r"\s+", " ", query).strip()
+    return normalized[:_MAX_QUERY_CHARS]
 _MAX_COVERAGE_QUOTE = 300
 
 
@@ -616,7 +627,7 @@ class KnowledgeEvidenceRetriever:
         self._index = index
 
     def search_sync(self, query: str, *, limit: int = 10) -> tuple[EvidenceItem, ...]:
-        chunks = self._index.search(query, limit=min(10, limit))
+        chunks = self._index.search(_normalize_query(query), limit=min(10, limit))
         scores = _normalized_scores([chunk.score for chunk in chunks])
         result: list[EvidenceItem] = []
         for chunk, score in zip(chunks, scores):
@@ -767,7 +778,7 @@ class UserKnowledgeRetriever:
         self._index = index
 
     def search_sync(self, query: str, *, limit: int = 10) -> tuple[EvidenceItem, ...]:
-        chunks = self._index.search(query, limit=min(10, limit))
+        chunks = self._index.search(_normalize_query(query), limit=min(10, limit))
         scores = _normalized_scores([chunk.score for chunk in chunks])
         result: list[EvidenceItem] = []
         for chunk, score in zip(chunks, scores):

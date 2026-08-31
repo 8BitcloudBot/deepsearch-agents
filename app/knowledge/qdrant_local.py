@@ -84,10 +84,14 @@ class QdrantLocalKnowledgeIndex:
         embedder: EmbeddingAdapter,
         *,
         min_score: float | None = None,
+        min_score_mode: str = "dense",
     ) -> None:
         self._path = path
         self._spec = spec
         self._embedder = embedder
+        if min_score_mode not in ("dense", "fused"):
+            raise ValueError("min_score_mode must be 'dense' or 'fused'")
+        self._min_score_mode = min_score_mode
         if embedder.descriptor != spec.embedding:
             raise ValueError("embedding descriptor does not match index fingerprint")
         if min_score is not None and (
@@ -383,12 +387,16 @@ class QdrantLocalKnowledgeIndex:
         for point_id in ordered_ids:
             dense_point = dense_by_id.get(point_id)
             dense_score = float(dense_point.score) if dense_point is not None else 0.0
-            if (
-                self._min_score is not None
-                and dense_score < self._min_score
-                and point_id not in sparse_rank
-            ):
-                continue
+            if self._min_score is not None:
+                if self._min_score_mode == "fused":
+                    # fused 口径（库内排名归一）对查询长度稳定：长查询下
+                    # dense 绝对分整体崩塌但相对序保持，dense 口径会误杀
+                    # （ragmix 新语料实测：planner 长查询零命中）。
+                    gate_score = min(1.0, fused[point_id] / (2 / 61))
+                else:
+                    gate_score = dense_score
+                if gate_score < self._min_score and point_id not in sparse_rank:
+                    continue
             payload = (
                 dense_point.payload
                 if dense_point is not None

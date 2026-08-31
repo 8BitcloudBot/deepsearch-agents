@@ -23,11 +23,11 @@ CHUNKING_VERSION = "heading-section-v1"
 # 共享业务知识库的用户标识：与个人库共用同一套 uploads 基础设施，
 # 物理上与冻结语料主库、个人库三分隔离（ragmix 审计：跨主题干扰修复）。
 SHARED_KNOWLEDGE_USER = "shared"
-# uploads 系（shared/个人）独立召回阈值：小型混合业务库的绝对分分布
-# （ragmix 实测 0.25-0.62，规格/列表型内容天然低分）显著低于主库冻结
-# 语料（0.51-0.66 相关 vs 0.27 无关），沿用主库 0.40 会把规格型内容
-# 整体过滤（ragmix S4 实证：硬件要求 chunk 0.299 被滤后综合器答"资料未给出"）。
-UPLOADS_MIN_SCORE = 0.25
+# uploads 系（shared/个人）召回阈值采用 **fused 口径**（min_score_mode="fused"）：
+# dense 绝对分对查询长度敏感（长查询整体崩塌，ragmix 新语料实测零命中），
+# fused 库内排名归一对长度稳定。fused 口径下单路 rank1=0.5，0.40 约等于
+# 单路 rank≤45 的召回下限（小型业务库 ≤250 chunks 内即"前 1/5"）。
+UPLOADS_MIN_SCORE = 0.40
 _META_NAME = "uploads-meta.json"
 MAX_DOCUMENTS_PER_USER = 50  # 每用户文档数上限（H6；同名覆盖不占新名额）
 _SAFE_USER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
@@ -124,7 +124,11 @@ class UploadKnowledgeStore:
             chunking_version=CHUNKING_VERSION,
         )
         index = QdrantLocalKnowledgeIndex(
-            self._user_dir(user_id), spec, self._embedder, min_score=self._min_score
+            self._user_dir(user_id),
+            spec,
+            self._embedder,
+            min_score=self._min_score,
+            min_score_mode="fused",
         )
         self._indexes[user_id] = index
         return index

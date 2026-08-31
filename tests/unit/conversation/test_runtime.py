@@ -1039,3 +1039,23 @@ def test_shared_knowledge_user_constant() -> None:
     from app.conversation.uploads import SHARED_KNOWLEDGE_USER
 
     assert SHARED_KNOWLEDGE_USER == "shared"
+
+
+def test_long_query_is_truncated_before_index_search() -> None:
+    """ragmix F1：长查询 dense 语义稀释致零命中——检索前截断规范化。"""
+    class RecordingIndex:
+        def __init__(self):
+            self.queries: list[str] = []
+
+        def search(self, query: str, *, limit: int = 10):
+            self.queries.append(query)
+            return ()
+
+    long_query = "RagFlow 核心特性有哪些 " + "自托管部署的系统要求细节 " * 6
+    index = RecordingIndex()
+    KnowledgeEvidenceRetriever(index).search_sync(long_query)
+
+    sent = index.queries[0]
+    assert len(sent) <= 64 + 1, f"长查询未截断：len={len(sent)}"
+    assert sent.startswith("RagFlow 核心特性有哪些")
+    assert "系统要求细节" not in sent[64:]
