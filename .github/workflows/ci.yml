@@ -28,6 +28,10 @@ jobs:
         run: uv run pre-commit run --all-files
       - name: Run offline environment doctor
         run: uv run python scripts/doctor.py --offline
+      - name: Check OpenAPI schema drift
+        run: |
+          uv run python scripts/export_openapi.py /tmp/openapi.check.json
+          diff docs/openapi.json /tmp/openapi.check.json
 
   frontend:
     runs-on: ubuntu-latest

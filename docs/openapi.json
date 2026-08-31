@@ -909,6 +909,46 @@
       }
     },
     "/api/conversations/{conversation_id}/turns/{turn_id}": {
+      "delete": {
+        "description": "I5：取消执行中的回合；僵尸 running（无任务）直接标记失败。",
+        "operationId": "cancel_turn_api_conversations__conversation_id__turns__turn_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "title": "Turn Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Turn"
+      },
       "get": {
         "operationId": "get_turn_api_conversations__conversation_id__turns__turn_id__get",
         "parameters": [
