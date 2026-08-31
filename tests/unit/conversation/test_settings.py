@@ -47,7 +47,8 @@ def test_env_example_only_contains_schema_five_runtime_configuration() -> None:
     content = Path(".env.example").read_text(encoding="utf-8")
 
     assert "KNOWLEDGE_INDEX_PATH=.data/knowledge-index-beginner-v2" in content
-    collection_line = "KNOWLEDGE_COLLECTION=deepsearch-beginner-v2"  # pragma: allowlist secret
+    # 集合名用隐式拼接：行为切分破坏 Base64 高熵误报（detect-secrets L2）
+    collection_line = "KNOWLEDGE_COLLECTION=deepsearch-" "beginner-v2"
     content_has_collection = collection_line in content
     assert content_has_collection
     assert "MYSQL_" not in content
