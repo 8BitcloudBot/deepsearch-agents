@@ -394,9 +394,9 @@ async def test_enabled_sources_begin_retrieval_concurrently() -> None:
         )
     )
 
-    await build_engine(
-        Planner(), knowledge, None, web, synthesizer
-    ).run(TurnInput("问题", True, (), ()))
+    await build_engine(Planner(), knowledge, None, web, synthesizer).run(
+        TurnInput("问题", True, (), ())
+    )
 
     assert started == {"knowledge", "web"}
 
@@ -473,9 +473,7 @@ async def test_complete_initial_coverage_still_reviews_once() -> None:
             return CoverageDecision()
 
     reviewer = Reviewer()
-    knowledge = Retriever(
-        tuple(evidence("knowledge", index) for index in range(1, 3))
-    )
+    knowledge = Retriever(tuple(evidence("knowledge", index) for index in range(1, 3)))
     web = Retriever(
         tuple(evidence("web", index, f"host{index}.example") for index in range(1, 3))
     )
@@ -539,12 +537,13 @@ async def test_sparse_initial_coverage_bounds_supplemental_queries_within_budget
         async def review(self, turn, plan, evidence_items, limitations):
             self.calls += 1
             # 每轮重复给出同样的候选：第 1 轮发出每来源第一条（2 条），
+
     # 第 2 轮从余下候选取新的（又 2 条），第 3 轮全部去重 → 空查询退出
     return CoverageDecision(
-                uncovered_questions=("缺口一", "缺口二"),
-                knowledge_queries=("knowledge supplement", "knowledge extra"),
-                web_queries=("web supplement", "web extra"),
-            )
+        uncovered_questions=("缺口一", "缺口二"),
+        knowledge_queries=("knowledge supplement", "knowledge extra"),
+        web_queries=("web supplement", "web extra"),
+    )
 
     reviewer = Reviewer()
     knowledge = Retriever((evidence("knowledge", 1),))
@@ -1006,12 +1005,8 @@ async def test_citation_validation_drops_unsupported_claim() -> None:
         "doc#1",
         quote="LangGraph 是一个用于构建智能体的框架，支持状态管理与检查点恢复。",
     )
-    good_claim = SynthesisClaim(
-        "LangGraph 用于构建智能体框架。", ("ev-knowledge-1",)
-    )
-    bad_claim = SynthesisClaim(
-        "某加密货币价格明天必然翻倍。", ("ev-knowledge-1",)
-    )
+    good_claim = SynthesisClaim("LangGraph 用于构建智能体框架。", ("ev-knowledge-1",))
+    bad_claim = SynthesisClaim("某加密货币价格明天必然翻倍。", ("ev-knowledge-1",))
     draft = SynthesisDraft(
         sections=(
             SynthesisSection("直接回答。", (0,)),
@@ -1075,16 +1070,34 @@ def test_citation_validation_settings_default_off() -> None:
 async def test_web_scores_are_renumbered_globally_across_queries() -> None:
     """多查询各给独立衰减分时，引擎合并后统一重编消除并列 1.0。"""
     hit_a = EvidenceItem(
-        "ev-web-a", "web", "命中A", "url", "https://a.example/1",
-        quote="A", hostname="a.example", score=1.0,
+        "ev-web-a",
+        "web",
+        "命中A",
+        "url",
+        "https://a.example/1",
+        quote="A",
+        hostname="a.example",
+        score=1.0,
     )
     hit_b = EvidenceItem(
-        "ev-web-b", "web", "命中B", "url", "https://b.example/1",
-        quote="B", hostname="b.example", score=0.5,
+        "ev-web-b",
+        "web",
+        "命中B",
+        "url",
+        "https://b.example/1",
+        quote="B",
+        hostname="b.example",
+        score=0.5,
     )
     hit_c = EvidenceItem(
-        "ev-web-c", "web", "命中C", "url", "https://c.example/1",
-        quote="C", hostname="c.example", score=1.0,  # 第二个查询的第 1 名
+        "ev-web-c",
+        "web",
+        "命中C",
+        "url",
+        "https://c.example/1",
+        quote="C",
+        hostname="c.example",
+        score=1.0,  # 第二个查询的第 1 名
     )
 
     class MultiQueryRetriever:
@@ -1128,17 +1141,34 @@ def test_apply_global_rank_decay_skips_knowledge_and_duplicates() -> None:
     from app.conversation.turn import _apply_global_rank_decay
 
     kb_high = EvidenceItem(
-        "ev-knowledge-1", "knowledge", "知识", "chunk", "doc#1",
-        quote="k", score=0.87,
+        "ev-knowledge-1",
+        "knowledge",
+        "知识",
+        "chunk",
+        "doc#1",
+        quote="k",
+        score=0.87,
     )
     dup_first = EvidenceItem(
-        "ev-web-dup", "web", "重复", "url", "https://d.example/1",
-        quote="d1", hostname="d.example", score=0.5,
+        "ev-web-dup",
+        "web",
+        "重复",
+        "url",
+        "https://d.example/1",
+        quote="d1",
+        hostname="d.example",
+        score=0.5,
     )
     dup_second = replace(dup_first)
     other = EvidenceItem(
-        "ev-web-x", "web", "其他", "url", "https://x.example/1",
-        quote="x", hostname="x.example", score=None,
+        "ev-web-x",
+        "web",
+        "其他",
+        "url",
+        "https://x.example/1",
+        quote="x",
+        hostname="x.example",
+        score=None,
     )
 
     result = _apply_global_rank_decay((kb_high, dup_first, dup_second, other))
@@ -1189,6 +1219,7 @@ async def test_uncovered_limitation_converges_to_latest_round() -> None:
 @pytest.mark.asyncio
 async def test_uncovered_limitation_keeps_only_latest_when_budget_exhausted() -> None:
     """预算耗尽且缺口仍在：多条历史"未覆盖问题"收敛为最新一条。"""
+
     class Reviewer:
         calls = 0
 
@@ -1225,8 +1256,12 @@ async def test_user_knowledge_results_merge_into_knowledge_branch() -> None:
     """个人知识库（RAG 入库）结果并入 knowledge 分支并参与评分排序。"""
     main_item = evidence("knowledge", 1)
     user_upload = EvidenceItem(
-        "ev-knowledge-upload-doc1-abc", "knowledge", "我的上传",
-        "chunk", "upload-abc#section-0001", quote="个人库独有结论。",
+        "ev-knowledge-upload-doc1-abc",
+        "knowledge",
+        "我的上传",
+        "chunk",
+        "upload-abc#section-0001",
+        quote="个人库独有结论。",
         score=0.95,
     )
 
@@ -1254,7 +1289,7 @@ async def test_user_knowledge_results_merge_into_knowledge_branch() -> None:
         None,
         Retriever(()),
         synthesizer,
-    ).run(TurnInput("问题", False, (), ()) )
+    ).run(TurnInput("问题", False, (), ()))
 
     # 未注入时仅主库证据
     assert {item.evidence_id for item in synthesizer.seen_evidence} == {
@@ -1269,7 +1304,7 @@ async def test_user_knowledge_results_merge_into_knowledge_branch() -> None:
         None,
         Retriever(()),
         synthesizer,
-    ).run(TurnInput("问题", False, (), ()) , user_knowledge=UploadRetriever())
+    ).run(TurnInput("问题", False, (), ()), user_knowledge=UploadRetriever())
 
     assert len(UploadRetriever.calls) == 1
     kinds = [item.source_kind for item in synthesizer.seen_evidence]
@@ -1319,7 +1354,10 @@ async def test_planner_timeout_maps_to_model_timeout_code():
             raise TimeoutError()
 
     engine = build_engine(
-        TimeoutPlanner(), Retriever(()), FileRetriever(()), Retriever(()),
+        TimeoutPlanner(),
+        Retriever(()),
+        FileRetriever(()),
+        Retriever(()),
         Synthesizer(SynthesisDraft(sections=(), claims=(), limitations=())),
     )
 
@@ -1477,7 +1515,11 @@ async def test_unsupported_sections_trigger_hinted_resynthesis() -> None:
     """R1 忠实度约束：无 claim 挂接的段落（S3 伪覆盖编造通道）触发
     带修正 hint 的第二次综合；修正后正常产出。"""
     good_item = EvidenceItem(
-        "ev-knowledge-1", "knowledge", "文档", "chunk", "doc#1",
+        "ev-knowledge-1",
+        "knowledge",
+        "文档",
+        "chunk",
+        "doc#1",
         quote="LangGraph 是一个用于构建智能体的框架，支持状态管理。",
     )
 
@@ -1566,21 +1608,36 @@ def test_select_evidence_reserves_quota_for_personal_uploads() -> None:
 
     def main_item(number: int, score: float) -> EvidenceItem:
         return EvidenceItem(
-            f"ev-knowledge-guide-{number}", "knowledge", f"主库 {number}",
-            "chunk", f"guide#{number}", quote=f"主库证据 {number}", score=score,
+            f"ev-knowledge-guide-{number}",
+            "knowledge",
+            f"主库 {number}",
+            "chunk",
+            f"guide#{number}",
+            quote=f"主库证据 {number}",
+            score=score,
         )
 
     def upload_item(number: int, score: float) -> EvidenceItem:
         return EvidenceItem(
-            f"ev-knowledge-upload-{number}", "knowledge", f"个人库 {number}",
-            "chunk", f"upload-{number}", quote=f"个人库证据 {number}", score=score,
+            f"ev-knowledge-upload-{number}",
+            "knowledge",
+            f"个人库 {number}",
+            "chunk",
+            f"upload-{number}",
+            quote=f"个人库证据 {number}",
+            score=score,
         )
 
     knowledge = (
-        main_item(1, 0.9), main_item(2, 0.85), main_item(3, 0.8),
-        main_item(4, 0.75), main_item(5, 0.7), main_item(6, 0.65),
+        main_item(1, 0.9),
+        main_item(2, 0.85),
+        main_item(3, 0.8),
+        main_item(4, 0.75),
+        main_item(5, 0.7),
+        main_item(6, 0.65),
         main_item(7, 0.6),
-        upload_item(1, 0.35), upload_item(2, 0.3),
+        upload_item(1, 0.35),
+        upload_item(2, 0.3),
     )
 
     selected = _select_evidence(knowledge, (), (), limit=6)
@@ -1591,3 +1648,75 @@ def test_select_evidence_reserves_quota_for_personal_uploads() -> None:
     assert len(upload_kept) == 2, f"uploads 配额未生效：{ids}"
     # 主库高分仍占前位（全局分数序保持）
     assert ids[0] == "ev-knowledge-guide-1"
+
+
+@pytest.mark.asyncio
+async def test_citation_drops_trigger_hinted_resynthesis() -> None:
+    """L2/B9 对齐：citation 判定 UNSUPPORTED 的陈述回传 hint 触发重综合，
+    第二次综合产出可支撑表述后才 finalize（strict 兜底仍生效）。"""
+    good_item = EvidenceItem(
+        "ev-knowledge-1",
+        "knowledge",
+        "文档",
+        "chunk",
+        "doc#1",
+        quote="LangGraph 是一个用于构建智能体的框架，支持状态管理。",
+    )
+
+    class CitationAwareSynthesizer:
+        def __init__(self):
+            self.limitations_seen: list[tuple[str, ...]] = []
+
+        async def synthesize(
+            self, turn, plan, evidence_items, limitations, *, on_delta=None
+        ):
+            self.limitations_seen.append(tuple(limitations))
+            if len(self.limitations_seen) == 1:
+                # 首轮：支撑段 + 编造段（编造 claim 挂真证据 id，词面零重叠）
+                return SynthesisDraft(
+                    sections=(
+                        SynthesisSection("LangGraph 用于构建智能体框架。", (0,)),
+                        SynthesisSection("某加密货币价格明天必然翻倍。", (1,)),
+                    ),
+                    claims=(
+                        SynthesisClaim(
+                            "LangGraph 用于构建智能体框架。", ("ev-knowledge-1",)
+                        ),
+                        SynthesisClaim(
+                            "某加密货币价格明天必然翻倍。", ("ev-knowledge-1",)
+                        ),
+                    ),
+                    limitations=(),
+                )
+            return SynthesisDraft(
+                sections=(
+                    SynthesisSection("LangGraph 用于构建智能体框架。", (0,)),
+                    SynthesisSection("LangGraph 提供状态持久化能力。", (1,)),
+                ),
+                claims=(
+                    SynthesisClaim(
+                        "LangGraph 用于构建智能体框架。", ("ev-knowledge-1",)
+                    ),
+                    SynthesisClaim(
+                        "LangGraph 提供状态持久化能力。", ("ev-knowledge-1",)
+                    ),
+                ),
+                limitations=(),
+            )
+
+    synth = CitationAwareSynthesizer()
+    result = await build_engine(
+        Planner(),
+        Retriever((good_item,)),
+        None,
+        Retriever(()),
+        synth,
+        citation_validation=True,
+    ).run(TurnInput("问题", False, (), ()))
+
+    assert len(synth.limitations_seen) == 2, "应触发第二次综合"
+    # hint 携带编造陈述与判定原因进入第二次综合的 limitations
+    hint = synth.limitations_seen[1][-1]
+    assert "无证据支撑" in hint and "加密货币" in hint
+    # 最终回答已不含编造内容
+    assert "翻倍" not in result.answer

@@ -332,6 +332,7 @@ class TurnResearchEngine:
             if turn.use_web
             else ()
         )
+
         async def retrieve_knowledge() -> list[tuple[str, int, object]]:
             # 主库与当前用户个人知识库"库间并行、库内串行"发同一组查询
             # （Qdrant local 不支持并发访问）；结果合并进 knowledge 分支统一评分。
@@ -363,9 +364,7 @@ class TurnResearchEngine:
                 *(self._web.search(query, limit=10) for query in web_queries),
                 return_exceptions=True,
             )
-            return [
-                ("web", index, result) for index, result in enumerate(results)
-            ]
+            return [("web", index, result) for index, result in enumerate(results)]
 
         batches = await asyncio.gather(retrieve_knowledge(), retrieve_web())
         records = [record for batch in batches for record in batch]
@@ -482,9 +481,7 @@ class TurnResearchEngine:
             _MAX_SUPPLEMENTAL_QUERIES_TOTAL - state.get("supplemental_used", 0),
         )
         per_round = min(_SUPPLEMENTAL_PER_ROUND_LIMIT, remaining)
-        candidates = [
-            ("knowledge", query) for query in knowledge_queries[:1]
-        ] + [
+        candidates = [("knowledge", query) for query in knowledge_queries[:1]] + [
             ("web", query) for query in web_queries[:1] if state["turn"].use_web
         ]
         bounded_knowledge = tuple(
@@ -599,9 +596,7 @@ class TurnResearchEngine:
         )
         return {
             "knowledge": tuple(knowledge),
-            "web": _apply_global_rank_decay(
-                (*state.get("web", ()), *web)
-            ),
+            "web": _apply_global_rank_decay((*state.get("web", ()), *web)),
             "limitations": tuple(dict.fromkeys(limitations)),
             "supplemental_rounds": state.get("supplemental_rounds", 0) + 1,
         }
@@ -658,18 +653,60 @@ class TurnResearchEngine:
                     len(draft.sections),
                     len(draft.claims),
                 )
-                # R1 忠实度约束：首轮产出中无 claim 挂接的段落（S3 伪覆盖
-                # 编造通道）触发带 hint 的第二次综合；第二次仍不忠实则
-                # 在 limitations 声明（保留正文，保守降级）。
+                # R1/L2 忠实度与支撑校验（仅首轮）：两类编造通道分别检测，
+                # 命中任一则携带 hint 重综合；次轮由 strict finalize 兜底。
                 if _attempt == 0:
                     unsupported = _unsupported_section_texts(draft)
-                    if unsupported:
-                        fidelity_hint = (
-                            "以下正文段落缺乏证据支撑，必须删除或改写为"
-                            "证据可支撑的表述：" + "；".join(unsupported)
-                        )
+                    citation_drops: list[str] = []
+                    if citation_validation:
+                        try:
+                            from app.citations.runtime_adapter import validate_claims
+
+                            known_ids = {e.evidence_id for e in evidence_items}
+                            preview = tuple(
+                                Claim(
+                                    f"draft-{index}",
+                                    candidate.statement,
+                                    tuple(
+                                        eid
+                                        for eid in candidate.evidence_ids
+                                        if eid in known_ids
+                                    ),
+                                )
+                                for index, candidate in enumerate(draft.claims, 1)
+                                if any(
+                                    eid in known_ids for eid in candidate.evidence_ids
+                                )
+                            )
+                            reports = validate_claims(preview, evidence_items)
+                            citation_drops = [
+                                f"陈述“{report.claim.statement[:60]}”"
+                                f"判定无证据支撑"
+                                f"（{report.reasons[0] if report.reasons else '无'}）"
+                                for report in reports
+                                if not report.supported
+                            ]
+                        except Exception as exc:  # noqa: E501 — 异常兜底行
+                            logger.warning(
+                                "citation preview failed: %s", brief(exc)
+                            )
+                    if unsupported or citation_drops:
+                        hint_parts: list[str] = []
+                        if citation_drops:
+                            hint_parts.append(
+                                "以下陈述经引用校验判定无证据支撑，必须删除或改写为"
+                                "证据原文可支撑的表述：" + "；".join(citation_drops[:3])
+                            )
+                        if unsupported:
+                            hint_parts.append(
+                                "以下正文段落缺乏证据支撑，必须删除或改写为"
+                                "证据可支撑的表述：" + "；".join(unsupported)
+                            )
+                        fidelity_hint = "；".join(hint_parts)
                         logger.warning(
-                            "fidelity check: unsupported=%d", len(unsupported)
+                            "fidelity check: unsupported_sections=%d citation_drops=%d",
+                            len(unsupported),
+                            len(citation_drops),
                         )
                         continue
                 if citation_validation:
@@ -722,8 +759,7 @@ class TurnResearchEngine:
 _SOURCE_ORDER = ("knowledge", "session_file", "web")
 
 _DEGRADED_HEADER = (
-    "模型综合服务本轮未能完成整理，以下为本轮检索到的证据快照，"
-    "供直接查阅原始出处。"
+    "模型综合服务本轮未能完成整理，以下为本轮检索到的证据快照，供直接查阅原始出处。"
 )
 
 
@@ -751,6 +787,7 @@ def _degraded_result(
             brief(error),
         ),
     )
+
 
 # ---- 规模常量区（B5/B6 调参入口）----
 _EVIDENCE_QUOTE_STANDARD_LIMIT = 1500  # 普通轮单条证据 quote 上限
@@ -930,9 +967,7 @@ def _limit_quotes(
     evidence_items: tuple[EvidenceItem, ...], *, limit: int
 ) -> tuple[EvidenceItem, ...]:
     return tuple(
-        replace(item, quote=item.quote[:limit])
-        if len(item.quote) > limit
-        else item
+        replace(item, quote=item.quote[:limit]) if len(item.quote) > limit else item
         for item in evidence_items
     )
 
@@ -982,9 +1017,7 @@ def _finalize_draft_with_validation(
     known_ids = {item.evidence_id for item in evidence_items}
     # result.claims 的 claim_id 是 _finalize_draft 按索引生成的（claim-N），
     # 与 draft.claims 的对应关系用 statement 维持。
-    keep_statements = {
-        report.claim.statement for report in reports if report.supported
-    }
+    keep_statements = {report.claim.statement for report in reports if report.supported}
     valid_claims = tuple(
         claim for claim in result.claims if claim.statement in keep_statements
     )
@@ -1030,9 +1063,7 @@ def _finalize_draft_with_validation(
                     number = evidence_numbers[evidence_id]
                     if number not in citations:
                         citations.append(number)
-        suffix = (
-            "" if not citations else " " + "".join(f"[{n}]" for n in citations)
-        )
+        suffix = "" if not citations else " " + "".join(f"[{n}]" for n in citations)
         paragraphs.append(section.text.strip() + suffix)
     if not paragraphs:
         raise TurnExecutionError("model-response-invalid")
@@ -1095,9 +1126,7 @@ def _finalize_draft(
 
     cited_ids = tuple(
         dict.fromkeys(
-            evidence_id
-            for claim in valid_claims
-            for evidence_id in claim.evidence_ids
+            evidence_id for claim in valid_claims for evidence_id in claim.evidence_ids
         )
     )
     evidence_by_id = {item.evidence_id: item for item in evidence_items}
