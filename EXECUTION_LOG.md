@@ -109,6 +109,12 @@
   确认 4 项问题（综合器伪覆盖幻觉 S3 两次复现、跨主题干扰、plan 无重试、
   判据设计教训）——详见 data/manual-test/rag-mix/design.md 回填
 
+## 忠实度约束轮（2026-08-31）
+- [x] R1 段落引用覆盖率校验（无 claim 挂接段落=S3 编造通道）+ hint 重综合 + 降级声明
+- [x] 组合防线真机验证：覆盖率约束 + I6 中文 tokenizer citation 校验联动，
+  幻觉未根除（模型顽固）但多层拦截生效（UNSUPported 判定/声明/自我修正）
+- [ ] 后续：B9 段落裁剪与 claim 判定对齐（编造段落挂真证据 claim 时正文裁剪不完善）
+
 ## 待办队列
 - 无必办项。（备选池闭环核对：B10 四项已由 G/H/I/J 轮完成；citations 中文 tokenizer 已由 I6 实施；
   README 个人知识库章节已于阶段 3 补写；C2 limitations 密度已在展示层解决——前端过滤
