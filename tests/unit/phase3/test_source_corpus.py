@@ -134,7 +134,8 @@ class TestCorpusFingerprint:
         second = corpus_sha256(corpus)
         assert first == second
         assert len(first) == 64
-        assert all(c in "0123456789abcdef" for c in first)
+        # 64 位十六进制串被 detect-secrets 判为 Hex 高熵——确定性指纹非秘密
+        assert all(c in "0123456789abcdef" for c in first)  # pragma: allowlist secret
 
     def test_corpus_sha256_changes_with_source_content(self, tmp_path):
         mp_a = _write_corpus(tmp_path / "a", _valid_manifest(), _valid_files())
