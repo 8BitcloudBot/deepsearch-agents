@@ -79,14 +79,14 @@ describe("useConversationApp", () => {
 
   it("clears the user on 401 without a misleading error", async () => {
     conversationApi.me.mockRejectedValue(new ApiError(401, "auth"));
-    const { result } = renderHook(() => useConversationApp("http://test"));
+    const { result } = renderHook(() => useConversationApp("http://test.local"));
     await waitFor(() => expect(result.current.booting).toBe(false));
     expect(result.current.user).toBeNull();
     expect(result.current.error).toBeNull();
   });
 
   it("accumulates partial answer deltas and clears on terminal event", async () => {
-    const { result } = renderHook(() => useConversationApp("http://test"));
+    const { result } = renderHook(() => useConversationApp("http://test.local"));
     await waitFor(() => expect(result.current.activeConversationId).toBe("c1"));
     act(() => {
       lastSocket().onopen?.();
@@ -124,7 +124,7 @@ describe("useConversationApp", () => {
   });
 
   it("maps turn.failed events to error state and clears plan subquestions", async () => {
-    const { result } = renderHook(() => useConversationApp("http://test"));
+    const { result } = renderHook(() => useConversationApp("http://test.local"));
     await waitFor(() => expect(result.current.activeConversationId).toBe("c1"));
     act(() => {
       lastSocket().onopen?.();
@@ -173,7 +173,7 @@ describe("useConversationApp", () => {
         return originalSetTimeout(fn as Parameters<typeof originalSetTimeout>[0], ms);
       }) as unknown as typeof window.setTimeout);
     try {
-      const { result } = renderHook(() => useConversationApp("http://test"));
+      const { result } = renderHook(() => useConversationApp("http://test.local"));
       await waitFor(() => expect(lastSocket()).toBeDefined());
       const count = FakeWebSocket.instances.length;
       act(() => {
@@ -196,7 +196,7 @@ it("reconciles state after websocket reconnect by refetching detail", async () =
   conversationApi.conversationsLite.mockResolvedValue([summary]);
   conversationApi.conversation.mockResolvedValue(detail);
   conversationApi.me.mockResolvedValue({ id: "u1", username: "user", role: "user" });
-  const { result } = renderHook(() => useConversationApp("http://test"));
+  const { result } = renderHook(() => useConversationApp("http://test.local"));
   await waitFor(() => expect(result.current.activeConversationId).toBe("c1"));
   await waitFor(() => expect(lastSocket()).toBeDefined());
 
